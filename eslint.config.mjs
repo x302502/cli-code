@@ -1,5 +1,6 @@
 import typescriptEslint from "@typescript-eslint/eslint-plugin"
 import tsParser from "@typescript-eslint/parser"
+import prettier from "eslint-config-prettier"
 
 export default [
   {
@@ -28,7 +29,8 @@ export default [
       curly: "warn",
       eqeqeq: "warn",
       "no-throw-literal": "warn",
-      semi: "warn",
     },
   },
+  // Disables ESLint rules that conflict with Prettier (e.g. `semi`). Must be last.
+  prettier,
 ]
