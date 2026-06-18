@@ -82,9 +82,11 @@ export function activate(context: vscode.ExtensionContext) {
       // @ts-ignore
       const port = terminal.creationOptions.env?.[tool.portEnvVar]
       if (port) {
-        await appendPrompt(parseInt(port), tool.appendPromptPath, fileRef)
-        terminal.show()
-        return
+        const ok = await appendPrompt(parseInt(port), tool.appendPromptPath, fileRef)
+        if (ok) {
+          terminal.show()
+          return
+        }
       }
     }
 
@@ -150,13 +152,18 @@ export function activate(context: vscode.ExtensionContext) {
   }
 
   async function appendPrompt(port: number, path: string, text: string) {
-    await fetch(`http://localhost:${port}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text }),
-    })
+    try {
+      await fetch(`http://localhost:${port}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      })
+      return true
+    } catch {
+      return false
+    }
   }
 
   function getActiveFile() {
