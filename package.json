@@ -1,20 +1,35 @@
 {
   "name": "cli-code",
   "displayName": "CLI Code",
-  "description": "CLI Code for VS Code",
+  "description": "Launch and switch between AI coding CLIs (Claude, Codex, Gemini, opencode, and more) from a VS Code terminal.",
   "version": "0.1.0",
-  "publisher": "your-publisher-id",
+  "publisher": "x302502",
   "license": "MIT",
   "icon": "images/icon.png",
   "galleryBanner": {
-    "color": "#000000",
+    "color": "#FFB300",
     "theme": "dark"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/x302502/cli-code.git"
+  },
+  "bugs": {
+    "url": "https://github.com/x302502/cli-code/issues"
+  },
+  "keywords": [
+    "cli",
+    "terminal",
+    "ai",
+    "claude",
+    "coding-agent"
+  ],
   "engines": {
     "vscode": "^1.94.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Machine Learning"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
