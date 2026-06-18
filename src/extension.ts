@@ -82,7 +82,7 @@ export function activate(context: vscode.ExtensionContext) {
       // @ts-ignore
       const port = terminal.creationOptions.env?.[tool.portEnvVar]
       if (port) {
-        const ok = await appendPrompt(parseInt(port), tool.appendPromptPath, fileRef)
+        const ok = await appendPrompt(parseInt(port, 10), tool.appendPromptPath, fileRef)
         if (ok) {
           terminal.show()
           return
@@ -108,8 +108,11 @@ export function activate(context: vscode.ExtensionContext) {
   async function openTerminal(tool: CliTool) {
     const port = tool.hasHttpApi ? Math.floor(Math.random() * (65535 - 16384 + 1)) + 16384 : undefined
 
-    const env: Record<string, string> = { OPENCODE_CALLER: "vscode" }
-    if (port && tool.portEnvVar) env[tool.portEnvVar] = port.toString()
+    const env: Record<string, string> = {}
+    if (port && tool.portEnvVar) {
+      env[tool.portEnvVar] = port.toString()
+      env.OPENCODE_CALLER = "vscode"
+    }
 
     const terminal = vscode.window.createTerminal({
       name: tool.id,
