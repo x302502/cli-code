@@ -17,6 +17,7 @@
 ### Task 1: Định nghĩa type và registry CLI_TOOLS
 
 **Files:**
+
 - Modify: `src/extension.ts` (thêm vào đầu file, sau import)
 
 - [ ] **Step 1: Thêm type `CliTool` và mảng `CLI_TOOLS` ngay sau dòng `import * as vscode`**
@@ -90,6 +91,7 @@ Expected: lỗi `Cannot find name 'TERMINAL_NAME'` ở các chỗ dùng nó. KH�
 ### Task 2: Viết lại `activate` — command `open` và `openNew` với Quick Pick
 
 **Files:**
+
 - Modify: `src/extension.ts` (khối `activate` từ `registerCommand("cli-code.openNewTerminal"...)` tới hết phần đăng ký command)
 
 - [ ] **Step 1: Thay toàn bộ khối ba `registerCommand` + `context.subscriptions.push` hiện tại**
@@ -97,59 +99,59 @@ Expected: lỗi `Cannot find name 'TERMINAL_NAME'` ở các chỗ dùng nó. KH�
 Thay từ dòng `const openNewTerminalDisposable = ...` tới hết `context.subscriptions.push(...)` (khối đăng ký 3 command cũ) bằng:
 
 ```ts
-  const openDisposable = vscode.commands.registerCommand("cli-code.open", async () => {
-    const tool = await pickTool()
-    if (!tool) return
+const openDisposable = vscode.commands.registerCommand("cli-code.open", async () => {
+  const tool = await pickTool()
+  if (!tool) return
 
-    const existing = vscode.window.terminals.find((t) => t.name === tool.id)
-    if (existing) {
-      existing.show()
+  const existing = vscode.window.terminals.find((t) => t.name === tool.id)
+  if (existing) {
+    existing.show()
+    return
+  }
+
+  await openTerminal(tool)
+})
+
+const openNewDisposable = vscode.commands.registerCommand("cli-code.openNew", async () => {
+  const tool = await pickTool()
+  if (!tool) return
+  await openTerminal(tool)
+})
+
+const addFilepathDisposable = vscode.commands.registerCommand("cli-code.addFilepath", async () => {
+  const fileRef = getActiveFile()
+  if (!fileRef) return
+
+  const terminal = vscode.window.activeTerminal
+  if (!terminal) return
+
+  const tool = CLI_TOOLS.find((t) => t.id === terminal.name)
+  if (!tool) return
+
+  if (tool.hasHttpApi && tool.portEnvVar && tool.appendPromptPath) {
+    // @ts-ignore
+    const port = terminal.creationOptions.env?.[tool.portEnvVar]
+    if (port) {
+      await appendPrompt(parseInt(port), tool.appendPromptPath, fileRef)
+      terminal.show()
       return
     }
-
-    await openTerminal(tool)
-  })
-
-  const openNewDisposable = vscode.commands.registerCommand("cli-code.openNew", async () => {
-    const tool = await pickTool()
-    if (!tool) return
-    await openTerminal(tool)
-  })
-
-  const addFilepathDisposable = vscode.commands.registerCommand("cli-code.addFilepath", async () => {
-    const fileRef = getActiveFile()
-    if (!fileRef) return
-
-    const terminal = vscode.window.activeTerminal
-    if (!terminal) return
-
-    const tool = CLI_TOOLS.find((t) => t.id === terminal.name)
-    if (!tool) return
-
-    if (tool.hasHttpApi && tool.portEnvVar && tool.appendPromptPath) {
-      // @ts-ignore
-      const port = terminal.creationOptions.env?.[tool.portEnvVar]
-      if (port) {
-        await appendPrompt(parseInt(port), tool.appendPromptPath, fileRef)
-        terminal.show()
-        return
-      }
-    }
-
-    terminal.sendText(fileRef, false)
-    terminal.show()
-  })
-
-  context.subscriptions.push(openDisposable, openNewDisposable, addFilepathDisposable)
-
-  async function pickTool() {
-    const picked = await vscode.window.showQuickPick(
-      CLI_TOOLS.map((t) => ({ label: t.label, description: t.description, id: t.id })),
-      { placeHolder: "Select a CLI to open" },
-    )
-    if (!picked) return
-    return CLI_TOOLS.find((t) => t.id === picked.id)
   }
+
+  terminal.sendText(fileRef, false)
+  terminal.show()
+})
+
+context.subscriptions.push(openDisposable, openNewDisposable, addFilepathDisposable)
+
+async function pickTool() {
+  const picked = await vscode.window.showQuickPick(
+    CLI_TOOLS.map((t) => ({ label: t.label, description: t.description, id: t.id })),
+    { placeHolder: "Select a CLI to open" },
+  )
+  if (!picked) return
+  return CLI_TOOLS.find((t) => t.id === picked.id)
+}
 ```
 
 - [ ] **Step 2: Typecheck (vẫn còn lỗi do `openTerminal`/`appendPrompt` signature cũ — dự kiến, sửa ở Task 3)**
@@ -162,70 +164,71 @@ Expected: lỗi quanh `openTerminal(tool)` (chưa nhận tham số) và `appendP
 ### Task 3: Viết lại helper `openTerminal` và `appendPrompt`
 
 **Files:**
+
 - Modify: `src/extension.ts` (hàm `openTerminal` và `appendPrompt`)
 
 - [ ] **Step 1: Thay hàm `openTerminal` cũ (nhận 0 tham số) bằng phiên bản nhận `tool`**
 
 ```ts
-  async function openTerminal(tool: CliTool) {
-    const port = tool.hasHttpApi ? Math.floor(Math.random() * (65535 - 16384 + 1)) + 16384 : undefined
+async function openTerminal(tool: CliTool) {
+  const port = tool.hasHttpApi ? Math.floor(Math.random() * (65535 - 16384 + 1)) + 16384 : undefined
 
-    const env: Record<string, string> = { OPENCODE_CALLER: "vscode" }
-    if (port && tool.portEnvVar) env[tool.portEnvVar] = port.toString()
+  const env: Record<string, string> = { OPENCODE_CALLER: "vscode" }
+  if (port && tool.portEnvVar) env[tool.portEnvVar] = port.toString()
 
-    const terminal = vscode.window.createTerminal({
-      name: tool.id,
-      iconPath: {
-        light: vscode.Uri.file(context.asAbsolutePath("images/button-dark.svg")),
-        dark: vscode.Uri.file(context.asAbsolutePath("images/button-light.svg")),
-      },
-      location: {
-        viewColumn: vscode.ViewColumn.Beside,
-        preserveFocus: false,
-      },
-      env,
-    })
+  const terminal = vscode.window.createTerminal({
+    name: tool.id,
+    iconPath: {
+      light: vscode.Uri.file(context.asAbsolutePath("images/button-dark.svg")),
+      dark: vscode.Uri.file(context.asAbsolutePath("images/button-light.svg")),
+    },
+    location: {
+      viewColumn: vscode.ViewColumn.Beside,
+      preserveFocus: false,
+    },
+    env,
+  })
 
+  terminal.show()
+  terminal.sendText(port ? tool.command.replace("{port}", port.toString()) : tool.command)
+
+  const fileRef = getActiveFile()
+  if (!fileRef) return
+
+  if (!(tool.hasHttpApi && port && tool.readyCheckPath && tool.appendPromptPath)) return
+
+  // Wait for the CLI HTTP server to be ready
+  let tries = 10
+  let connected = false
+  do {
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    try {
+      await fetch(`http://localhost:${port}${tool.readyCheckPath}`)
+      connected = true
+      break
+    } catch {}
+    tries--
+  } while (tries > 0)
+
+  if (connected) {
+    await appendPrompt(port, tool.appendPromptPath, `In ${fileRef}`)
     terminal.show()
-    terminal.sendText(port ? tool.command.replace("{port}", port.toString()) : tool.command)
-
-    const fileRef = getActiveFile()
-    if (!fileRef) return
-
-    if (!(tool.hasHttpApi && port && tool.readyCheckPath && tool.appendPromptPath)) return
-
-    // Wait for the CLI HTTP server to be ready
-    let tries = 10
-    let connected = false
-    do {
-      await new Promise((resolve) => setTimeout(resolve, 200))
-      try {
-        await fetch(`http://localhost:${port}${tool.readyCheckPath}`)
-        connected = true
-        break
-      } catch {}
-      tries--
-    } while (tries > 0)
-
-    if (connected) {
-      await appendPrompt(port, tool.appendPromptPath, `In ${fileRef}`)
-      terminal.show()
-    }
   }
+}
 ```
 
 - [ ] **Step 2: Thay hàm `appendPrompt` cũ bằng phiên bản nhận `path`**
 
 ```ts
-  async function appendPrompt(port: number, path: string, text: string) {
-    await fetch(`http://localhost:${port}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text }),
-    })
-  }
+async function appendPrompt(port: number, path: string, text: string) {
+  await fetch(`http://localhost:${port}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text }),
+  })
+}
 ```
 
 - [ ] **Step 3: Typecheck — giờ phải sạch**
@@ -251,6 +254,7 @@ git commit -m "feat: multi-CLI registry + Quick Pick launcher"
 ### Task 4: Cập nhật manifest `package.json` (commands + keybindings + menu)
 
 **Files:**
+
 - Modify: `package.json` (khối `contributes`)
 
 - [ ] **Step 1: Thay khối `commands`**
@@ -349,6 +353,7 @@ git commit -m "feat: generic commands/keybindings for multi-CLI launcher"
 ### Task 5: Cập nhật README
 
 **Files:**
+
 - Modify: `README.md`
 
 - [ ] **Step 1: Ghi đè README.md mô tả launcher mới**
