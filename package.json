@@ -21,54 +21,54 @@
   "contributes": {
     "commands": [
       {
-        "command": "cli-code.openTerminal",
-        "title": "Open CLI Code",
+        "command": "cli-code.open",
+        "title": "Open CLI",
         "icon": {
           "light": "images/button-dark.svg",
           "dark": "images/button-light.svg"
         }
       },
       {
-        "command": "cli-code.openNewTerminal",
-        "title": "Open CLI Code in new tab",
+        "command": "cli-code.openNew",
+        "title": "Open CLI in new tab",
         "icon": {
           "light": "images/button-dark.svg",
           "dark": "images/button-light.svg"
         }
       },
       {
-        "command": "cli-code.addFilepathToTerminal",
-        "title": "Add Filepath to Terminal"
+        "command": "cli-code.addFilepath",
+        "title": "CLI: Insert At-Mentioned"
       }
     ],
     "menus": {
       "editor/title": [
         {
-          "command": "cli-code.openNewTerminal",
+          "command": "cli-code.openNew",
           "group": "navigation"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "cli-code.openTerminal",
-        "title": "Run CLI Code",
+        "command": "cli-code.open",
+        "title": "Open CLI",
         "key": "cmd+escape",
         "mac": "cmd+escape",
         "win": "ctrl+escape",
         "linux": "ctrl+escape"
       },
       {
-        "command": "cli-code.openNewTerminal",
-        "title": "Run CLI Code",
+        "command": "cli-code.openNew",
+        "title": "Open CLI in new tab",
         "key": "cmd+shift+escape",
         "mac": "cmd+shift+escape",
         "win": "ctrl+shift+escape",
         "linux": "ctrl+shift+escape"
       },
       {
-        "command": "cli-code.addFilepathToTerminal",
-        "title": "CLI Code: Insert At-Mentioned",
+        "command": "cli-code.addFilepath",
+        "title": "CLI: Insert At-Mentioned",
         "key": "cmd+alt+k",
         "mac": "cmd+alt+k",
         "win": "ctrl+alt+K",
