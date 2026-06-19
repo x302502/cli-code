@@ -27,19 +27,19 @@ Mở tab **Extensions** trong VS Code (`Cmd/Ctrl + Shift + X`), tìm **CLI Code*
 
 CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc rằng các trợ lý bạn muốn đã được cài và chạy được từ terminal. Mặc định nó biết các trợ lý sau:
 
-| Trợ lý             | Lệnh terminal |
-| ------------------ | ------------- |
-| Claude Code        | `claude`      |
-| Codex CLI          | `codex`       |
-| Mimo               | `mimo`        |
-| opencode           | `opencode`    |
-| Gemini CLI         | `gemini`      |
-| GitHub Copilot CLI | `copilot`     |
-| Amp                | `amp`         |
-| Droid              | `droid`       |
-| Kiro CLI           | `kiro-cli`    |
-| Antigravity        | `agy`         |
-| CommandCode        | `commandcode` |
+| Trợ lý                                                                                     | Lệnh terminal |
+| ------------------------------------------------------------------------------------------ | ------------- |
+| [Claude Code](https://code.claude.com/docs/en/setup)                                       | `claude`      |
+| [Codex CLI](https://developers.openai.com/codex/cli)                                       | `codex`       |
+| [Mimo](https://github.com/XiaomiMiMo/MiMo-Code)                                            | `mimo`        |
+| [opencode](https://opencode.ai)                                                            | `opencode`    |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli)                                  | `gemini`      |
+| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot`     |
+| [Amp](https://ampcode.com)                                                                 | `amp`         |
+| [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                            | `droid`       |
+| [Kiro CLI](https://kiro.dev)                                                               | `kiro-cli`    |
+| [Antigravity](https://antigravity.google)                                                  | `agy`         |
+| [CommandCode](https://github.com/just-every/code)                                          | `commandcode` |
 
 > ⚠️ **Cài đặt _và_ đăng nhập trước.** Hầu hết trợ lý cần được xác thực trước
 > khi chạy — `claude` (đăng nhập tài khoản Anthropic), `codex` (đăng nhập

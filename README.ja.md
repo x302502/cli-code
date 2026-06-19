@@ -27,19 +27,19 @@ VS Code で**拡張機能**ビュー（`Cmd/Ctrl + Shift + X`）を開き、**CL
 
 CLI Code はアシスタントを**起動するだけ**で、インストールはしません。使いたいアシスタントがインストール済みで、ターミナルから実行できることを確認してください。標準で以下を認識します：
 
-| アシスタント       | ターミナルコマンド |
-| ------------------ | ------------------ |
-| Claude Code        | `claude`           |
-| Codex CLI          | `codex`            |
-| Mimo               | `mimo`             |
-| opencode           | `opencode`         |
-| Gemini CLI         | `gemini`           |
-| GitHub Copilot CLI | `copilot`          |
-| Amp                | `amp`              |
-| Droid              | `droid`            |
-| Kiro CLI           | `kiro-cli`         |
-| Antigravity        | `agy`              |
-| CommandCode        | `commandcode`      |
+| アシスタント                                                                               | ターミナルコマンド |
+| ------------------------------------------------------------------------------------------ | ------------------ |
+| [Claude Code](https://code.claude.com/docs/en/setup)                                       | `claude`           |
+| [Codex CLI](https://developers.openai.com/codex/cli)                                       | `codex`            |
+| [Mimo](https://github.com/XiaomiMiMo/MiMo-Code)                                            | `mimo`             |
+| [opencode](https://opencode.ai)                                                            | `opencode`         |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli)                                  | `gemini`           |
+| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot`          |
+| [Amp](https://ampcode.com)                                                                 | `amp`              |
+| [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                            | `droid`            |
+| [Kiro CLI](https://kiro.dev)                                                               | `kiro-cli`         |
+| [Antigravity](https://antigravity.google)                                                  | `agy`              |
+| [CommandCode](https://github.com/just-every/code)                                          | `commandcode`      |
 
 > ⚠️ **インストール*して*、先にログインを。** ほとんどのアシスタントは実行前に
 > 認証が必要です —— `claude`（Anthropic アカウントにログイン）、`codex`（OpenAI

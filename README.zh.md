@@ -27,19 +27,19 @@
 
 CLI Code 只负责**启动**助手 —— 它不会安装它们。请确保你想用的助手已安装并能从终端运行。开箱即支持以下助手：
 
-| 助手               | 终端命令      |
-| ------------------ | ------------- |
-| Claude Code        | `claude`      |
-| Codex CLI          | `codex`       |
-| Mimo               | `mimo`        |
-| opencode           | `opencode`    |
-| Gemini CLI         | `gemini`      |
-| GitHub Copilot CLI | `copilot`     |
-| Amp                | `amp`         |
-| Droid              | `droid`       |
-| Kiro CLI           | `kiro-cli`    |
-| Antigravity        | `agy`         |
-| CommandCode        | `commandcode` |
+| 助手                                                                                       | 终端命令      |
+| ------------------------------------------------------------------------------------------ | ------------- |
+| [Claude Code](https://code.claude.com/docs/en/setup)                                       | `claude`      |
+| [Codex CLI](https://developers.openai.com/codex/cli)                                       | `codex`       |
+| [Mimo](https://github.com/XiaomiMiMo/MiMo-Code)                                            | `mimo`        |
+| [opencode](https://opencode.ai)                                                            | `opencode`    |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli)                                  | `gemini`      |
+| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot`     |
+| [Amp](https://ampcode.com)                                                                 | `amp`         |
+| [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                            | `droid`       |
+| [Kiro CLI](https://kiro.dev)                                                               | `kiro-cli`    |
+| [Antigravity](https://antigravity.google)                                                  | `agy`         |
+| [CommandCode](https://github.com/just-every/code)                                          | `commandcode` |
 
 > ⚠️ **先安装*并*登录。** 大多数助手在运行前需要先完成身份验证 —— `claude`
 > （登录 Anthropic 账号）、`codex`（OpenAI 登录 / API key）、`gemini`（Google
