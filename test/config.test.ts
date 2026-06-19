@@ -11,6 +11,7 @@ describe("CLI_TOOLS", () => {
     for (const tool of CLI_TOOLS) {
       expect(tool.label.length).toBeGreaterThan(0)
       expect(tool.command.length).toBeGreaterThan(0)
+      expect(tool.emoji.length, `${tool.id} needs an emoji`).toBeGreaterThan(0)
     }
   })
 

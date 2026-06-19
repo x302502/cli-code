@@ -1,11 +1,12 @@
 import { describe, expect, it } from "bun:test"
 import { makeTerminal } from "./vscode-mock.js"
-import { buildEnv, randomPort, readTerminalPort } from "../src/lib/terminal.js"
+import { buildEnv, randomPort, readTerminalPort, terminalName } from "../src/lib/terminal.js"
 import type { CliTool } from "../src/lib/config.js"
 
 const httpTool: CliTool = {
   id: "opencode",
   label: "opencode",
+  emoji: "🔓",
   command: "opencode --port {port}",
   hasHttpApi: true,
   portEnvVar: "_PORT",
@@ -15,9 +16,17 @@ const httpTool: CliTool = {
 const plainTool: CliTool = {
   id: "claude",
   label: "Claude Code",
+  emoji: "🟠",
   command: "claude",
   hasHttpApi: false,
 }
+
+describe("terminalName", () => {
+  it("combines the emoji and label", () => {
+    expect(terminalName(plainTool)).toBe("🟠 Claude Code")
+    expect(terminalName(httpTool)).toBe("🔓 opencode")
+  })
+})
 
 describe("buildEnv", () => {
   it("includes extraEnv and the port var for HTTP tools", () => {

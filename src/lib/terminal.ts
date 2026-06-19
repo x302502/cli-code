@@ -16,14 +16,19 @@ export async function pickTool(): Promise<CliTool | undefined> {
   return CLI_TOOLS.find((t) => t.id === picked.id)
 }
 
+/** The terminal tab name for a tool: its emoji followed by its label. */
+export function terminalName(tool: CliTool): string {
+  return `${tool.emoji} ${tool.label}`
+}
+
 /** Finds the CLI tool a terminal was opened for, based on its name. */
 export function findToolForTerminal(terminal: vscode.Terminal): CliTool | undefined {
-  return CLI_TOOLS.find((t) => t.id === terminal.name)
+  return CLI_TOOLS.find((t) => terminalName(t) === terminal.name)
 }
 
 /** Returns an already-open terminal for the given tool, if one exists. */
 export function findExistingTerminal(tool: CliTool): vscode.Terminal | undefined {
-  return vscode.window.terminals.find((t) => t.name === tool.id)
+  return vscode.window.terminals.find((t) => t.name === terminalName(tool))
 }
 
 /** Opens a new terminal running the tool's command, beside the active editor. */
@@ -31,7 +36,7 @@ export async function openTerminal(context: vscode.ExtensionContext, tool: CliTo
   const port = tool.hasHttpApi ? randomPort() : undefined
 
   const terminal = vscode.window.createTerminal({
-    name: tool.id,
+    name: terminalName(tool),
     iconPath: {
       light: vscode.Uri.file(context.asAbsolutePath("images/button-dark.svg")),
       dark: vscode.Uri.file(context.asAbsolutePath("images/button-light.svg")),
