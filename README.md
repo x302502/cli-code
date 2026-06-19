@@ -21,6 +21,8 @@ Many AI coding tools run in the terminal: **Claude Code, Codex, Gemini, opencode
 
 Open the **Extensions** view in VS Code (`Cmd/Ctrl + Shift + X`), search for **CLI Code**, and click **Install**.
 
+![CLI Code in the VS Code Marketplace](images/screenshots/marketplace.png)
+
 ### 2. Install the assistants you want
 
 CLI Code _launches_ the assistants — it doesn't install them. Make sure the ones you want are installed and runnable from your terminal. Out of the box it knows about:
@@ -49,9 +51,13 @@ Press **`Cmd + Esc`** (macOS) or **`Ctrl + Esc`** (Windows / Linux).
 
 A menu pops up listing every assistant. Pick one — it opens in a terminal to the side and starts running. If that assistant is already open, the shortcut just jumps back to it.
 
-![The CLI picker listing all assistants](images/screenshots/picker.png)
+![The CLI picker listing all assistants](images/screenshots/picker-highlighted.png)
 
 > Want a fresh session instead of reusing the open one? Use **`Cmd/Ctrl + Shift + Esc`**.
+
+You can also open it from the editor toolbar — look for the CLI Code icon (circled):
+
+![CLI Code icon on the editor toolbar](images/screenshots/toolbar-highlighted.png)
 
 ### Send the file you're working on
 

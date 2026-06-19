@@ -21,6 +21,8 @@ Nhiều công cụ lập trình AI chạy trên terminal: **Claude Code, Codex, 
 
 Mở tab **Extensions** trong VS Code (`Cmd/Ctrl + Shift + X`), tìm **CLI Code**, và bấm **Install**.
 
+![CLI Code trên VS Code Marketplace](images/screenshots/marketplace.png)
+
 ### 2. Cài các trợ lý bạn muốn dùng
 
 CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc rằng các trợ lý bạn muốn đã được cài và chạy được từ terminal. Mặc định nó biết các trợ lý sau:
@@ -49,9 +51,13 @@ Nhấn **`Cmd + Esc`** (macOS) hoặc **`Ctrl + Esc`** (Windows / Linux).
 
 Một menu hiện ra liệt kê tất cả trợ lý. Chọn một cái — nó mở trong terminal bên cạnh và bắt đầu chạy. Nếu trợ lý đó đang mở rồi, phím tắt chỉ nhảy về terminal đó.
 
-![Bảng chọn CLI liệt kê tất cả trợ lý](images/screenshots/picker.png)
+![Bảng chọn CLI liệt kê tất cả trợ lý](images/screenshots/picker-highlighted.png)
 
 > Muốn một phiên hoàn toàn mới thay vì dùng lại cái đang mở? Dùng **`Cmd/Ctrl + Shift + Esc`**.
+
+Bạn cũng có thể mở từ thanh công cụ của editor — tìm icon CLI Code (đã khoanh tròn):
+
+![Icon CLI Code trên thanh công cụ editor](images/screenshots/toolbar-highlighted.png)
 
 ### Gửi file bạn đang làm việc
 
