@@ -70,14 +70,6 @@ export const CLI_TOOLS: CliTool[] = [
     extraEnv: { OPENCODE_CALLER: "vscode" },
   },
   {
-    id: "gemini",
-    label: "Gemini CLI",
-    emoji: "♊",
-    description: "Google Gemini CLI",
-    command: "gemini",
-    hasHttpApi: false,
-  },
-  {
     id: "amp",
     label: "Amp",
     emoji: "⚡",

@@ -13,6 +13,11 @@ export type FakeTerminal = {
   sendText: ReturnType<typeof mock>
 }
 
+export type FakeTabGroup = {
+  viewColumn: number
+  tabs: { label: string; input: unknown }[]
+}
+
 export const state = {
   quickPickResult: undefined as { id: string } | undefined,
   terminals: [] as FakeTerminal[],
@@ -21,6 +26,7 @@ export const state = {
   workspaceFolder: undefined as unknown,
   relativePath: "",
   createdTerminals: [] as Record<string, unknown>[],
+  tabGroups: [] as FakeTabGroup[],
 }
 
 export function resetVscodeMock() {
@@ -31,6 +37,15 @@ export function resetVscodeMock() {
   state.workspaceFolder = undefined
   state.relativePath = ""
   state.createdTerminals = []
+  state.tabGroups = []
+}
+
+/** A class so production code can use `input instanceof vscode.TabInputTerminal`. */
+class TabInputTerminal {}
+
+/** Builds a fake terminal tab whose `input` passes the `TabInputTerminal` check. */
+export function makeTerminalTab(label: string): { label: string; input: unknown } {
+  return { label, input: new TabInputTerminal() }
 }
 
 export function makeTerminal(name: string, env?: Record<string, string>): FakeTerminal {
@@ -46,6 +61,7 @@ const ViewColumn = { Beside: -2 }
 
 const vscode = {
   ViewColumn,
+  TabInputTerminal,
   Uri: {
     file: (p: string) => ({ fsPath: p, toString: () => p }),
   },
@@ -58,6 +74,9 @@ const vscode = {
     },
     get activeTextEditor() {
       return state.activeTextEditor
+    },
+    get tabGroups() {
+      return { all: state.tabGroups }
     },
     showQuickPick: mock(async () => state.quickPickResult),
     createTerminal: mock((options: Record<string, unknown>) => {

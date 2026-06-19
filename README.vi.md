@@ -8,7 +8,7 @@
 
 ## Nó làm gì?
 
-Nhiều công cụ lập trình AI chạy trên terminal: **Claude Code, Codex, Gemini, opencode**, và nhiều hơn nữa. Nếu bạn dùng nhiều hơn một cái, việc chuyển qua lại khá mất công.
+Nhiều công cụ lập trình AI chạy trên terminal: **Claude Code, Codex, Antigravity, opencode**, và nhiều hơn nữa. Nếu bạn dùng nhiều hơn một cái, việc chuyển qua lại khá mất công.
 
 **CLI Code** đưa tất cả vào trong tầm một phím tắt:
 
@@ -35,7 +35,6 @@ CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc
 | [Antigravity](https://antigravity.google)                                                  | `agy`         |
 | [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot`     |
 | [opencode](https://opencode.ai)                                                            | `opencode`    |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli)                                  | `gemini`      |
 | [Amp](https://ampcode.com)                                                                 | `amp`         |
 | [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                            | `droid`       |
 | [Kiro CLI](https://kiro.dev)                                                               | `kiro-cli`    |
@@ -43,7 +42,7 @@ CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc
 
 > ⚠️ **Cài đặt _và_ đăng nhập trước.** Hầu hết trợ lý cần được xác thực trước
 > khi chạy — `claude` (đăng nhập tài khoản Anthropic), `codex` (đăng nhập
-> OpenAI / API key), `gemini` (đăng nhập Google), v.v. Hãy chạy từng công cụ
+> OpenAI / API key), v.v. Hãy chạy từng công cụ
 > một lần trong terminal thường, hoàn tất bước đăng nhập, và xác nhận nó khởi
 > động được.
 >

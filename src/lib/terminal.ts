@@ -31,7 +31,22 @@ export function findExistingTerminal(tool: CliTool): vscode.Terminal | undefined
   return vscode.window.terminals.find((t) => t.name === terminalName(tool))
 }
 
-/** Opens a new terminal running the tool's command, beside the active editor. */
+/**
+ * Finds the editor column already hosting a CLI terminal tab, if any. New CLIs
+ * open in that same column so they stack as tabs instead of splitting the editor
+ * into a new group beside the existing one.
+ */
+export function findCliColumn(): vscode.ViewColumn | undefined {
+  for (const group of vscode.window.tabGroups.all) {
+    const hostsCli = group.tabs.some(
+      (tab) => tab.input instanceof vscode.TabInputTerminal && CLI_TOOLS.some((t) => terminalName(t) === tab.label),
+    )
+    if (hostsCli) return group.viewColumn
+  }
+  return undefined
+}
+
+/** Opens a new terminal running the tool's command, as a tab beside the editor. */
 export async function openTerminal(context: vscode.ExtensionContext, tool: CliTool) {
   const port = tool.hasHttpApi ? randomPort() : undefined
 
@@ -42,7 +57,7 @@ export async function openTerminal(context: vscode.ExtensionContext, tool: CliTo
       dark: vscode.Uri.file(context.asAbsolutePath("images/button-light.svg")),
     },
     location: {
-      viewColumn: vscode.ViewColumn.Beside,
+      viewColumn: findCliColumn() ?? vscode.ViewColumn.Beside,
       preserveFocus: false,
     },
     env: buildEnv(tool, port),

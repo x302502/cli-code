@@ -8,7 +8,7 @@
 
 ## What it does
 
-Many AI coding tools run in the terminal: **Claude Code, Codex, Gemini, opencode**, and more. If you use more than one, switching between them is a chore.
+Many AI coding tools run in the terminal: **Claude Code, Codex, Antigravity, opencode**, and more. If you use more than one, switching between them is a chore.
 
 **CLI Code** puts all of them one shortcut away:
 
@@ -35,7 +35,6 @@ CLI Code _launches_ the assistants — it doesn't install them. Make sure the on
 | [Antigravity](https://antigravity.google)                                                  | `agy`            |
 | [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot`        |
 | [opencode](https://opencode.ai)                                                            | `opencode`       |
-| [Gemini CLI](https://github.com/google-gemini/gemini-cli)                                  | `gemini`         |
 | [Amp](https://ampcode.com)                                                                 | `amp`            |
 | [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                            | `droid`          |
 | [Kiro CLI](https://kiro.dev)                                                               | `kiro-cli`       |
@@ -43,7 +42,7 @@ CLI Code _launches_ the assistants — it doesn't install them. Make sure the on
 
 > ⚠️ **Install _and_ sign in first.** Most assistants need to be authenticated
 > before they'll run — `claude` (log in to your Anthropic account), `codex`
-> (OpenAI login / API key), `gemini` (Google login), and so on. Run each tool
+> (OpenAI login / API key), and so on. Run each tool
 > once in a normal terminal, complete its login flow, and confirm it starts.
 >
 > 💡 Tip: if a command works when you type it in a normal terminal, it'll work here.
