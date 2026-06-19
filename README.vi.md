@@ -32,13 +32,13 @@ CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc
 | [Claude Code](https://code.claude.com/docs/en/setup)                                       | `claude`      |
 | [Codex CLI](https://developers.openai.com/codex/cli)                                       | `codex`       |
 | [Mimo](https://github.com/XiaomiMiMo/MiMo-Code)                                            | `mimo`        |
+| [Antigravity](https://antigravity.google)                                                  | `agy`         |
+| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot`     |
 | [opencode](https://opencode.ai)                                                            | `opencode`    |
 | [Gemini CLI](https://github.com/google-gemini/gemini-cli)                                  | `gemini`      |
-| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot`     |
 | [Amp](https://ampcode.com)                                                                 | `amp`         |
 | [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                            | `droid`       |
 | [Kiro CLI](https://kiro.dev)                                                               | `kiro-cli`    |
-| [Antigravity](https://antigravity.google)                                                  | `agy`         |
 | [CommandCode](https://github.com/just-every/code)                                          | `commandcode` |
 
 > ⚠️ **Cài đặt _và_ đăng nhập trước.** Hầu hết trợ lý cần được xác thực trước

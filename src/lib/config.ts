@@ -37,6 +37,20 @@ export const CLI_TOOLS: CliTool[] = [
     hasHttpApi: false,
   },
   {
+    id: "antigravity",
+    label: "Antigravity",
+    description: "Google Antigravity CLI",
+    command: "agy",
+    hasHttpApi: false,
+  },
+  {
+    id: "copilot",
+    label: "GitHub Copilot CLI",
+    description: "GitHub Copilot in the terminal",
+    command: "copilot",
+    hasHttpApi: false,
+  },
+  {
     id: "opencode",
     label: "opencode",
     description: "opencode TUI (HTTP-aware)",
@@ -52,13 +66,6 @@ export const CLI_TOOLS: CliTool[] = [
     label: "Gemini CLI",
     description: "Google Gemini CLI",
     command: "gemini",
-    hasHttpApi: false,
-  },
-  {
-    id: "copilot",
-    label: "GitHub Copilot CLI",
-    description: "GitHub Copilot in the terminal",
-    command: "copilot",
     hasHttpApi: false,
   },
   {
@@ -80,13 +87,6 @@ export const CLI_TOOLS: CliTool[] = [
     label: "Kiro CLI",
     description: "AWS Kiro CLI coding agent",
     command: "kiro-cli",
-    hasHttpApi: false,
-  },
-  {
-    id: "antigravity",
-    label: "Antigravity",
-    description: "Google Antigravity CLI",
-    command: "agy",
     hasHttpApi: false,
   },
   {
