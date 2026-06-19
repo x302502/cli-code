@@ -4,6 +4,8 @@
 
 > Open your favourite AI coding assistant in a terminal next to your code — and send the file you're looking at straight into it, with one shortcut.
 
+![Multiple AI CLIs running side by side in VS Code](images/screenshots/terminals.png)
+
 ## What it does
 
 Many AI coding tools run in the terminal: **Claude Code, Codex, Gemini, opencode**, and more. If you use more than one, switching between them is a chore.
@@ -46,6 +48,8 @@ CLI Code _launches_ the assistants — it doesn't install them. Make sure the on
 Press **`Cmd + Esc`** (macOS) or **`Ctrl + Esc`** (Windows / Linux).
 
 A menu pops up listing every assistant. Pick one — it opens in a terminal to the side and starts running. If that assistant is already open, the shortcut just jumps back to it.
+
+![The CLI picker listing all assistants](images/screenshots/picker.png)
 
 > Want a fresh session instead of reusing the open one? Use **`Cmd/Ctrl + Shift + Esc`**.
 

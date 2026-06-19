@@ -4,6 +4,8 @@
 
 > Mở trợ lý lập trình AI yêu thích của bạn trong terminal ngay cạnh code — và gửi thẳng file bạn đang xem vào đó, chỉ với một phím tắt.
 
+![Nhiều AI CLI chạy song song trong VS Code](images/screenshots/terminals.png)
+
 ## Nó làm gì?
 
 Nhiều công cụ lập trình AI chạy trên terminal: **Claude Code, Codex, Gemini, opencode**, và nhiều hơn nữa. Nếu bạn dùng nhiều hơn một cái, việc chuyển qua lại khá mất công.
@@ -46,6 +48,8 @@ CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc
 Nhấn **`Cmd + Esc`** (macOS) hoặc **`Ctrl + Esc`** (Windows / Linux).
 
 Một menu hiện ra liệt kê tất cả trợ lý. Chọn một cái — nó mở trong terminal bên cạnh và bắt đầu chạy. Nếu trợ lý đó đang mở rồi, phím tắt chỉ nhảy về terminal đó.
+
+![Bảng chọn CLI liệt kê tất cả trợ lý](images/screenshots/picker.png)
 
 > Muốn một phiên hoàn toàn mới thay vì dùng lại cái đang mở? Dùng **`Cmd/Ctrl + Shift + Esc`**.
 

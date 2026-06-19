@@ -2,7 +2,7 @@
   "name": "cli-code",
   "displayName": "CLI Code",
   "description": "Launch and switch between AI coding CLIs (Claude, Codex, Gemini, opencode, and more) from a VS Code terminal.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "x302502",
   "license": "MIT",
   "icon": "images/icon.png",
