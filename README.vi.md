@@ -99,42 +99,11 @@ Trợ lý đó chưa được cài hoặc không có trong `PATH`. Mở terminal
 **Trợ lý mở lên nhưng yêu cầu đăng nhập.**
 Đó là điều bình thường — CLI Code chỉ khởi chạy công cụ, không lo phần xác thực. Hãy hoàn tất bước đăng nhập của chính trợ lý đó một lần (ở bất kỳ terminal nào); sau đó nó sẽ nhớ bạn.
 
-**Trợ lý của tôi không có trong danh sách.**
-Bạn có thể thêm bất kỳ trợ lý nào chạy trên terminal — xem [Thêm trợ lý của riêng bạn](#thêm-trợ-lý-của-riêng-bạn) bên dưới.
-
 **Nhấn `Cmd + Alt + K` mà không có gì xảy ra.**
 Hãy chắc rằng (1) có một file đang mở trong editor, và (2) terminal của trợ lý đang được focus. Tham chiếu file sẽ đi vào terminal CLI nào đang active.
 
 **Phím tắt bị trùng với thứ khác.**
 Đổi lại trong VS Code: **Preferences → Keyboard Shortcuts**, tìm "CLI", và đặt phím riêng của bạn.
-
-## Thêm trợ lý của riêng bạn
-
-CLI Code chỉ là một danh sách lệnh, nên bạn có thể thêm bất kỳ CLI nào. Clone repo, mở `src/lib/config.ts`, và thêm một mục:
-
-```ts
-{
-  id: "my-agent",        // tên duy nhất
-  label: "My Agent",     // hiển thị trong menu
-  command: "my-agent",   // lệnh terminal cần chạy
-  hasHttpApi: false,
-}
-```
-
-Sau đó build lại và cài lại extension. Thứ tự danh sách chính là thứ tự trong menu.
-
-## Dành cho lập trình viên
-
-Xây dựng với [Bun](https://bun.sh).
-
-```bash
-bun install      # cài dependencies
-bun run compile  # type-check + lint + build
-bun test         # chạy unit test
-bun run vsix     # đóng gói .vsix
-```
-
-Nhấn `F5` trong VS Code để mở Extension Development Host.
 
 ## Giấy phép
 

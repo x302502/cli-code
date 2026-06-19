@@ -98,42 +98,11 @@ The assistant isn't installed or isn't on your `PATH`. Open a normal terminal an
 **The assistant opens but asks me to log in.**
 That's expected — CLI Code only launches the tool, it doesn't handle authentication. Complete the assistant's own login flow once (in any terminal); it will remember you afterwards.
 
-**My assistant isn't in the list.**
-You can add any terminal-based assistant — see [Adding your own](#adding-your-own-assistant) below.
-
 **Nothing happens when I press `Cmd + Alt + K`.**
 Make sure (1) a file is open in the editor, and (2) the assistant's terminal is focused. The file reference goes into whichever CLI terminal is active.
 
 **The shortcut conflicts with something else.**
 Rebind it in VS Code: **Preferences → Keyboard Shortcuts**, search for "CLI", and set your own keys.
-
-## Adding your own assistant
-
-CLI Code is just a list of commands, so you can add any CLI. Clone the repo, open `src/lib/config.ts`, and add an entry:
-
-```ts
-{
-  id: "my-agent",        // a unique name
-  label: "My Agent",     // what shows in the menu
-  command: "my-agent",   // the terminal command to run
-  hasHttpApi: false,
-}
-```
-
-Then rebuild and reinstall the extension. The order of the list is the order in the menu.
-
-## For developers
-
-Built with [Bun](https://bun.sh).
-
-```bash
-bun install      # install dependencies
-bun run compile  # type-check + lint + build
-bun test         # run unit tests
-bun run vsix     # package a .vsix
-```
-
-Press `F5` in VS Code to launch an Extension Development Host.
 
 ## License
 

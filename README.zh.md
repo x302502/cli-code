@@ -97,42 +97,11 @@ CLI Code 会把对你文件的引用插入到提示词中：
 **助手打开了，但要求我登录。**
 这是正常的 —— CLI Code 只负责启动工具，不处理身份验证。在任意终端中完成该助手自己的登录流程一次，之后它会记住你。
 
-**我的助手不在列表里。**
-你可以添加任何基于终端的助手 —— 见下方[添加你自己的助手](#添加你自己的助手)。
-
 **按 `Cmd + Alt + K` 没有反应。**
 请确保（1）编辑器中有打开的文件，并且（2）助手的终端处于焦点状态。文件引用会进入当前活动的 CLI 终端。
 
 **快捷键与其他功能冲突。**
 在 VS Code 中重新绑定：**Preferences → Keyboard Shortcuts**，搜索 "CLI"，设置你自己的按键。
-
-## 添加你自己的助手
-
-CLI Code 本质上就是一个命令列表，所以你可以添加任何 CLI。克隆仓库，打开 `src/lib/config.ts`，添加一项：
-
-```ts
-{
-  id: "my-agent",        // 唯一名称
-  label: "My Agent",     // 在菜单中显示
-  command: "my-agent",   // 要运行的终端命令
-  hasHttpApi: false,
-}
-```
-
-然后重新构建并重新安装扩展。列表的顺序就是菜单中的顺序。
-
-## 面向开发者
-
-使用 [Bun](https://bun.sh) 构建。
-
-```bash
-bun install      # 安装依赖
-bun run compile  # 类型检查 + lint + 构建
-bun test         # 运行单元测试
-bun run vsix     # 打包 .vsix
-```
-
-在 VS Code 中按 `F5` 启动 Extension Development Host。
 
 ## 许可证
 
