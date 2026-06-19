@@ -2,138 +2,120 @@
 
 [English](README.md) · **Tiếng Việt** · [中文](README.zh.md) · [日本語](README.ja.md)
 
-> Khởi chạy và chuyển đổi giữa các AI coding CLI — Claude Code, Codex, Gemini, opencode, và nhiều hơn nữa — ngay trong terminal bên cạnh VS Code, và gửi thẳng file bạn đang xem vào agent đang chạy.
+> Mở trợ lý lập trình AI yêu thích của bạn trong terminal ngay cạnh code — và gửi thẳng file bạn đang xem vào đó, chỉ với một phím tắt.
 
-## Vì sao dùng CLI Code?
+## Nó làm gì?
 
-Nếu bạn dùng các AI coding agent chạy trên terminal, hẳn bạn phải xoay xở với nhiều cái cùng lúc. CLI Code cho bạn **một phím tắt** để chọn bất kỳ agent nào, mở nó trong terminal bên cạnh editor, và đẩy **file đang mở (kèm dòng đang chọn)** vào prompt của agent mà không cần copy-paste.
+Nhiều công cụ lập trình AI chạy trên terminal: **Claude Code, Codex, Gemini, opencode**, và nhiều hơn nữa. Nếu bạn dùng nhiều hơn một cái, việc chuyển qua lại khá mất công.
 
-## Tính năng
+**CLI Code** đưa tất cả vào trong tầm một phím tắt:
 
-- 🚀 **Khởi chạy một phím** — nhấn phím tắt, chọn CLI, nó mở trong terminal cạnh code của bạn.
-- 🔁 **Tái sử dụng hoặc tab mới** — focus vào CLI đang chạy, hoặc luôn mở mới.
-- 📎 **Gửi file đang mở** — chèn `@path/to/file.ts#L10-20` (kèm vùng chọn) vào CLI đang focus.
-- 🌐 **CLI có HTTP API** — với agent có API cục bộ (vd opencode), file được gửi qua cổng thay vì gõ text.
-- 🐝 **11 CLI có sẵn** — thêm CLI của riêng bạn chỉ với vài dòng config.
+- Nhấn một phím → chọn trợ lý → nó mở trong terminal **bên cạnh editor**.
+- Nhấn một phím khác → **file bạn đang xem** (và những dòng bạn bôi đen) được đưa vào prompt của trợ lý. Khỏi copy-paste.
 
-## Các CLI được hỗ trợ
+## Bắt đầu
 
-| #   | CLI                | Lệnh                               |
-| --- | ------------------ | ---------------------------------- |
-| 1   | Claude Code        | `claude`                           |
-| 2   | Codex CLI          | `codex`                            |
-| 3   | Mimo               | `mimo`                             |
-| 4   | opencode           | `opencode --port {port}` (có HTTP) |
-| 5   | Gemini CLI         | `gemini`                           |
-| 6   | GitHub Copilot CLI | `copilot`                          |
-| 7   | Amp                | `amp`                              |
-| 8   | Droid              | `droid`                            |
-| 9   | Kiro CLI           | `kiro-cli`                         |
-| 10  | Antigravity        | `agy`                              |
-| 11  | CommandCode        | `commandcode`                      |
+### 1. Cài đặt
 
-> Mỗi CLI phải được cài đặt và có trong `PATH` của bạn. CLI Code chỉ khởi chạy lệnh — nó **không** cài đặt các agent thay bạn.
+Mở tab **Extensions** trong VS Code (`Cmd/Ctrl + Shift + X`), tìm **CLI Code**, và bấm **Install**.
 
-## Cài đặt
+### 2. Cài các trợ lý bạn muốn dùng
 
-**Từ Marketplace** — tìm **"CLI Code"** trong tab Extensions (`Cmd/Ctrl + Shift + X`), hoặc:
+CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc rằng các trợ lý bạn muốn đã được cài và chạy được từ terminal. Mặc định nó biết các trợ lý sau:
 
-```bash
-code --install-extension x302502.cli-code
-```
+| Trợ lý             | Lệnh terminal |
+| ------------------ | ------------- |
+| Claude Code        | `claude`      |
+| Codex CLI          | `codex`       |
+| Mimo               | `mimo`        |
+| opencode           | `opencode`    |
+| Gemini CLI         | `gemini`      |
+| GitHub Copilot CLI | `copilot`     |
+| Amp                | `amp`         |
+| Droid              | `droid`       |
+| Kiro CLI           | `kiro-cli`    |
+| Antigravity        | `agy`         |
+| CommandCode        | `commandcode` |
 
-**Từ file `.vsix`:**
+> 💡 Mẹo: nếu một lệnh chạy được khi bạn gõ trong terminal thường, thì nó cũng chạy được ở đây.
 
-```bash
-code --install-extension cli-code-0.1.0.vsix
-```
+## Cách sử dụng
 
-## Cách dùng
+### Mở một trợ lý
 
-### 1. Mở một CLI
+Nhấn **`Cmd + Esc`** (macOS) hoặc **`Ctrl + Esc`** (Windows / Linux).
 
-| Thao tác                                  | macOS               | Windows / Linux      |
-| ----------------------------------------- | ------------------- | -------------------- |
-| Mở bảng chọn CLI (tái dùng nếu đang chạy) | `Cmd + Esc`         | `Ctrl + Esc`         |
-| Mở CLI trong terminal **mới**             | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
-| Chèn file đang mở vào CLI đang focus      | `Cmd + Alt + K`     | `Ctrl + Alt + K`     |
+Một menu hiện ra liệt kê tất cả trợ lý. Chọn một cái — nó mở trong terminal bên cạnh và bắt đầu chạy. Nếu trợ lý đó đang mở rồi, phím tắt chỉ nhảy về terminal đó.
 
-Một Quick Pick liệt kê tất cả CLI đã cấu hình. Chọn một cái và nó mở trong terminal **bên cạnh** editor, chạy lệnh tương ứng. Nếu bạn dùng phím tái sử dụng và CLI đó đang mở, CLI Code chỉ focus vào terminal của nó.
+> Muốn một phiên hoàn toàn mới thay vì dùng lại cái đang mở? Dùng **`Cmd/Ctrl + Shift + Esc`**.
 
-### 2. Gửi file bạn đang làm việc
+### Gửi file bạn đang làm việc
 
-Đặt con trỏ trong một file (tùy chọn bôi đen vài dòng), focus vào terminal CLI, rồi nhấn `Cmd/Ctrl + Alt + K`. CLI Code chèn một tham chiếu như:
+1. Bấm vào một file (tùy chọn **bôi đen vài dòng**).
+2. Bấm vào terminal của trợ lý để focus.
+3. Nhấn **`Cmd + Alt + K`** (macOS) hoặc **`Ctrl + Alt + K`** (Windows / Linux).
 
-- `@src/app.ts` — toàn bộ file
-- `@src/app.ts#L10` — một dòng
-- `@src/app.ts#L10-20` — một khoảng dòng
+CLI Code chèn một tham chiếu tới file của bạn vào prompt:
 
-Với CLI **có HTTP API** (hiện tại là opencode), tham chiếu được gửi qua HTTP API cục bộ của agent; còn lại thì được gõ vào terminal.
+| Bạn làm gì         | Nó chèn vào          |
+| ------------------ | -------------------- |
+| Chỉ mở một file    | `@src/app.ts`        |
+| Bôi đen một dòng   | `@src/app.ts#L10`    |
+| Bôi đen nhiều dòng | `@src/app.ts#L10-20` |
 
-> Các lệnh cũng có trong Command Palette (`Cmd/Ctrl + Shift + P`): **Open CLI**, **Open CLI in new tab**, **CLI: Insert At-Mentioned**.
+Giờ chỉ cần gõ câu hỏi — trợ lý đã biết bạn đang nói về file (và dòng) nào.
 
-## Thêm CLI của riêng bạn
+## Phím tắt
 
-CLI Code điều khiển bằng cấu hình. Mở [`src/lib/config.ts`](src/lib/config.ts) và thêm một mục vào `CLI_TOOLS`:
+| Thao tác                     | macOS               | Windows / Linux      |
+| ---------------------------- | ------------------- | -------------------- |
+| Mở / focus một trợ lý        | `Cmd + Esc`         | `Ctrl + Esc`         |
+| Mở trợ lý trong terminal mới | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
+| Gửi file hiện tại vào trợ lý | `Cmd + Alt + K`     | `Ctrl + Alt + K`     |
+
+Cả ba lệnh cũng có trong Command Palette (`Cmd/Ctrl + Shift + P`): **Open CLI**, **Open CLI in new tab**, và **CLI: Insert At-Mentioned**.
+
+## Câu hỏi thường gặp
+
+**Menu mở ra nhưng terminal báo "command not found".**
+Trợ lý đó chưa được cài hoặc không có trong `PATH`. Mở terminal thường và kiểm tra lệnh (vd `claude`) có chạy không. Nếu không, hãy cài công cụ đó trước.
+
+**Trợ lý của tôi không có trong danh sách.**
+Bạn có thể thêm bất kỳ trợ lý nào chạy trên terminal — xem [Thêm trợ lý của riêng bạn](#thêm-trợ-lý-của-riêng-bạn) bên dưới.
+
+**Nhấn `Cmd + Alt + K` mà không có gì xảy ra.**
+Hãy chắc rằng (1) có một file đang mở trong editor, và (2) terminal của trợ lý đang được focus. Tham chiếu file sẽ đi vào terminal CLI nào đang active.
+
+**Phím tắt bị trùng với thứ khác.**
+Đổi lại trong VS Code: **Preferences → Keyboard Shortcuts**, tìm "CLI", và đặt phím riêng của bạn.
+
+## Thêm trợ lý của riêng bạn
+
+CLI Code chỉ là một danh sách lệnh, nên bạn có thể thêm bất kỳ CLI nào. Clone repo, mở `src/lib/config.ts`, và thêm một mục:
 
 ```ts
 {
-  id: "my-agent",            // id duy nhất (cũng là tên terminal)
-  label: "My Agent",         // hiển thị trong bảng chọn
-  description: "My coding agent CLI",
-  command: "my-agent",       // lệnh shell; dùng "{port}" cho CLI có HTTP
+  id: "my-agent",        // tên duy nhất
+  label: "My Agent",     // hiển thị trong menu
+  command: "my-agent",   // lệnh terminal cần chạy
   hasHttpApi: false,
 }
 ```
 
-Với CLI có HTTP API, thêm các trường API:
+Sau đó build lại và cài lại extension. Thứ tự danh sách chính là thứ tự trong menu.
 
-```ts
-{
-  id: "opencode",
-  label: "opencode",
-  command: "opencode --port {port}",
-  hasHttpApi: true,
-  portEnvVar: "_EXTENSION_OPENCODE_PORT", // biến env mà CLI đọc để lấy cổng
-  appendPromptPath: "/tui/append-prompt", // endpoint nhận tham chiếu file
-  readyCheckPath: "/app",                 // endpoint được poll cho tới khi server sẵn sàng
-  extraEnv: { OPENCODE_CALLER: "vscode" },
-}
-```
+## Dành cho lập trình viên
 
-Thứ tự các mục chính là thứ tự hiển thị trong bảng chọn.
-
-## Phát triển
-
-Dự án này dùng [Bun](https://bun.sh).
+Xây dựng với [Bun](https://bun.sh).
 
 ```bash
-bun install          # cài dependencies
-bun run compile      # type-check + lint + build vào dist/
-bun run watch:esbuild # build lại khi có thay đổi
-bun test             # chạy unit test
-bun run vsix         # đóng gói .vsix
+bun install      # cài dependencies
+bun run compile  # type-check + lint + build
+bun test         # chạy unit test
+bun run vsix     # đóng gói .vsix
 ```
 
-Nhấn `F5` trong VS Code để mở **Extension Development Host** với extension đã nạp.
-
-### Cấu trúc dự án
-
-```
-src/
-├── extension.ts        # vỏ activation (đăng ký command)
-└── lib/
-    ├── config.ts       # type CliTool + registry CLI_TOOLS
-    ├── commands.ts     # các command handler
-    ├── terminal.ts     # tạo terminal, chọn tool, cổng
-    ├── http-client.ts  # gọi HTTP cho CLI có API
-    └── editor.ts       # helper tham chiếu file đang mở
-```
-
-## Yêu cầu
-
-- VS Code `^1.94.0`
-- Các CLI agent bạn muốn dùng, đã cài và có trong `PATH`.
+Nhấn `F5` trong VS Code để mở Extension Development Host.
 
 ## Giấy phép
 

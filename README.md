@@ -2,138 +2,120 @@
 
 **English** · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · [日本語](README.ja.md)
 
-> Launch and switch between AI coding CLIs — Claude Code, Codex, Gemini, opencode, and more — right inside a VS Code side terminal, and send the file you're looking at straight into the running agent.
+> Open your favourite AI coding assistant in a terminal next to your code — and send the file you're looking at straight into it, with one shortcut.
 
-## Why CLI Code?
+## What it does
 
-If you use terminal-based AI coding agents, you probably juggle several of them. CLI Code gives you **one keystroke** to pick any of them, opens it in a terminal beside your editor, and lets you push the **active file (with the selected lines)** into the agent's prompt without copy-pasting.
+Many AI coding tools run in the terminal: **Claude Code, Codex, Gemini, opencode**, and more. If you use more than one, switching between them is a chore.
 
-## Features
+**CLI Code** puts all of them one shortcut away:
 
-- 🚀 **One-key launcher** — press a shortcut, pick a CLI, and it opens in a terminal beside your code.
-- 🔁 **Reuse or new tab** — focus an already-running CLI, or always spawn a fresh one.
-- 📎 **Send the active file** — insert `@path/to/file.ts#L10-20` (with your selection) into the focused CLI.
-- 🌐 **HTTP-aware CLIs** — for agents that expose a local API (e.g. opencode), the file is posted over the port instead of typed.
-- 🐝 **11 CLIs out of the box** — add your own with a few lines of config.
+- Press a key → pick an assistant → it opens in a terminal **beside your editor**.
+- Press another key → the **file you're viewing** (and the lines you selected) is dropped into the assistant's prompt. No copy-paste.
 
-## Supported CLIs
+## Getting started
 
-| #   | CLI                | Command                               |
-| --- | ------------------ | ------------------------------------- |
-| 1   | Claude Code        | `claude`                              |
-| 2   | Codex CLI          | `codex`                               |
-| 3   | Mimo               | `mimo`                                |
-| 4   | opencode           | `opencode --port {port}` (HTTP-aware) |
-| 5   | Gemini CLI         | `gemini`                              |
-| 6   | GitHub Copilot CLI | `copilot`                             |
-| 7   | Amp                | `amp`                                 |
-| 8   | Droid              | `droid`                               |
-| 9   | Kiro CLI           | `kiro-cli`                            |
-| 10  | Antigravity        | `agy`                                 |
-| 11  | CommandCode        | `commandcode`                         |
+### 1. Install
 
-> Each CLI must be installed and available on your `PATH`. CLI Code launches the command — it does not install the agents for you.
+Open the **Extensions** view in VS Code (`Cmd/Ctrl + Shift + X`), search for **CLI Code**, and click **Install**.
 
-## Installation
+### 2. Install the assistants you want
 
-**From the Marketplace** — search **"CLI Code"** in the Extensions view (`Cmd/Ctrl + Shift + X`), or:
+CLI Code _launches_ the assistants — it doesn't install them. Make sure the ones you want are installed and runnable from your terminal. Out of the box it knows about:
 
-```bash
-code --install-extension x302502.cli-code
-```
+| Assistant          | Terminal command |
+| ------------------ | ---------------- |
+| Claude Code        | `claude`         |
+| Codex CLI          | `codex`          |
+| Mimo               | `mimo`           |
+| opencode           | `opencode`       |
+| Gemini CLI         | `gemini`         |
+| GitHub Copilot CLI | `copilot`        |
+| Amp                | `amp`            |
+| Droid              | `droid`          |
+| Kiro CLI           | `kiro-cli`       |
+| Antigravity        | `agy`            |
+| CommandCode        | `commandcode`    |
 
-**From a `.vsix` file:**
+> 💡 Tip: if a command works when you type it in a normal terminal, it'll work here.
 
-```bash
-code --install-extension cli-code-0.1.0.vsix
-```
+## How to use it
 
-## Usage
+### Open an assistant
 
-### 1. Open a CLI
+Press **`Cmd + Esc`** (macOS) or **`Ctrl + Esc`** (Windows / Linux).
 
-| Action                                     | macOS               | Windows / Linux      |
-| ------------------------------------------ | ------------------- | -------------------- |
-| Open CLI picker (reuse if already running) | `Cmd + Esc`         | `Ctrl + Esc`         |
-| Open CLI in a **new** terminal             | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
-| Insert active file into the focused CLI    | `Cmd + Alt + K`     | `Ctrl + Alt + K`     |
+A menu pops up listing every assistant. Pick one — it opens in a terminal to the side and starts running. If that assistant is already open, the shortcut just jumps back to it.
 
-A Quick Pick lists all configured CLIs. Choose one and it opens in a terminal **beside** your editor, running its command. If you used the reuse shortcut and that CLI is already open, CLI Code just focuses its terminal.
+> Want a fresh session instead of reusing the open one? Use **`Cmd/Ctrl + Shift + Esc`**.
 
-### 2. Send the file you're working on
+### Send the file you're working on
 
-Place your cursor in a file (optionally select some lines), focus the CLI terminal, and press `Cmd/Ctrl + Alt + K`. CLI Code inserts a reference like:
+1. Click into a file (optionally **select a few lines**).
+2. Click the assistant's terminal to focus it.
+3. Press **`Cmd + Alt + K`** (macOS) or **`Ctrl + Alt + K`** (Windows / Linux).
 
-- `@src/app.ts` — whole file
-- `@src/app.ts#L10` — a single line
-- `@src/app.ts#L10-20` — a line range
+CLI Code drops a reference to your file into the prompt:
 
-For **HTTP-aware** CLIs (currently opencode), the reference is sent over the agent's local HTTP API; for everything else it is typed into the terminal.
+| You did this           | It inserts           |
+| ---------------------- | -------------------- |
+| Just opened a file     | `@src/app.ts`        |
+| Selected one line      | `@src/app.ts#L10`    |
+| Selected several lines | `@src/app.ts#L10-20` |
 
-> Commands are also available from the Command Palette (`Cmd/Ctrl + Shift + P`): **Open CLI**, **Open CLI in new tab**, **CLI: Insert At-Mentioned**.
+Now just type your question — the assistant already knows which file (and lines) you mean.
 
-## Adding your own CLI
+## Keyboard shortcuts
 
-CLI Code is config-driven. Open [`src/lib/config.ts`](src/lib/config.ts) and add an entry to `CLI_TOOLS`:
+| Action                              | macOS               | Windows / Linux      |
+| ----------------------------------- | ------------------- | -------------------- |
+| Open / focus an assistant           | `Cmd + Esc`         | `Ctrl + Esc`         |
+| Open an assistant in a new terminal | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
+| Send the current file to it         | `Cmd + Alt + K`     | `Ctrl + Alt + K`     |
+
+All three are also in the Command Palette (`Cmd/Ctrl + Shift + P`) as **Open CLI**, **Open CLI in new tab**, and **CLI: Insert At-Mentioned**.
+
+## FAQ
+
+**The menu opens but the terminal says "command not found".**
+The assistant isn't installed or isn't on your `PATH`. Open a normal terminal and check that the command (e.g. `claude`) runs. If it doesn't, install that tool first.
+
+**My assistant isn't in the list.**
+You can add any terminal-based assistant — see [Adding your own](#adding-your-own-assistant) below.
+
+**Nothing happens when I press `Cmd + Alt + K`.**
+Make sure (1) a file is open in the editor, and (2) the assistant's terminal is focused. The file reference goes into whichever CLI terminal is active.
+
+**The shortcut conflicts with something else.**
+Rebind it in VS Code: **Preferences → Keyboard Shortcuts**, search for "CLI", and set your own keys.
+
+## Adding your own assistant
+
+CLI Code is just a list of commands, so you can add any CLI. Clone the repo, open `src/lib/config.ts`, and add an entry:
 
 ```ts
 {
-  id: "my-agent",            // unique id (also the terminal name)
-  label: "My Agent",         // shown in the picker
-  description: "My coding agent CLI",
-  command: "my-agent",       // shell command; use "{port}" for HTTP-aware CLIs
+  id: "my-agent",        // a unique name
+  label: "My Agent",     // what shows in the menu
+  command: "my-agent",   // the terminal command to run
   hasHttpApi: false,
 }
 ```
 
-For an HTTP-aware CLI, add the API fields:
+Then rebuild and reinstall the extension. The order of the list is the order in the menu.
 
-```ts
-{
-  id: "opencode",
-  label: "opencode",
-  command: "opencode --port {port}",
-  hasHttpApi: true,
-  portEnvVar: "_EXTENSION_OPENCODE_PORT", // env var the CLI reads for its port
-  appendPromptPath: "/tui/append-prompt", // endpoint that accepts the file reference
-  readyCheckPath: "/app",                 // endpoint polled until the server is up
-  extraEnv: { OPENCODE_CALLER: "vscode" },
-}
-```
+## For developers
 
-The order of entries is the order shown in the picker.
-
-## Development
-
-This project uses [Bun](https://bun.sh).
+Built with [Bun](https://bun.sh).
 
 ```bash
-bun install          # install dependencies
-bun run compile      # type-check + lint + build to dist/
-bun run watch:esbuild # rebuild on change
-bun test             # run unit tests
-bun run vsix         # package a .vsix
+bun install      # install dependencies
+bun run compile  # type-check + lint + build
+bun test         # run unit tests
+bun run vsix     # package a .vsix
 ```
 
-Press `F5` in VS Code to launch an **Extension Development Host** with the extension loaded.
-
-### Project layout
-
-```
-src/
-├── extension.ts        # activation shell (registers commands)
-└── lib/
-    ├── config.ts       # CliTool type + CLI_TOOLS registry
-    ├── commands.ts     # command handlers
-    ├── terminal.ts     # terminal creation, tool picking, ports
-    ├── http-client.ts  # HTTP calls for API-aware CLIs
-    └── editor.ts       # active-file reference helper
-```
-
-## Requirements
-
-- VS Code `^1.94.0`
-- The CLI agents you want to use, installed and on your `PATH`.
+Press `F5` in VS Code to launch an Extension Development Host.
 
 ## License
 

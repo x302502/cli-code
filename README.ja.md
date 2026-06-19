@@ -2,138 +2,120 @@
 
 [English](README.md) · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · **日本語**
 
-> VS Code のサイドターミナル内で AI コーディング CLI（Claude Code、Codex、Gemini、opencode など）を起動・切り替えし、今見ているファイルを実行中のエージェントへそのまま送信できます。
+> お気に入りの AI コーディングアシスタントをコードの隣のターミナルで開き、今見ているファイルをショートカット一つでそのまま送り込めます。
 
-## なぜ CLI Code なのか？
+## これは何をするもの？
 
-ターミナルベースの AI コーディングエージェントを使っていると、複数を同時に扱うことが多いはずです。CLI Code は**ワンキー**で任意のエージェントを選び、エディタの隣のターミナルで起動し、**現在のファイル（選択行付き）**をコピー＆ペーストなしでエージェントのプロンプトへ送り込みます。
+多くの AI コーディングツールはターミナルで動きます：**Claude Code、Codex、Gemini、opencode** など。複数を併用していると、切り替えが面倒です。
 
-## 機能
+**CLI Code** は、それらすべてをショートカット一つの距離に置きます：
 
-- 🚀 **ワンキー起動** —— ショートカットを押して CLI を選ぶと、コードの隣のターミナルで開きます。
-- 🔁 **再利用または新規タブ** —— 起動済みの CLI にフォーカス、または常に新規起動。
-- 📎 **現在のファイルを送信** —— `@path/to/file.ts#L10-20`（選択範囲付き）をフォーカス中の CLI に挿入。
-- 🌐 **HTTP 対応 CLI** —— ローカル API を公開するエージェント（例: opencode）では、入力ではなくポート経由で送信します。
-- 🐝 **11 個の CLI を標準搭載** —— 数行の設定で独自の CLI を追加できます。
+- キーを押す → アシスタントを選ぶ → **エディタの隣**のターミナルで開きます。
+- 別のキーを押す → **今見ているファイル**（と選択した行）がアシスタントのプロンプトに入ります。コピペ不要。
 
-## 対応 CLI
+## はじめに
 
-| #   | CLI                | コマンド                              |
-| --- | ------------------ | ------------------------------------- |
-| 1   | Claude Code        | `claude`                              |
-| 2   | Codex CLI          | `codex`                               |
-| 3   | Mimo               | `mimo`                                |
-| 4   | opencode           | `opencode --port {port}`（HTTP 対応） |
-| 5   | Gemini CLI         | `gemini`                              |
-| 6   | GitHub Copilot CLI | `copilot`                             |
-| 7   | Amp                | `amp`                                 |
-| 8   | Droid              | `droid`                               |
-| 9   | Kiro CLI           | `kiro-cli`                            |
-| 10  | Antigravity        | `agy`                                 |
-| 11  | CommandCode        | `commandcode`                         |
+### 1. インストール
 
-> 各 CLI はインストール済みで `PATH` に通っている必要があります。CLI Code はコマンドを起動するだけで、エージェントの**インストールは行いません**。
+VS Code で**拡張機能**ビュー（`Cmd/Ctrl + Shift + X`）を開き、**CLI Code** を検索して **Install** をクリックします。
 
-## インストール
+### 2. 使いたいアシスタントをインストール
 
-**マーケットプレイスから** —— 拡張機能ビュー（`Cmd/Ctrl + Shift + X`）で **「CLI Code」** を検索、または：
+CLI Code はアシスタントを**起動するだけ**で、インストールはしません。使いたいアシスタントがインストール済みで、ターミナルから実行できることを確認してください。標準で以下を認識します：
 
-```bash
-code --install-extension x302502.cli-code
-```
+| アシスタント       | ターミナルコマンド |
+| ------------------ | ------------------ |
+| Claude Code        | `claude`           |
+| Codex CLI          | `codex`            |
+| Mimo               | `mimo`             |
+| opencode           | `opencode`         |
+| Gemini CLI         | `gemini`           |
+| GitHub Copilot CLI | `copilot`          |
+| Amp                | `amp`              |
+| Droid              | `droid`            |
+| Kiro CLI           | `kiro-cli`         |
+| Antigravity        | `agy`              |
+| CommandCode        | `commandcode`      |
 
-**`.vsix` ファイルから：**
-
-```bash
-code --install-extension cli-code-0.1.0.vsix
-```
+> 💡 ヒント：通常のターミナルで打って動くコマンドなら、ここでも動きます。
 
 ## 使い方
 
-### 1. CLI を開く
+### アシスタントを開く
 
-| 操作                                      | macOS               | Windows / Linux      |
-| ----------------------------------------- | ------------------- | -------------------- |
-| CLI ピッカーを開く（起動済みなら再利用）  | `Cmd + Esc`         | `Ctrl + Esc`         |
-| **新しい**ターミナルで CLI を開く         | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
-| 現在のファイルをフォーカス中の CLI に挿入 | `Cmd + Alt + K`     | `Ctrl + Alt + K`     |
+**`Cmd + Esc`**（macOS）または **`Ctrl + Esc`**（Windows / Linux）を押します。
 
-Quick Pick に設定済みのすべての CLI が一覧表示されます。1 つ選ぶと、エディタの**隣**のターミナルで対応コマンドを実行して開きます。再利用ショートカットを使い、その CLI がすでに開いている場合、CLI Code はそのターミナルにフォーカスするだけです。
+すべてのアシスタントを並べたメニューが開きます。1 つ選ぶと、隣のターミナルで開いて実行を始めます。そのアシスタントが既に開いている場合、ショートカットはそのターミナルに戻るだけです。
 
-### 2. 作業中のファイルを送信
+> 開いているものを再利用せず、まっさらなセッションが欲しい？ **`Cmd/Ctrl + Shift + Esc`** を使ってください。
 
-ファイル内にカーソルを置き（任意で数行を選択）、CLI ターミナルにフォーカスして `Cmd/Ctrl + Alt + K` を押します。CLI Code は次のような参照を挿入します：
+### 作業中のファイルを送る
 
-- `@src/app.ts` —— ファイル全体
-- `@src/app.ts#L10` —— 単一行
-- `@src/app.ts#L10-20` —— 行範囲
+1. ファイル内をクリック（任意で**数行を選択**）。
+2. アシスタントのターミナルをクリックしてフォーカス。
+3. **`Cmd + Alt + K`**（macOS）または **`Ctrl + Alt + K`**（Windows / Linux）を押します。
 
-**HTTP 対応**の CLI（現在は opencode）では、参照はエージェントのローカル HTTP API 経由で送信されます。それ以外はターミナルに入力されます。
+CLI Code がファイルへの参照をプロンプトに挿入します：
 
-> これらのコマンドはコマンドパレット（`Cmd/Ctrl + Shift + P`）からも利用できます：**Open CLI**、**Open CLI in new tab**、**CLI: Insert At-Mentioned**。
+| あなたの操作     | 挿入される内容       |
+| ---------------- | -------------------- |
+| ファイルを開いた | `@src/app.ts`        |
+| 1 行を選択した   | `@src/app.ts#L10`    |
+| 複数行を選択した | `@src/app.ts#L10-20` |
 
-## 独自の CLI を追加する
+あとは質問を入力するだけ —— アシスタントはどのファイル（とどの行）の話か既に分かっています。
 
-CLI Code は設定駆動です。[`src/lib/config.ts`](src/lib/config.ts) を開き、`CLI_TOOLS` にエントリを追加します：
+## キーボードショートカット
+
+| 操作                            | macOS               | Windows / Linux      |
+| ------------------------------- | ------------------- | -------------------- |
+| アシスタントを開く / フォーカス | `Cmd + Esc`         | `Ctrl + Esc`         |
+| 新しいターミナルで開く          | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
+| 現在のファイルを送る            | `Cmd + Alt + K`     | `Ctrl + Alt + K`     |
+
+3 つともコマンドパレット（`Cmd/Ctrl + Shift + P`）にもあります：**Open CLI**、**Open CLI in new tab**、**CLI: Insert At-Mentioned**。
+
+## よくある質問
+
+**メニューは開くが、ターミナルに "command not found" と出る。**
+そのアシスタントが未インストール、または `PATH` にありません。通常のターミナルでコマンド（例: `claude`）が動くか確認してください。動かなければ、まずそのツールをインストールしてください。
+
+**自分のアシスタントが一覧にない。**
+ターミナルベースのアシスタントなら何でも追加できます —— 下記の[独自のアシスタントを追加する](#独自のアシスタントを追加する)を参照。
+
+**`Cmd + Alt + K` を押しても何も起きない。**
+（1）エディタにファイルが開いていること、（2）アシスタントのターミナルがフォーカスされていることを確認してください。ファイル参照はアクティブな CLI ターミナルに入ります。
+
+**ショートカットが他の機能と衝突する。**
+VS Code で再割り当てします：**Preferences → Keyboard Shortcuts** で "CLI" を検索し、好きなキーを設定してください。
+
+## 独自のアシスタントを追加する
+
+CLI Code は本質的にコマンドの一覧なので、任意の CLI を追加できます。リポジトリをクローンし、`src/lib/config.ts` を開いて項目を追加します：
 
 ```ts
 {
-  id: "my-agent",            // 一意の id（ターミナル名にもなる）
-  label: "My Agent",         // ピッカーに表示
-  description: "My coding agent CLI",
-  command: "my-agent",       // シェルコマンド。HTTP 対応 CLI では "{port}" を使用
+  id: "my-agent",        // 一意の名前
+  label: "My Agent",     // メニューに表示
+  command: "my-agent",   // 実行するターミナルコマンド
   hasHttpApi: false,
 }
 ```
 
-HTTP API 対応の CLI には、API フィールドを追加します：
+その後、拡張機能を再ビルド・再インストールします。一覧の順序がメニューの順序になります。
 
-```ts
-{
-  id: "opencode",
-  label: "opencode",
-  command: "opencode --port {port}",
-  hasHttpApi: true,
-  portEnvVar: "_EXTENSION_OPENCODE_PORT", // CLI がポートを読み取る環境変数
-  appendPromptPath: "/tui/append-prompt", // ファイル参照を受け取るエンドポイント
-  readyCheckPath: "/app",                 // サーバ起動までポーリングするエンドポイント
-  extraEnv: { OPENCODE_CALLER: "vscode" },
-}
-```
+## 開発者向け
 
-エントリの順序が、ピッカーでの表示順になります。
-
-## 開発
-
-本プロジェクトは [Bun](https://bun.sh) を使用します。
+[Bun](https://bun.sh) で構築。
 
 ```bash
-bun install          # 依存関係をインストール
-bun run compile      # 型チェック + lint + dist/ へビルド
-bun run watch:esbuild # 変更時に再ビルド
-bun test             # ユニットテストを実行
-bun run vsix         # .vsix をパッケージング
+bun install      # 依存関係をインストール
+bun run compile  # 型チェック + lint + ビルド
+bun test         # ユニットテストを実行
+bun run vsix     # .vsix をパッケージング
 ```
 
-VS Code で `F5` を押すと、拡張機能を読み込んだ **Extension Development Host** が起動します。
-
-### プロジェクト構成
-
-```
-src/
-├── extension.ts        # アクティベーションシェル（コマンド登録）
-└── lib/
-    ├── config.ts       # CliTool 型 + CLI_TOOLS レジストリ
-    ├── commands.ts     # コマンドハンドラ
-    ├── terminal.ts     # ターミナル生成、ツール選択、ポート
-    ├── http-client.ts  # API 対応 CLI 向けの HTTP 呼び出し
-    └── editor.ts       # 現在ファイル参照のヘルパー
-```
-
-## 要件
-
-- VS Code `^1.94.0`
-- 使用したい CLI エージェントがインストール済みで `PATH` に通っていること。
+VS Code で `F5` を押すと Extension Development Host が起動します。
 
 ## ライセンス
 

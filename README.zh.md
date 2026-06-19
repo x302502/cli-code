@@ -2,138 +2,120 @@
 
 [English](README.md) · [Tiếng Việt](README.vi.md) · **中文** · [日本語](README.ja.md)
 
-> 在 VS Code 侧边终端中启动并切换各种 AI 编程 CLI —— Claude Code、Codex、Gemini、opencode 等等 —— 并将你正在查看的文件直接发送给运行中的智能体。
+> 在代码旁边的终端中打开你喜爱的 AI 编程助手，并用一个快捷键把你正在查看的文件直接送进去。
 
-## 为什么选择 CLI Code？
+## 它能做什么？
 
-如果你使用基于终端的 AI 编程智能体，你大概会同时使用好几个。CLI Code 让你**一个快捷键**就能选中其中任意一个，在编辑器旁边的终端中打开它，并把**当前文件（含选中的行）**直接送入智能体的提示词，无需复制粘贴。
+许多 AI 编程工具运行在终端里：**Claude Code、Codex、Gemini、opencode** 等等。如果你同时使用不止一个，来回切换会很麻烦。
 
-## 功能特性
+**CLI Code** 让它们全都触手可及，只需一个快捷键：
 
-- 🚀 **一键启动** —— 按下快捷键，选择一个 CLI，它就在代码旁的终端中打开。
-- 🔁 **复用或新建** —— 聚焦到已运行的 CLI，或始终新开一个。
-- 📎 **发送当前文件** —— 将 `@path/to/file.ts#L10-20`（含你的选区）插入到聚焦的 CLI。
-- 🌐 **支持 HTTP 的 CLI** —— 对于暴露本地 API 的智能体（如 opencode），文件通过端口发送而非键入。
-- 🐝 **内置 11 个 CLI** —— 用几行配置即可添加你自己的 CLI。
+- 按一个键 → 选择一个助手 → 它在**编辑器旁边**的终端中打开。
+- 按另一个键 → 把**你正在查看的文件**（以及你选中的行）送入助手的提示词。无需复制粘贴。
 
-## 支持的 CLI
+## 快速开始
 
-| #   | CLI                | 命令                                  |
-| --- | ------------------ | ------------------------------------- |
-| 1   | Claude Code        | `claude`                              |
-| 2   | Codex CLI          | `codex`                               |
-| 3   | Mimo               | `mimo`                                |
-| 4   | opencode           | `opencode --port {port}`（支持 HTTP） |
-| 5   | Gemini CLI         | `gemini`                              |
-| 6   | GitHub Copilot CLI | `copilot`                             |
-| 7   | Amp                | `amp`                                 |
-| 8   | Droid              | `droid`                               |
-| 9   | Kiro CLI           | `kiro-cli`                            |
-| 10  | Antigravity        | `agy`                                 |
-| 11  | CommandCode        | `commandcode`                         |
+### 1. 安装
 
-> 每个 CLI 都必须已安装且在你的 `PATH` 中。CLI Code 只负责启动命令 —— 它**不会**替你安装这些智能体。
+在 VS Code 中打开**扩展**视图（`Cmd/Ctrl + Shift + X`），搜索 **CLI Code**，点击 **Install**。
 
-## 安装
+### 2. 安装你想用的助手
 
-**从应用市场** —— 在扩展视图（`Cmd/Ctrl + Shift + X`）中搜索 **"CLI Code"**，或：
+CLI Code 只负责**启动**助手 —— 它不会安装它们。请确保你想用的助手已安装并能从终端运行。开箱即支持以下助手：
 
-```bash
-code --install-extension x302502.cli-code
-```
+| 助手               | 终端命令      |
+| ------------------ | ------------- |
+| Claude Code        | `claude`      |
+| Codex CLI          | `codex`       |
+| Mimo               | `mimo`        |
+| opencode           | `opencode`    |
+| Gemini CLI         | `gemini`      |
+| GitHub Copilot CLI | `copilot`     |
+| Amp                | `amp`         |
+| Droid              | `droid`       |
+| Kiro CLI           | `kiro-cli`    |
+| Antigravity        | `agy`         |
+| CommandCode        | `commandcode` |
 
-**从 `.vsix` 文件：**
+> 💡 提示：如果某个命令在普通终端里能运行，那它在这里也能运行。
 
-```bash
-code --install-extension cli-code-0.1.0.vsix
-```
+## 如何使用
 
-## 使用方法
+### 打开一个助手
 
-### 1. 打开一个 CLI
+按 **`Cmd + Esc`**（macOS）或 **`Ctrl + Esc`**（Windows / Linux）。
 
-| 操作                              | macOS               | Windows / Linux      |
-| --------------------------------- | ------------------- | -------------------- |
-| 打开 CLI 选择器（若已运行则复用） | `Cmd + Esc`         | `Ctrl + Esc`         |
-| 在**新**终端中打开 CLI            | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
-| 将当前文件插入到聚焦的 CLI        | `Cmd + Alt + K`     | `Ctrl + Alt + K`     |
+弹出的菜单会列出所有助手。选择其一 —— 它会在旁边的终端中打开并开始运行。如果该助手已经打开，快捷键只会跳回到它。
 
-Quick Pick 会列出所有已配置的 CLI。选择其一，它就在编辑器**旁边**的终端中打开并运行对应命令。如果你使用了复用快捷键且该 CLI 已打开，CLI Code 只会聚焦到它的终端。
+> 想要一个全新会话而不是复用已打开的？使用 **`Cmd/Ctrl + Shift + Esc`**。
 
-### 2. 发送你正在处理的文件
+### 发送你正在处理的文件
 
-将光标放在某个文件中（可选地选中若干行），聚焦到 CLI 终端，然后按 `Cmd/Ctrl + Alt + K`。CLI Code 会插入如下引用：
+1. 点击进入某个文件（可选地**选中几行**）。
+2. 点击助手的终端使其获得焦点。
+3. 按 **`Cmd + Alt + K`**（macOS）或 **`Ctrl + Alt + K`**（Windows / Linux）。
 
-- `@src/app.ts` —— 整个文件
-- `@src/app.ts#L10` —— 单行
-- `@src/app.ts#L10-20` —— 行范围
+CLI Code 会把对你文件的引用插入到提示词中：
 
-对于**支持 HTTP** 的 CLI（目前为 opencode），引用会通过智能体的本地 HTTP API 发送；其他则键入到终端。
+| 你做了什么     | 它插入               |
+| -------------- | -------------------- |
+| 刚打开一个文件 | `@src/app.ts`        |
+| 选中了一行     | `@src/app.ts#L10`    |
+| 选中了多行     | `@src/app.ts#L10-20` |
 
-> 这些命令也可在命令面板（`Cmd/Ctrl + Shift + P`）中使用：**Open CLI**、**Open CLI in new tab**、**CLI: Insert At-Mentioned**。
+现在只需输入你的问题 —— 助手已经知道你指的是哪个文件（和哪些行）。
 
-## 添加你自己的 CLI
+## 快捷键
 
-CLI Code 由配置驱动。打开 [`src/lib/config.ts`](src/lib/config.ts) 并向 `CLI_TOOLS` 添加一项：
+| 操作                | macOS               | Windows / Linux      |
+| ------------------- | ------------------- | -------------------- |
+| 打开 / 聚焦一个助手 | `Cmd + Esc`         | `Ctrl + Esc`         |
+| 在新终端中打开助手  | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
+| 把当前文件发送给它  | `Cmd + Alt + K`     | `Ctrl + Alt + K`     |
+
+这三个命令也可在命令面板（`Cmd/Ctrl + Shift + P`）中找到：**Open CLI**、**Open CLI in new tab**、**CLI: Insert At-Mentioned**。
+
+## 常见问题
+
+**菜单打开了，但终端显示 "command not found"。**
+该助手未安装或不在 `PATH` 中。打开普通终端，检查命令（如 `claude`）能否运行。如果不能，请先安装该工具。
+
+**我的助手不在列表里。**
+你可以添加任何基于终端的助手 —— 见下方[添加你自己的助手](#添加你自己的助手)。
+
+**按 `Cmd + Alt + K` 没有反应。**
+请确保（1）编辑器中有打开的文件，并且（2）助手的终端处于焦点状态。文件引用会进入当前活动的 CLI 终端。
+
+**快捷键与其他功能冲突。**
+在 VS Code 中重新绑定：**Preferences → Keyboard Shortcuts**，搜索 "CLI"，设置你自己的按键。
+
+## 添加你自己的助手
+
+CLI Code 本质上就是一个命令列表，所以你可以添加任何 CLI。克隆仓库，打开 `src/lib/config.ts`，添加一项：
 
 ```ts
 {
-  id: "my-agent",            // 唯一 id（也是终端名称）
-  label: "My Agent",         // 在选择器中显示
-  description: "My coding agent CLI",
-  command: "my-agent",       // shell 命令；HTTP 型 CLI 使用 "{port}"
+  id: "my-agent",        // 唯一名称
+  label: "My Agent",     // 在菜单中显示
+  command: "my-agent",   // 要运行的终端命令
   hasHttpApi: false,
 }
 ```
 
-对于支持 HTTP API 的 CLI，添加 API 字段：
+然后重新构建并重新安装扩展。列表的顺序就是菜单中的顺序。
 
-```ts
-{
-  id: "opencode",
-  label: "opencode",
-  command: "opencode --port {port}",
-  hasHttpApi: true,
-  portEnvVar: "_EXTENSION_OPENCODE_PORT", // CLI 读取端口所用的环境变量
-  appendPromptPath: "/tui/append-prompt", // 接收文件引用的端点
-  readyCheckPath: "/app",                 // 轮询直至服务就绪的端点
-  extraEnv: { OPENCODE_CALLER: "vscode" },
-}
-```
+## 面向开发者
 
-各项的顺序即为选择器中显示的顺序。
-
-## 开发
-
-本项目使用 [Bun](https://bun.sh)。
+使用 [Bun](https://bun.sh) 构建。
 
 ```bash
-bun install          # 安装依赖
-bun run compile      # 类型检查 + lint + 构建到 dist/
-bun run watch:esbuild # 变更时重新构建
-bun test             # 运行单元测试
-bun run vsix         # 打包 .vsix
+bun install      # 安装依赖
+bun run compile  # 类型检查 + lint + 构建
+bun test         # 运行单元测试
+bun run vsix     # 打包 .vsix
 ```
 
-在 VS Code 中按 `F5` 启动已加载该扩展的 **Extension Development Host**。
-
-### 项目结构
-
-```
-src/
-├── extension.ts        # 激活外壳（注册命令）
-└── lib/
-    ├── config.ts       # CliTool 类型 + CLI_TOOLS 注册表
-    ├── commands.ts     # 命令处理器
-    ├── terminal.ts     # 终端创建、工具选择、端口
-    ├── http-client.ts  # 面向 API 型 CLI 的 HTTP 调用
-    └── editor.ts       # 当前文件引用辅助函数
-```
-
-## 要求
-
-- VS Code `^1.94.0`
-- 你想使用的 CLI 智能体，已安装且在 `PATH` 中。
+在 VS Code 中按 `F5` 启动 Extension Development Host。
 
 ## 许可证
 
