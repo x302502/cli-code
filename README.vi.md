@@ -41,6 +41,12 @@ CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc
 | Antigravity        | `agy`         |
 | CommandCode        | `commandcode` |
 
+> ⚠️ **Cài đặt _và_ đăng nhập trước.** Hầu hết trợ lý cần được xác thực trước
+> khi chạy — `claude` (đăng nhập tài khoản Anthropic), `codex` (đăng nhập
+> OpenAI / API key), `gemini` (đăng nhập Google), v.v. Hãy chạy từng công cụ
+> một lần trong terminal thường, hoàn tất bước đăng nhập, và xác nhận nó khởi
+> động được.
+>
 > 💡 Mẹo: nếu một lệnh chạy được khi bạn gõ trong terminal thường, thì nó cũng chạy được ở đây.
 
 ## Cách sử dụng
@@ -89,6 +95,9 @@ Cả ba lệnh cũng có trong Command Palette (`Cmd/Ctrl + Shift + P`): **Open 
 
 **Menu mở ra nhưng terminal báo "command not found".**
 Trợ lý đó chưa được cài hoặc không có trong `PATH`. Mở terminal thường và kiểm tra lệnh (vd `claude`) có chạy không. Nếu không, hãy cài công cụ đó trước.
+
+**Trợ lý mở lên nhưng yêu cầu đăng nhập.**
+Đó là điều bình thường — CLI Code chỉ khởi chạy công cụ, không lo phần xác thực. Hãy hoàn tất bước đăng nhập của chính trợ lý đó một lần (ở bất kỳ terminal nào); sau đó nó sẽ nhớ bạn.
 
 **Trợ lý của tôi không có trong danh sách.**
 Bạn có thể thêm bất kỳ trợ lý nào chạy trên terminal — xem [Thêm trợ lý của riêng bạn](#thêm-trợ-lý-của-riêng-bạn) bên dưới.

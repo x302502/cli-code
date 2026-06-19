@@ -41,6 +41,11 @@ CLI Code _launches_ the assistants — it doesn't install them. Make sure the on
 | Antigravity        | `agy`            |
 | CommandCode        | `commandcode`    |
 
+> ⚠️ **Install _and_ sign in first.** Most assistants need to be authenticated
+> before they'll run — `claude` (log in to your Anthropic account), `codex`
+> (OpenAI login / API key), `gemini` (Google login), and so on. Run each tool
+> once in a normal terminal, complete its login flow, and confirm it starts.
+>
 > 💡 Tip: if a command works when you type it in a normal terminal, it'll work here.
 
 ## How to use it
@@ -89,6 +94,9 @@ All three are also in the Command Palette (`Cmd/Ctrl + Shift + P`) as **Open CLI
 
 **The menu opens but the terminal says "command not found".**
 The assistant isn't installed or isn't on your `PATH`. Open a normal terminal and check that the command (e.g. `claude`) runs. If it doesn't, install that tool first.
+
+**The assistant opens but asks me to log in.**
+That's expected — CLI Code only launches the tool, it doesn't handle authentication. Complete the assistant's own login flow once (in any terminal); it will remember you afterwards.
 
 **My assistant isn't in the list.**
 You can add any terminal-based assistant — see [Adding your own](#adding-your-own-assistant) below.
