@@ -16,3 +16,4 @@ images/icon.svg
 *.vsix
 bun.lock
 package-lock.json
+.codegraph
