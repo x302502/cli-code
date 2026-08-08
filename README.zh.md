@@ -39,11 +39,20 @@ CLI Code 只负责**启动**助手 —— 它不会安装它们。请确保你�
 | [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                            | `droid`       |
 | [Kiro CLI](https://kiro.dev)                                                               | `kiro-cli`    |
 | [CommandCode](https://github.com/just-every/code)                                          | `commandcode` |
+| [Pi](https://pi.dev)                                                                       | `pi`          |
+| [Kilo](https://kilo.ai)                                                                    | `kilo`        |
 
 > ⚠️ **先安装*并*登录。** 大多数助手在运行前需要先完成身份验证 —— `claude`
 > （登录 Anthropic 账号）、`codex`（OpenAI 登录 / API key）等等。请在普通终端中先运行每个工具一次，完成其登录流程，并确认它能启动。
 >
 > 💡 提示：如果某个命令在普通终端里能运行，那它在这里也能运行。
+
+### 🚨 助手启动时已禁用授权确认
+
+每个 CLI 都会带上各自的绕过权限参数启动（`claude --dangerously-skip-permissions`、
+`codex --dangerously-bypass-approvals-and-sandbox` 等），因此助手执行命令和修改文件时
+**不会先征求你的同意**。这样很快，但也意味着不受信任的代码仓库可能诱导助手执行破坏性或
+泄露数据的操作。请只在你信任的代码上使用 CLI Code，或者自己在普通终端中启动这些助手。
 
 ## 如何使用
 

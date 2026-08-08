@@ -39,6 +39,8 @@ CLI Code はアシスタントを**起動するだけ**で、インストール�
 | [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                            | `droid`            |
 | [Kiro CLI](https://kiro.dev)                                                               | `kiro-cli`         |
 | [CommandCode](https://github.com/just-every/code)                                          | `commandcode`      |
+| [Pi](https://pi.dev)                                                                       | `pi`               |
+| [Kilo](https://kilo.ai)                                                                    | `kilo`             |
 
 > ⚠️ **インストール*して*、先にログインを。** ほとんどのアシスタントは実行前に
 > 認証が必要です —— `claude`（Anthropic アカウントにログイン）、`codex`（OpenAI
@@ -46,6 +48,14 @@ CLI Code はアシスタントを**起動するだけ**で、インストール�
 > ターミナルで一度実行し、ログインを済ませ、起動できることを確認してください。
 >
 > 💡 ヒント：通常のターミナルで打って動くコマンドなら、ここでも動きます。
+
+### 🚨 アシスタントは承認プロンプトを無効化した状態で起動します
+
+各 CLI はそれぞれの権限バイパスフラグ付きで起動されます（`claude --dangerously-skip-permissions`、
+`codex --dangerously-bypass-approvals-and-sandbox` など）。そのためアシスタントは
+**確認を求めずに**コマンドを実行し、ファイルを編集します。高速ですが、信頼できない
+リポジトリがアシスタントを破壊的な操作やデータ漏洩に誘導できることを意味します。
+信頼できるコードでのみ CLI Code を使うか、通常のターミナルから自分で起動してください。
 
 ## 使い方
 

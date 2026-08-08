@@ -39,6 +39,8 @@ CLI Code _launches_ the assistants — it doesn't install them. Make sure the on
 | [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                            | `droid`          |
 | [Kiro CLI](https://kiro.dev)                                                               | `kiro-cli`       |
 | [CommandCode](https://github.com/just-every/code)                                          | `commandcode`    |
+| [Pi](https://pi.dev)                                                                       | `pi`             |
+| [Kilo](https://kilo.ai)                                                                    | `kilo`           |
 
 > ⚠️ **Install _and_ sign in first.** Most assistants need to be authenticated
 > before they'll run — `claude` (log in to your Anthropic account), `codex`
@@ -46,6 +48,15 @@ CLI Code _launches_ the assistants — it doesn't install them. Make sure the on
 > once in a normal terminal, complete its login flow, and confirm it starts.
 >
 > 💡 Tip: if a command works when you type it in a normal terminal, it'll work here.
+
+### 🚨 Assistants launch with approval prompts disabled
+
+Each CLI is started with its own bypass flag (`claude --dangerously-skip-permissions`,
+`codex --dangerously-bypass-approvals-and-sandbox`, and so on), so the agent runs
+commands and edits files **without asking you first**. That's fast, but it means a
+repository you don't trust can steer the agent into destructive or data-leaking
+actions. Only use CLI Code on code you trust, or launch the assistants yourself from
+a plain terminal instead.
 
 ## How to use it
 

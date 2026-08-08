@@ -39,6 +39,8 @@ CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc
 | [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                            | `droid`       |
 | [Kiro CLI](https://kiro.dev)                                                               | `kiro-cli`    |
 | [CommandCode](https://github.com/just-every/code)                                          | `commandcode` |
+| [Pi](https://pi.dev)                                                                       | `pi`          |
+| [Kilo](https://kilo.ai)                                                                    | `kilo`        |
 
 > ⚠️ **Cài đặt _và_ đăng nhập trước.** Hầu hết trợ lý cần được xác thực trước
 > khi chạy — `claude` (đăng nhập tài khoản Anthropic), `codex` (đăng nhập
@@ -47,6 +49,14 @@ CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc
 > động được.
 >
 > 💡 Mẹo: nếu một lệnh chạy được khi bạn gõ trong terminal thường, thì nó cũng chạy được ở đây.
+
+### 🚨 Các trợ lý được khởi chạy với chế độ bỏ qua hỏi quyền
+
+Mỗi CLI được khởi chạy kèm cờ bỏ qua quyền của riêng nó (`claude --dangerously-skip-permissions`,
+`codex --dangerously-bypass-approvals-and-sandbox`, v.v.), nên trợ lý sẽ chạy lệnh và
+sửa file **mà không hỏi bạn trước**. Cách này nhanh, nhưng đồng nghĩa một repository
+bạn không tin tưởng có thể điều khiển trợ lý thực hiện hành vi phá hoại hoặc rò rỉ dữ
+liệu. Chỉ dùng CLI Code với mã nguồn bạn tin tưởng, hoặc tự mở trợ lý từ terminal thường.
 
 ## Cách sử dụng
 
