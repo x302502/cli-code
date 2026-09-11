@@ -25,10 +25,6 @@ export class Session {
   private listener: ((chunk: Uint8Array) => void) | undefined
   private unacked = 0
   private paused = false
-  // Resolves once the mirror's parser has processed the most recent write.
-  // Terminal.write() is asynchronous, so snapshot() must wait on this before
-  // serializing, otherwise it could read a stale buffer.
-  private parsed: Promise<void> = Promise.resolve()
   // While a client is re-attaching, PTY output is held here instead of being
   // forwarded live, so it can be replayed after the snapshot is delivered.
   private backlog: Uint8Array[] | undefined
@@ -47,7 +43,7 @@ export class Session {
     this.pty.onData((data) => {
       // The headless mirror is always fed, even when nobody is attached — this
       // is what lets a snapshot be rebuilt correctly after a reload.
-      this.parsed = new Promise<void>((resolve) => this.mirror.write(data, resolve))
+      this.mirror.write(data)
       const chunk = new TextEncoder().encode(data)
       // Backpressure only tracks bytes owed to an actual listener: a detached
       // session (client gone during Reload Window) must never pause its PTY,
@@ -73,7 +69,10 @@ export class Session {
   async attach(onSnapshot: (text: string) => void, onOutput: (chunk: Uint8Array) => void): Promise<void> {
     const backlog: Uint8Array[] = []
     this.backlog = backlog
-    const text = await this.snapshot()
+    // Queue the snapshot marker before any later chunk can arrive, so every
+    // byte that comes in during the await lands in `backlog`, not in the
+    // snapshot.
+    const text = await this.snapshotAtMarker()
     onSnapshot(text)
     this.backlog = undefined
     this.listener = onOutput
@@ -82,6 +81,10 @@ export class Session {
 
   /** Detaches the client while leaving the PTY running. This is the mechanism that keeps a session alive across Reload Window. */
   detach(): void {
+    // Deliver any coalesced bytes to the departing listener now and empty the
+    // queue — otherwise a later attach() within COALESCE_MS would receive a
+    // flush of pre-detach bytes that are already covered by its snapshot.
+    this.coalescer.flush()
     this.listener = undefined
     this.backlog = undefined
     this.unacked = 0
@@ -107,13 +110,21 @@ export class Session {
     this.applyBackpressure()
   }
 
-  async snapshot(): Promise<string> {
-    await this.parsed
-    return this.serializer.serialize()
+  snapshot(): Promise<string> {
+    return this.snapshotAtMarker()
   }
 
   kill(): void {
     if (!this.exit) this.pty.kill()
+  }
+
+  /**
+   * Serialize inside a marker write's callback so the snapshot reflects exactly
+   * the writes queued before this call — xterm parses its whole queue in one
+   * macrotask, so awaiting an earlier write's callback is not a stable cut point.
+   */
+  private snapshotAtMarker(): Promise<string> {
+    return new Promise<string>((resolve) => this.mirror.write("", () => resolve(this.serializer.serialize())))
   }
 
   private forward(chunk: Uint8Array): void {

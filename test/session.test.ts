@@ -98,17 +98,41 @@ describe("Session", () => {
     expect(calls.paused).toBe(1)
   })
 
-  it("attach gửi snapshot trước, rồi mới forward byte tới trong lúc chờ snapshot", async () => {
+  it("attach gửi snapshot trước, rồi mới forward byte tới trong lúc chờ snapshot — không nhân đôi", async () => {
     const { session, emit } = makeSession()
     emit("cu")
     const order: string[] = []
+    let snapshotText = ""
     const done = session.attach(
-      (text) => order.push("snapshot:" + (text.includes("cu") ? "co-cu" : "thieu")),
+      (text) => {
+        snapshotText = text
+        order.push("snapshot")
+      },
       (chunk) => order.push("data:" + new TextDecoder().decode(chunk)),
     )
     emit("moi")
     await done
-    expect(order[0]).toBe("snapshot:co-cu")
-    expect(order).toContain("data:moi")
+    expect(order[0]).toBe("snapshot")
+    expect(snapshotText).toContain("cu")
+    expect(snapshotText).not.toContain("moi")
+    expect(order.filter((o) => o === "data:moi").length).toBe(1)
+  })
+
+  it("detach xả hết coalescer để byte cũ không rò sang listener sau attach", async () => {
+    let pending: (() => void) | undefined
+    const { session, emit } = makeSession((fn) => (pending = fn))
+    const first: string[] = []
+    session.onOutput((c) => first.push(new TextDecoder().decode(c)))
+    emit("truoc")
+    expect(first).toEqual([])
+    session.detach()
+    expect(first).toEqual(["truoc"])
+    const second: string[] = []
+    await session.attach(
+      () => {},
+      (c) => second.push(new TextDecoder().decode(c)),
+    )
+    pending?.()
+    expect(second).toEqual([])
   })
 })
