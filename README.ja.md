@@ -13,6 +13,7 @@
 **CLI Code** は、それらすべてをショートカット一つの距離に置きます：
 
 - キーを押す → アシスタントを選ぶ → **エディタの隣**のターミナルで開きます。
+- 各アシスタントはターミナルタブに**独自のアイコン**を表示します（アイコンは [Orca](https://github.com/stablyai/orca) より）。
 - 別のキーを押す → **今見ているファイル**（と選択した行）がアシスタントのプロンプトに入ります。コピペ不要。
 
 ## はじめに
@@ -27,20 +28,43 @@ VS Code で**拡張機能**ビュー（`Cmd/Ctrl + Shift + X`）を開き、**CL
 
 CLI Code はアシスタントを**起動するだけ**で、インストールはしません。使いたいアシスタントがインストール済みで、ターミナルから実行できることを確認してください。標準で以下を認識します：
 
-| アシスタント                                                                               | ターミナルコマンド |
-| ------------------------------------------------------------------------------------------ | ------------------ |
-| [Claude Code](https://code.claude.com/docs/en/setup)                                       | `claude`           |
-| [Codex CLI](https://developers.openai.com/codex/cli)                                       | `codex`            |
-| [Mimo](https://github.com/XiaomiMiMo/MiMo-Code)                                            | `mimo`             |
-| [Antigravity](https://antigravity.google)                                                  | `agy`              |
-| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot`          |
-| [opencode](https://opencode.ai)                                                            | `opencode`         |
-| [Amp](https://ampcode.com)                                                                 | `amp`              |
-| [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                            | `droid`            |
-| [Kiro CLI](https://kiro.dev)                                                               | `kiro-cli`         |
-| [CommandCode](https://github.com/just-every/code)                                          | `commandcode`      |
-| [Pi](https://pi.dev)                                                                       | `pi`               |
-| [Kilo](https://kilo.ai)                                                                    | `kilo`             |
+| アシスタント                                                                                           | ターミナルコマンド           |
+| ------------------------------------------------------------------------------------------------ | ------------------- |
+| [Claude Code](https://code.claude.com/docs/en/setup)                                             | `claude`            |
+| [Claude Agent Teams](https://code.claude.com/docs/en/agent-teams)                                | `claude`              |
+| [Codex CLI](https://developers.openai.com/codex/cli)                                             | `codex`             |
+| [Grok](https://x.ai/cli)                                                                         | `grok`              |
+| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli)       | `copilot`           |
+| [opencode](https://opencode.ai)                                                                  | `opencode`          |
+| [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code)                                             | `mimo`              |
+| [Pi](https://pi.dev)                                                                             | `pi`                |
+| [OMP](https://omp.sh)                                                                            | `omp`               |
+| [Antigravity](https://antigravity.google)                                                        | `agy`               |
+| [Amp](https://ampcode.com)                                                                       | `amp`               |
+| [Kilocode](https://kilo.ai)                                                                      | `kilo`              |
+| [Cline](https://cline.bot)                                                                       | `cline`             |
+| [Command Code](https://github.com/just-every/code)                                               | `command-code`      |
+| [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                                  | `droid`             |
+| [OpenClaude](https://openclaude.gitlawb.com/)                                                    | `openclaude`        |
+| [Ante](https://github.com/AntigmaLabs/ante-preview)                                              | `ante`              |
+| [Trae](https://docs.trae.cn/cli_get-started-with-trae-cli)                                       | `traecli`           |
+| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent)                                  | `prime-agent`       |
+| [Aider](https://aider.chat/docs/)                                                                | `aider`             |
+| [Goose](https://block.github.io/goose/docs/quickstart/)                                          | `goose`             |
+| [Kiro](https://kiro.dev)                                                                         | `kiro-cli`          |
+| [Charm / Crush](https://github.com/charmbracelet/crush)                                          | `crush`             |
+| [Auggie](https://docs.augmentcode.com/cli/overview)                                              | `auggie`            |
+| [Autohand Code](https://github.com/autohandai/code-cli)                                          | `autohand`          |
+| [Codebuff](https://www.codebuff.com/docs/help/quick-start)                                       | `codebuff`          |
+| [Continue](https://docs.continue.dev/guides/cli)                                                 | `cn`                |
+| [Cursor](https://cursor.com/cli)                                                                 | `cursor-agent`      |
+| [Kimi](https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html)                     | `kimi`              |
+| [Mistral Vibe](https://github.com/mistralai/mistral-vibe)                                        | `vibe`              |
+| [Qwen Code](https://github.com/QwenLM/qwen-code)                                                 | `qwen`              |
+| [Rovo Dev](https://support.atlassian.com/rovo/docs/install-and-run-rovo-dev-cli-on-your-device/) | `rovo`              |
+| [Hermes](https://hermes-agent.nousresearch.com/docs/)                                            | `hermes`            |
+| [Devin](https://devin.ai/cli)                                                                    | `devin`             |
+| [OpenClaw](https://github.com/openclaw/openclaw)                                                 | `openclaw`          |
 
 > ⚠️ **インストール*して*、先にログインを。** ほとんどのアシスタントは実行前に
 > 認証が必要です —— `claude`（Anthropic アカウントにログイン）、`codex`（OpenAI

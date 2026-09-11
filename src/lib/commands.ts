@@ -5,7 +5,7 @@ import { findExistingTerminal, findToolForTerminal, openTerminal, pickTool, read
 
 /** Opens a CLI terminal, optionally reusing an already-open one for the chosen tool. */
 export async function openCli(context: vscode.ExtensionContext, options: { reuseExisting: boolean }) {
-  const tool = await pickTool()
+  const tool = await pickTool(context)
   if (!tool) return
 
   if (options.reuseExisting) {

@@ -59,9 +59,41 @@ export function makeTerminal(name: string, env?: Record<string, string>): FakeTe
 
 const ViewColumn = { Beside: -2 }
 
+const QuickPickItemKind = { Separator: 2, Default: 0 }
+
+function createQuickPick<T extends { id?: string }>(): {
+  placeholder: string
+  busy: boolean
+  items: T[]
+  selectedItems: T[]
+  onDidAccept: (cb: () => void) => void
+  onDidHide: (cb: () => void) => void
+  show: () => void
+  hide: () => void
+  dispose: () => void
+} {
+  return {
+    placeholder: "",
+    busy: false,
+    items: [],
+    selectedItems: [],
+    onDidAccept: () => {},
+    onDidHide: () => {},
+    show: () => {},
+    hide: () => {},
+    dispose: () => {},
+  }
+}
+
+class ThemeIcon {
+  constructor(public id: string) {}
+}
+
 const vscode = {
   ViewColumn,
   TabInputTerminal,
+  QuickPickItemKind,
+  ThemeIcon,
   Uri: {
     file: (p: string) => ({ fsPath: p, toString: () => p }),
   },
@@ -79,10 +111,12 @@ const vscode = {
       return { all: state.tabGroups }
     },
     showQuickPick: mock(async () => state.quickPickResult),
+    createQuickPick: mock(() => createQuickPick()),
     createTerminal: mock((options: Record<string, unknown>) => {
       state.createdTerminals.push(options)
       return makeTerminal(options.name as string, options.env as Record<string, string>)
     }),
+    showWarningMessage: mock(async () => undefined),
   },
   workspace: {
     getWorkspaceFolder: mock(() => state.workspaceFolder),

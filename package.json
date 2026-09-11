@@ -1,8 +1,8 @@
 {
   "name": "cli-code",
   "displayName": "CLI Code",
-  "description": "Launch and switch between AI coding CLIs (Claude, Codex, Antigravity, opencode, and more) from a VS Code terminal.",
-  "version": "0.1.4",
+  "description": "Launch and switch between AI coding CLIs (Claude, Codex, Antigravity, opencode, Cline, and more) from a VS Code terminal.",
+  "version": "0.1.7",
   "publisher": "x302502",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -31,7 +31,9 @@
     "Other",
     "Machine Learning"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
