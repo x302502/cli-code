@@ -32,7 +32,8 @@
     "Machine Learning"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onWebviewPanel:cliCode.terminal"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -56,6 +57,10 @@
       {
         "command": "cli-code.addFilepath",
         "title": "CLI: Insert At-Mentioned"
+      },
+      {
+        "command": "cli-code.openPanel",
+        "title": "CLI Code: Open (new terminal)"
       }
     ],
     "menus": {

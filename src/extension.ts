@@ -1,6 +1,7 @@
 import * as vscode from "vscode"
 import { addFilepathToTerminal, openCli } from "./lib/commands.js"
-import { findToolForTerminal } from "./lib/terminal.js"
+import { openTerminalPanel, restoreTerminalPanel, VIEW_TYPE, type PanelState } from "./lib/panel.js"
+import { findToolForTerminal, pickTool } from "./lib/terminal.js"
 import { startTitleSync } from "./lib/title-sync.js"
 
 export function activate(context: vscode.ExtensionContext) {
@@ -8,6 +9,19 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("cli-code.open", () => openCli(context, { reuseExisting: true })),
     vscode.commands.registerCommand("cli-code.openNew", () => openCli(context, { reuseExisting: false })),
     vscode.commands.registerCommand("cli-code.addFilepath", addFilepathToTerminal),
+    vscode.commands.registerCommand("cli-code.openPanel", async () => {
+      const tool = await pickTool(context)
+      if (tool) await openTerminalPanel(context, tool)
+    }),
+    vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
+      async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: PanelState | undefined) {
+        if (!state?.sessionId) {
+          panel.dispose()
+          return
+        }
+        await restoreTerminalPanel(context, panel, state)
+      },
+    }),
   )
 
   // Start watching session history (Claude, etc.) to automatically rename tabs to the latest prompt
