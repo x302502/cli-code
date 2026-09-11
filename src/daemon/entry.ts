@@ -11,8 +11,9 @@ void startDaemon({
   socketPath,
   spawnPty: (opts): PtyLike => {
     // Run through the user's login shell so PATH and aliases match a normal terminal.
+    // SHELL is ignored on win32: a POSIX SHELL (e.g. from Git Bash) must not pair with the -NoLogo/-Command args below.
     const posixFallback = process.platform === "darwin" ? "/bin/zsh" : "/bin/bash"
-    const shell = process.env.SHELL ?? (process.platform === "win32" ? "powershell.exe" : posixFallback)
+    const shell = process.platform === "win32" ? "powershell.exe" : (process.env.SHELL ?? posixFallback)
     const args = process.platform === "win32" ? ["-NoLogo", "-Command", opts.command] : ["-lc", opts.command]
     return pty.spawn(shell, args, {
       name: "xterm-256color",
