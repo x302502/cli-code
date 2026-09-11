@@ -2,16 +2,6 @@ import { Terminal } from "@xterm/headless"
 import { SerializeAddon } from "@xterm/addon-serialize"
 import { COALESCE_MS, createCoalescer, nextPauseState } from "../lib/flow-control.js"
 
-// Terminal.write() queues data asynchronously (it schedules a setTimeout
-// internally), so a snapshot() taken right after new output could see a
-// stale buffer. CoreTerminal exposes a synchronous writeSync for this exact
-// case, but it isn't part of the public typings, so we reach through the
-// internal `_core` field on purpose. logLevel is set to "off" in the
-// constructor below to mute writeSync's own deprecation warning.
-function writeSyncToMirror(mirror: Terminal, data: string): void {
-  ;(mirror as unknown as { _core: { writeSync(data: string): void } })._core.writeSync(data)
-}
-
 export type PtyLike = {
   onData(cb: (data: string) => void): void
   onExit(cb: (e: { exitCode: number; signal?: number }) => void): void
@@ -35,6 +25,14 @@ export class Session {
   private listener: ((chunk: Uint8Array) => void) | undefined
   private unacked = 0
   private paused = false
+  // Resolves once the mirror's parser has processed the most recent write.
+  // Terminal.write() is asynchronous, so snapshot() must wait on this before
+  // serializing, otherwise it could read a stale buffer.
+  private parsed: Promise<void> = Promise.resolve()
+  // While a client is re-attaching, PTY output is held here instead of being
+  // forwarded live, so it can be replayed after the snapshot is delivered.
+  private backlog: Uint8Array[] | undefined
+  private readonly coalescer: { push(chunk: Uint8Array): void; flush(): void }
 
   constructor(
     readonly id: string,
@@ -44,21 +42,18 @@ export class Session {
     private readonly serializer: SerializeAddon,
     schedule: (fn: () => void, ms: number) => unknown,
   ) {
-    const coalescer = createCoalescer(COALESCE_MS, (chunk) => this.listener?.(chunk), schedule)
+    this.coalescer = createCoalescer(COALESCE_MS, (chunk) => this.listener?.(chunk), schedule)
 
     this.pty.onData((data) => {
       // The headless mirror is always fed, even when nobody is attached — this
       // is what lets a snapshot be rebuilt correctly after a reload.
-      writeSyncToMirror(this.mirror, data)
+      this.parsed = new Promise<void>((resolve) => this.mirror.write(data, resolve))
+      const chunk = new TextEncoder().encode(data)
       // Backpressure only tracks bytes owed to an actual listener: a detached
       // session (client gone during Reload Window) must never pause its PTY,
       // since nobody would be left to ack it and the CLI would stall forever.
-      if (this.listener) {
-        const chunk = new TextEncoder().encode(data)
-        this.unacked += chunk.length
-        this.applyBackpressure()
-        coalescer.push(chunk)
-      }
+      if (this.backlog) this.backlog.push(chunk)
+      else if (this.listener) this.forward(chunk)
     })
 
     this.pty.onExit((e) => {
@@ -70,9 +65,25 @@ export class Session {
     this.listener = cb
   }
 
+  /**
+   * Re-attach a client after a reload. Bytes that arrive while the parser
+   * drains are held back and forwarded only after the snapshot has been
+   * delivered, so the client never sees data older than its snapshot.
+   */
+  async attach(onSnapshot: (text: string) => void, onOutput: (chunk: Uint8Array) => void): Promise<void> {
+    const backlog: Uint8Array[] = []
+    this.backlog = backlog
+    const text = await this.snapshot()
+    onSnapshot(text)
+    this.backlog = undefined
+    this.listener = onOutput
+    for (const chunk of backlog) this.forward(chunk)
+  }
+
   /** Detaches the client while leaving the PTY running. This is the mechanism that keeps a session alive across Reload Window. */
   detach(): void {
     this.listener = undefined
+    this.backlog = undefined
     this.unacked = 0
     if (this.paused) {
       this.paused = false
@@ -96,12 +107,19 @@ export class Session {
     this.applyBackpressure()
   }
 
-  snapshot(): string {
+  async snapshot(): Promise<string> {
+    await this.parsed
     return this.serializer.serialize()
   }
 
   kill(): void {
     if (!this.exit) this.pty.kill()
+  }
+
+  private forward(chunk: Uint8Array): void {
+    this.unacked += chunk.length
+    this.applyBackpressure()
+    this.coalescer.push(chunk)
   }
 
   private applyBackpressure(): void {
@@ -124,13 +142,7 @@ export function createSession(args: {
   spawnPty: SpawnPty
   schedule?: (fn: () => void, ms: number) => unknown
 }): Session {
-  const mirror = new Terminal({
-    cols: args.cols,
-    rows: args.rows,
-    scrollback: 5000,
-    allowProposedApi: true,
-    logLevel: "off",
-  })
+  const mirror = new Terminal({ cols: args.cols, rows: args.rows, scrollback: 5000, allowProposedApi: true })
   const serializer = new SerializeAddon()
   mirror.loadAddon(serializer)
 

@@ -72,13 +72,13 @@ describe("Session", () => {
     expect(calls.written).toEqual([])
   })
 
-  it("snapshot dựng lại được nội dung đã in ra", () => {
+  it("snapshot dựng lại được nội dung đã in ra", async () => {
     const { session, emit } = makeSession()
     emit("xin chao")
-    expect(session.snapshot()).toContain("xin chao")
+    expect(await session.snapshot()).toContain("xin chao")
   })
 
-  it("detach gỡ listener nhưng KHÔNG giết PTY — đây chính là điều giữ phiên sống qua reload", () => {
+  it("detach gỡ listener nhưng KHÔNG giết PTY — đây chính là điều giữ phiên sống qua reload", async () => {
     const { session, calls, emit } = makeSession()
     const chunks: Uint8Array[] = []
     session.onOutput((c) => chunks.push(c))
@@ -86,7 +86,7 @@ describe("Session", () => {
     emit("sau khi detach")
     expect(chunks.length).toBe(0)
     expect(calls.killed).toBe(0)
-    expect(session.snapshot()).toContain("sau khi detach")
+    expect(await session.snapshot()).toContain("sau khi detach")
   })
 
   it("không có listener thì output không làm PTY bị pause — phiên detached không được kẹt", () => {
@@ -96,5 +96,19 @@ describe("Session", () => {
     session.onOutput(() => {})
     emit("x".repeat(HIGH_WATER + 1))
     expect(calls.paused).toBe(1)
+  })
+
+  it("attach gửi snapshot trước, rồi mới forward byte tới trong lúc chờ snapshot", async () => {
+    const { session, emit } = makeSession()
+    emit("cu")
+    const order: string[] = []
+    const done = session.attach(
+      (text) => order.push("snapshot:" + (text.includes("cu") ? "co-cu" : "thieu")),
+      (chunk) => order.push("data:" + new TextDecoder().decode(chunk)),
+    )
+    emit("moi")
+    await done
+    expect(order[0]).toBe("snapshot:co-cu")
+    expect(order).toContain("data:moi")
   })
 })
