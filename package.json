@@ -61,6 +61,10 @@
       {
         "command": "cli-code.openPanel",
         "title": "CLI Code: Open (new terminal)"
+      },
+      {
+        "command": "cli-code.renameTab",
+        "title": "CLI Code: Đổi tên tab"
       }
     ],
     "menus": {

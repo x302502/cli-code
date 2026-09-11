@@ -1,6 +1,13 @@
 import * as vscode from "vscode"
 import { addFilepathToTerminal, openCli } from "./lib/commands.js"
-import { openTerminalPanel, restoreTerminalPanel, VIEW_TYPE, type PanelState } from "./lib/panel.js"
+import {
+  activeTerminalPanel,
+  openTerminalPanel,
+  restoreTerminalPanel,
+  setCustomTitle,
+  VIEW_TYPE,
+  type PanelState,
+} from "./lib/panel.js"
 import { findToolForTerminal, pickTool } from "./lib/terminal.js"
 import { startTitleSync } from "./lib/title-sync.js"
 
@@ -12,6 +19,12 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("cli-code.openPanel", async () => {
       const tool = await pickTool(context)
       if (tool) await openTerminalPanel(context, tool)
+    }),
+    vscode.commands.registerCommand("cli-code.renameTab", async () => {
+      const panel = activeTerminalPanel()
+      if (!panel) return
+      const title = await vscode.window.showInputBox({ prompt: "Tên mới cho tab", value: panel.title })
+      if (title?.trim()) setCustomTitle(panel, title.trim())
     }),
     vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
       async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: PanelState | undefined) {

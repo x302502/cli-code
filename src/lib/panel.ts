@@ -11,14 +11,30 @@ import { resolveTabTitle } from "./tab-title.js"
 export const VIEW_TYPE = "cliCode.terminal"
 const DAEMON_ID_KEY = "cliCode.daemonId"
 
-export type PanelState = { sessionId: string; toolId: string }
+export type PanelState = { sessionId: string; toolId: string; customTitle?: string }
 
-// Registries for Tasks 10/11 (rename, focus tracking, writing at-mentions into the
-// active session). Populated here, consumed later — no rename logic in this task.
+// Registries for rename (Task 10) and Task 11 (focus tracking, writing at-mentions
+// into the active session).
 const activePanels = new Set<vscode.WebviewPanel>()
 const panelTools = new WeakMap<vscode.WebviewPanel, CliTool>()
 const panelConnections = new WeakMap<vscode.WebviewPanel, SessionConnection>()
 const customTitles = new WeakMap<vscode.WebviewPanel, string>()
+// Each panel's message sender from wirePanel, so setCustomTitle can push the updated
+// state to the webview (which persists it via vscode.setState for the next Reload Window).
+const panelSenders = new WeakMap<vscode.WebviewPanel, (msg: unknown) => void>()
+
+/** Sets a panel's custom title, updates the tab, and persists it across Reload Window. */
+export function setCustomTitle(panel: vscode.WebviewPanel, title: string): void {
+  customTitles.set(panel, title)
+  panel.title = resolveTabTitle({ customTitle: title, toolLabel: panelTools.get(panel)?.label ?? panel.title })
+
+  const send = panelSenders.get(panel)
+  const connection = panelConnections.get(panel)
+  if (send && connection) {
+    const toolId = panelTools.get(panel)?.id
+    send({ type: "state", state: { sessionId: connection.sessionId, toolId, customTitle: title } })
+  }
+}
 
 /** First terminal panel that currently has editor focus, if any. */
 export function activeTerminalPanel(): vscode.WebviewPanel | undefined {
@@ -141,6 +157,8 @@ export async function restoreTerminalPanel(
     showGone(context, panel, tool)
     return
   }
+  // Restore the custom title before wiring so the first title/state posted is already correct.
+  if (state.customTitle) customTitles.set(panel, state.customTitle)
   wirePanel(context, panel, tool, connection)
 }
 
@@ -191,6 +209,7 @@ function wirePanel(
     if (ready) void panel.webview.postMessage(msg)
     else pending.push(msg)
   }
+  panelSenders.set(panel, send)
 
   connection.onSnapshot((text) => send({ type: "snapshot", text }))
   connection.onData((bytes) => send({ type: "data", bytes }))
@@ -205,7 +224,10 @@ function wirePanel(
       for (const msg of pending) void panel.webview.postMessage(msg)
       pending.length = 0
       // This state is what VS Code hands back to the serializer after a Reload Window.
-      void panel.webview.postMessage({ type: "state", state: { sessionId: connection.sessionId, toolId: tool.id } })
+      void panel.webview.postMessage({
+        type: "state",
+        state: { sessionId: connection.sessionId, toolId: tool.id, customTitle: customTitles.get(panel) },
+      })
     }
   })
 
