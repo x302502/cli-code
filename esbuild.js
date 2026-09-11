@@ -27,6 +27,7 @@ const esbuildProblemMatcherPlugin = {
 const entries = [
   { entryPoints: ["src/extension.ts"], outfile: "dist/extension.js", external: ["vscode", "node-pty"] },
   { entryPoints: ["src/daemon/entry.ts"], outfile: "dist/daemon.js", external: ["node-pty"] },
+  { entryPoints: ["src/webview/main.ts"], outfile: "dist/webview.js", platform: "browser", format: "iife" },
 ]
 
 async function main() {

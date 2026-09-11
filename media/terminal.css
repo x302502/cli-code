@@ -1,0 +1,13 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--vscode-terminal-background, var(--vscode-editor-background));
+}
+#term {
+  height: 100%;
+  padding: 4px;
+  box-sizing: border-box;
+}
