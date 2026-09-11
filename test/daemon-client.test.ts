@@ -5,6 +5,7 @@ import * as path from "node:path"
 import { startDaemon } from "../src/daemon/server.js"
 import { connectSession, daemonSocketPath } from "../src/lib/daemon-client.js"
 import type { PtyLike } from "../src/daemon/session.js"
+import { MSG, encodeFrame, encodeJsonFrame } from "../src/lib/protocol.js"
 
 let stop: (() => Promise<void>) | undefined
 afterEach(async () => {
@@ -86,12 +87,27 @@ describe("connectSession", () => {
     const p = tmpSocket()
     const harness = fakePty()
     const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty })
+    stop = daemon.close
     const connection = await connectSession(p, spawnHello)
     let closed = false
     connection!.onClose(() => (closed = true))
     await daemon.close()
     for (let i = 0; i < 50 && !closed; i++) await new Promise((r) => setTimeout(r, 10))
     expect(closed).toBe(true)
+  })
+
+  it("dispose() không tự kích hoạt onClose", async () => {
+    const p = tmpSocket()
+    const harness = fakePty()
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty })
+    stop = daemon.close
+
+    const connection = await connectSession(p, spawnHello)
+    let closed = false
+    connection!.onClose(() => (closed = true))
+    connection!.dispose()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(closed).toBe(false)
   })
 
   it("trả undefined khi daemon không trả lời bắt tay trong thời hạn", async () => {
@@ -102,6 +118,45 @@ describe("connectSession", () => {
       expect(await connectSession(p, spawnHello, 100)).toBeUndefined()
     } finally {
       await new Promise<void>((r) => silent.close(() => r()))
+    }
+  })
+
+  it("gộp Snapshot và Data cùng đợt với HelloOk vẫn được nhận đủ và đúng thứ tự", async () => {
+    const p = tmpSocket()
+    const server = net.createServer((socket) => {
+      socket.once("data", () => {
+        const helloOk = encodeJsonFrame(MSG.HelloOk, { sessionId: "phien-gop" })
+        const snapshot = encodeFrame(MSG.Snapshot, new TextEncoder().encode("noi dung cu"))
+        const data = encodeFrame(MSG.Data, new TextEncoder().encode("khung moi"))
+        const combined = new Uint8Array(helloOk.length + snapshot.length + data.length)
+        combined.set(helloOk, 0)
+        combined.set(snapshot, helloOk.length)
+        combined.set(data, helloOk.length + snapshot.length)
+        // Write all three frames in ONE chunk, same as a real daemon does on attach.
+        socket.write(combined)
+      })
+    })
+    await new Promise<void>((r) => server.listen(p, r))
+    try {
+      const connection = await connectSession(p, spawnHello)
+      expect(connection).toBeDefined()
+
+      // Handlers are registered only AFTER connectSession resolves, i.e. after
+      // the same chunk's Snapshot/Data frames were already decoded.
+      const snapshots: string[] = []
+      const chunks: Uint8Array[] = []
+      connection!.onSnapshot((text) => snapshots.push(text))
+      connection!.onData((c) => chunks.push(c))
+
+      for (let i = 0; i < 50 && (snapshots.length === 0 || chunks.length === 0); i++) {
+        await new Promise((r) => setTimeout(r, 10))
+      }
+      expect(snapshots).toEqual(["noi dung cu"])
+      expect(chunks.length).toBe(1)
+      expect(new TextDecoder().decode(chunks[0])).toBe("khung moi")
+      connection!.dispose()
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()))
     }
   })
 })

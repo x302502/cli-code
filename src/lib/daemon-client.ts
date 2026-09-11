@@ -43,11 +43,21 @@ export function connectSession(
     const socket = net.createConnection(socketPath)
     const decode = createFrameDecoder()
     let settled = false
+    let disposed = false
 
     let onData: ((chunk: Uint8Array) => void) | undefined
     let onSnapshot: ((text: string) => void) | undefined
     let onExit: ((e: { code: number; signal?: number }) => void) | undefined
     let onClose: (() => void) | undefined
+
+    // Frames (and the close signal) can arrive before the consumer has had a
+    // chance to register its handler — e.g. Snapshot/Data land in the same
+    // chunk as HelloOk, decoded synchronously while the awaited connectSession
+    // promise has only just resolved. Queue them and drain on registration.
+    const pendingData: Uint8Array[] = []
+    const pendingSnapshot: string[] = []
+    const pendingExit: { code: number; signal?: number }[] = []
+    let closePending = false
 
     const timer = setTimeout(fail, timeoutMs)
 
@@ -61,43 +71,80 @@ export function connectSession(
 
     socket.on("error", fail)
     // Before the handshake completes, a close is just a failed connection
-    // attempt. After it, the caller learns via onClose instead.
+    // attempt. After it, the caller learns via onClose instead — unless the
+    // caller itself asked for the close via dispose().
     socket.on("close", () => {
       if (!settled) return fail()
-      onClose?.()
+      if (disposed) return
+      if (onClose) onClose()
+      else closePending = true
     })
 
     socket.on("connect", () => socket.write(encodeJsonFrame(MSG.Hello, hello)))
 
     socket.on("data", (chunk) => {
-      for (const frame of decode(new Uint8Array(chunk))) {
-        if (frame.type === MSG.HelloFail) return fail()
-        if (frame.type === MSG.HelloOk) {
-          if (settled) continue
-          settled = true
-          clearTimeout(timer)
-          const { sessionId } = decodeJsonPayload<{ sessionId: string }>(frame.payload)
-          resolve({
-            sessionId,
-            onData: (cb) => (onData = cb),
-            onSnapshot: (cb) => (onSnapshot = cb),
-            onExit: (cb) => (onExit = cb),
-            onClose: (cb) => (onClose = cb),
-            write: (data) => socket.write(encodeFrame(MSG.Input, new TextEncoder().encode(data))),
-            resize: (cols, rows) => socket.write(encodeJsonFrame(MSG.Resize, { cols, rows })),
-            ack: (bytes) => {
-              const payload = new Uint8Array(4)
-              new DataView(payload.buffer).setUint32(0, bytes, false)
-              socket.write(encodeFrame(MSG.Ack, payload))
-            },
-            kill: () => socket.write(encodeFrame(MSG.Kill, new Uint8Array(0))),
-            dispose: () => socket.destroy(),
-          })
-          continue
+      try {
+        for (const frame of decode(new Uint8Array(chunk))) {
+          if (frame.type === MSG.HelloFail) return fail()
+          if (frame.type === MSG.HelloOk) {
+            if (settled) continue
+            settled = true
+            clearTimeout(timer)
+            const { sessionId } = decodeJsonPayload<{ sessionId: string }>(frame.payload)
+            resolve({
+              sessionId,
+              onData: (cb) => {
+                onData = cb
+                while (pendingData.length > 0) cb(pendingData.shift()!)
+              },
+              onSnapshot: (cb) => {
+                onSnapshot = cb
+                while (pendingSnapshot.length > 0) cb(pendingSnapshot.shift()!)
+              },
+              onExit: (cb) => {
+                onExit = cb
+                while (pendingExit.length > 0) cb(pendingExit.shift()!)
+              },
+              onClose: (cb) => {
+                onClose = cb
+                if (closePending) {
+                  closePending = false
+                  cb()
+                }
+              },
+              write: (data) => socket.write(encodeFrame(MSG.Input, new TextEncoder().encode(data))),
+              resize: (cols, rows) => socket.write(encodeJsonFrame(MSG.Resize, { cols, rows })),
+              ack: (bytes) => {
+                const payload = new Uint8Array(4)
+                new DataView(payload.buffer).setUint32(0, bytes, false)
+                socket.write(encodeFrame(MSG.Ack, payload))
+              },
+              kill: () => socket.write(encodeFrame(MSG.Kill, new Uint8Array(0))),
+              dispose: () => {
+                disposed = true
+                socket.destroy()
+              },
+            })
+            continue
+          }
+          if (frame.type === MSG.Data) {
+            if (onData) onData(frame.payload)
+            else pendingData.push(frame.payload)
+          } else if (frame.type === MSG.Snapshot) {
+            const text = new TextDecoder().decode(frame.payload)
+            if (onSnapshot) onSnapshot(text)
+            else pendingSnapshot.push(text)
+          } else if (frame.type === MSG.Exit) {
+            const e = decodeJsonPayload<{ code: number; signal?: number }>(frame.payload)
+            if (onExit) onExit(e)
+            else pendingExit.push(e)
+          }
         }
-        if (frame.type === MSG.Data) onData?.(frame.payload)
-        else if (frame.type === MSG.Snapshot) onSnapshot?.(new TextDecoder().decode(frame.payload))
-        else if (frame.type === MSG.Exit) onExit?.(decodeJsonPayload(frame.payload))
+      } catch {
+        // A malformed frame must not become an uncaught exception in the
+        // extension host — drop the connection instead.
+        if (!settled) fail()
+        else socket.destroy()
       }
     })
   })
