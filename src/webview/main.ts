@@ -30,7 +30,9 @@ function readFont(): { fontFamily: string; fontSize: number } {
     "monospace"
   const fontSizeRaw =
     style.getPropertyValue("--cli-code-font-size").trim() || style.getPropertyValue("--vscode-editor-font-size").trim()
-  const fontSize = Number(fontSizeRaw) || 13
+  // VS Code's --vscode-editor-font-size carries a "px" suffix (e.g. "14px"), so parseFloat is required —
+  // Number() would return NaN and always fall through to the default.
+  const fontSize = parseFloat(fontSizeRaw) || 13
   return { fontFamily, fontSize }
 }
 
@@ -52,20 +54,21 @@ const term = new Terminal({
 const fit = new FitAddon()
 term.loadAddon(fit)
 
-const unicode11 = new Unicode11Addon()
-term.loadAddon(unicode11)
+term.loadAddon(new Unicode11Addon())
 term.unicode.activeVersion = "11"
 
 term.loadAddon(new SearchAddon())
 term.loadAddon(new WebLinksAddon())
 
 // WebGL renders faster, but if the context is lost it must be torn down instead of used again.
+// This only guards a constructor throw (e.g. very old browsers); if WebGL2 itself is unsupported,
+// xterm raises that later inside term.open() and silently falls back to its DOM renderer on its own.
 try {
   const webgl = new WebglAddon()
   webgl.onContextLoss(() => webgl.dispose())
   term.loadAddon(webgl)
 } catch {
-  // No WebGL available: xterm falls back to its DOM renderer.
+  // Constructor threw: no WebGL available at all.
 }
 
 const termElement = document.getElementById("term")
