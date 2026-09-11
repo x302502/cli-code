@@ -28,6 +28,9 @@ export async function startDaemon(args: {
   // eventual 'close' cannot detach a session another connection has since
   // taken over.
   const owners = new Map<string, net.Socket>()
+  // All currently-open client connections, so close() can drop them instead
+  // of waiting forever for clients to disconnect themselves.
+  const clientSockets = new Set<net.Socket>()
   const idleMs = args.idleMs ?? DEFAULT_IDLE_MS
   let connections = 0
   let idleTimer: ReturnType<typeof setTimeout> | undefined
@@ -35,6 +38,7 @@ export async function startDaemon(args: {
 
   const server = net.createServer((socket) => {
     connections++
+    clientSockets.add(socket)
     if (idleTimer) clearTimeout(idleTimer)
 
     const decode = createFrameDecoder()
@@ -76,6 +80,7 @@ export async function startDaemon(args: {
         owners.delete(session.id)
       }
       connections--
+      clientSockets.delete(socket)
       if (connections === 0) scheduleIdleExit()
     }
     socket.on("close", onGone)
@@ -109,6 +114,7 @@ export async function startDaemon(args: {
       for (const session of sessions.values()) session.kill()
       sessions.clear()
       owners.clear()
+      for (const socket of clientSockets) socket.destroy()
       await new Promise<void>((resolve) => server.close(() => resolve()))
       if (process.platform !== "win32") fs.rmSync(args.socketPath, { force: true })
     },
