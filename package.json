@@ -95,10 +95,11 @@
   },
   "scripts": {
     "vscode:prepublish": "bun run package",
-    "compile": "bun run check-types && bun run lint && bun esbuild.js",
+    "fix-perms": "chmod +x node_modules/node-pty/prebuilds/*/spawn-helper || true",
+    "compile": "bun run check-types && bun run lint && bun run fix-perms && bun esbuild.js",
     "watch:esbuild": "bun esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "bun run check-types && bun run lint && bun esbuild.js --production",
+    "package": "bun run check-types && bun run lint && bun test && bun run fix-perms && bun esbuild.js --production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --write .",

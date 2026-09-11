@@ -23,28 +23,36 @@ const esbuildProblemMatcherPlugin = {
   },
 }
 
+// Each entry may override platform/format; the shared defaults below apply otherwise.
+const entries = [
+  { entryPoints: ["src/extension.ts"], outfile: "dist/extension.js", external: ["vscode", "node-pty"] },
+  { entryPoints: ["src/daemon/entry.ts"], outfile: "dist/daemon.js", external: ["node-pty"] },
+]
+
 async function main() {
-  const ctx = await esbuild.context({
-    entryPoints: ["src/extension.ts"],
-    bundle: true,
-    format: "cjs",
-    minify: production,
-    sourcemap: !production,
-    sourcesContent: false,
-    platform: "node",
-    outfile: "dist/extension.js",
-    external: ["vscode"],
-    logLevel: "silent",
-    plugins: [
-      /* add to the end of plugins array */
-      esbuildProblemMatcherPlugin,
-    ],
-  })
+  const contexts = await Promise.all(
+    entries.map((entry) =>
+      esbuild.context({
+        bundle: true,
+        format: "cjs",
+        minify: production,
+        sourcemap: !production,
+        sourcesContent: false,
+        platform: "node",
+        logLevel: "silent",
+        plugins: [
+          /* add to the end of plugins array */
+          esbuildProblemMatcherPlugin,
+        ],
+        ...entry,
+      }),
+    ),
+  )
   if (watch) {
-    await ctx.watch()
+    await Promise.all(contexts.map((ctx) => ctx.watch()))
   } else {
-    await ctx.rebuild()
-    await ctx.dispose()
+    await Promise.all(contexts.map((ctx) => ctx.rebuild()))
+    await Promise.all(contexts.map((ctx) => ctx.dispose()))
   }
 }
 
