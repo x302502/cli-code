@@ -72,6 +72,14 @@ describe("Session", () => {
     expect(calls.written).toEqual([])
   })
 
+  it("onExit báo cho listener khi PTY thoát", () => {
+    const { session, die } = makeSession()
+    const seen: number[] = []
+    session.onExit((e) => seen.push(e.code))
+    die(7)
+    expect(seen).toEqual([7])
+  })
+
   it("snapshot dựng lại được nội dung đã in ra", async () => {
     const { session, emit } = makeSession()
     emit("xin chao")

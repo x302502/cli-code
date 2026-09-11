@@ -23,6 +23,7 @@ export type SpawnPty = (opts: {
 export class Session {
   exit: { code: number; signal?: number } | undefined
   private listener: ((chunk: Uint8Array) => void) | undefined
+  private exitListener: ((e: { code: number; signal?: number }) => void) | undefined
   private unacked = 0
   private paused = false
   // While a client is re-attaching, PTY output is held here instead of being
@@ -54,11 +55,16 @@ export class Session {
 
     this.pty.onExit((e) => {
       this.exit = { code: e.exitCode, signal: e.signal }
+      this.exitListener?.(this.exit)
     })
   }
 
   onOutput(cb: (chunk: Uint8Array) => void): void {
     this.listener = cb
+  }
+
+  onExit(cb: (e: { code: number; signal?: number }) => void): void {
+    this.exitListener = cb
   }
 
   /**
@@ -86,6 +92,7 @@ export class Session {
     // flush of pre-detach bytes that are already covered by its snapshot.
     this.coalescer.flush()
     this.listener = undefined
+    this.exitListener = undefined
     this.backlog = undefined
     this.unacked = 0
     if (this.paused) {
