@@ -29,6 +29,11 @@ export class Session {
   // While a client is re-attaching, PTY output is held here instead of being
   // forwarded live, so it can be replayed after the snapshot is delivered.
   private backlog: Uint8Array[] | undefined
+  // Bumped by every attach() and detach(). An attach() that resumes after its
+  // snapshot await compares its own token against this: if a detach (or a
+  // newer attach) happened meanwhile, it must not install its listener — that
+  // would forward bytes to a dead socket and grow `unacked` with nobody to ack.
+  private attachGen = 0
   private readonly coalescer: { push(chunk: Uint8Array): void; flush(): void }
 
   constructor(
@@ -82,10 +87,12 @@ export class Session {
     }
     const backlog: Uint8Array[] = []
     this.backlog = backlog
+    const gen = ++this.attachGen
     // Queue the snapshot marker before any later chunk can arrive, so every
     // byte that comes in during the await lands in `backlog`, not in the
     // snapshot.
     const text = await this.snapshotAtMarker()
+    if (gen !== this.attachGen) return
     onSnapshot(text)
     this.backlog = undefined
     this.listener = onOutput
@@ -98,6 +105,7 @@ export class Session {
     // queue — otherwise a later attach() within COALESCE_MS would receive a
     // flush of pre-detach bytes that are already covered by its snapshot.
     this.coalescer.flush()
+    this.attachGen++
     this.listener = undefined
     this.exitListener = undefined
     this.backlog = undefined

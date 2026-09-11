@@ -152,6 +152,10 @@ function handleHello(
         (chunk) => socket.write(encodeFrame(MSG.Data, chunk)),
       )
       .then(() => {
+        // The socket may have closed, or been evicted by a newer attach, while
+        // the snapshot was pending — then it no longer owns the session and
+        // must not overwrite the current owner's exit listener.
+        if (owners.get(existing.id) !== socket) return
         existing.onExit((e) => socket.write(encodeJsonFrame(MSG.Exit, e)))
         if (existing.exit) socket.write(encodeJsonFrame(MSG.Exit, existing.exit))
       })

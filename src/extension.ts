@@ -1,8 +1,18 @@
 import * as vscode from "vscode"
 import { addFilepathToTerminal, openCli } from "./lib/commands.js"
-import { activeTerminalPanel, restoreTerminalPanel, setCustomTitle, VIEW_TYPE, type PanelState } from "./lib/panel.js"
+import {
+  activeTerminalPanel,
+  holdDaemonAlive,
+  restoreTerminalPanel,
+  setCustomTitle,
+  VIEW_TYPE,
+  type PanelState,
+} from "./lib/panel.js"
 
 export function activate(context: vscode.ExtensionContext) {
+  // Restored CLI tabs only connect once they become visible; hold the daemon open in the
+  // meantime so its idle-exit does not kill their sessions. Must not block activation.
+  void holdDaemonAlive(context).then((d) => context.subscriptions.push(d))
   context.subscriptions.push(
     vscode.commands.registerCommand("cli-code.open", () => openCli(context, { reuseExisting: true })),
     vscode.commands.registerCommand("cli-code.openNew", () => openCli(context, { reuseExisting: false })),

@@ -140,9 +140,11 @@ export function connectSession(
             else pendingExit.push(e)
           }
         }
-      } catch {
-        // A malformed frame must not become an uncaught exception in the
-        // extension host — drop the connection instead.
+      } catch (err) {
+        // A malformed frame (or a throwing consumer handler) must not become an
+        // uncaught exception in the extension host — drop the connection instead.
+        // Log it, so a consumer bug does not surface only as a silent "gone" panel.
+        console.error("[cli-code] daemon frame dispatch failed", err)
         if (!settled) fail()
         else socket.destroy()
       }

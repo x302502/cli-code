@@ -1,4 +1,4 @@
-/** Các loại khung. Client→daemon dùng 1–15, daemon→client dùng 16–31, để đọc log là biết chiều. */
+/** Frame types. Client→daemon uses 1–15, daemon→client uses 16–31, so a log line reveals its direction at a glance. */
 export const MSG = {
   Hello: 1,
   Input: 2,
@@ -31,8 +31,8 @@ export function decodeJsonPayload<T>(payload: Uint8Array): T {
 }
 
 /**
- * Trả về một hàm giải mã có trạng thái: socket chia dữ liệu theo ý nó, nên một khung
- * có thể tới làm nhiều mảnh, và một mảnh có thể chứa nhiều khung.
+ * Returns a stateful decoder: the socket splits data however it likes, so one frame
+ * may arrive in several chunks, and one chunk may contain several frames.
  */
 export function createFrameDecoder(): (chunk: Uint8Array) => { type: number; payload: Uint8Array }[] {
   let pending = new Uint8Array(0)

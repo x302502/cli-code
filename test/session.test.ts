@@ -143,4 +143,31 @@ describe("Session", () => {
     pending?.()
     expect(second).toEqual([])
   })
+
+  it("detach trong lúc attach đang chờ snapshot thì attach không gắn listener", async () => {
+    const { session, calls, emit } = makeSession()
+    const got: string[] = []
+    const done = session.attach(
+      () => got.push("snapshot"),
+      (c) => got.push("data:" + new TextDecoder().decode(c)),
+    )
+    session.detach()
+    await done
+    emit("x".repeat(HIGH_WATER + 1))
+    expect(got).toEqual([])
+    expect(calls.paused).toBe(0)
+  })
+
+  it("attach thứ hai thắng attach thứ nhất còn đang chờ", async () => {
+    const { session, emit } = makeSession()
+    const first: string[] = []
+    const second: string[] = []
+    const p1 = session.attach(() => first.push("snapshot"), (c) => first.push(new TextDecoder().decode(c)))
+    session.detach()
+    const p2 = session.attach(() => second.push("snapshot"), (c) => second.push(new TextDecoder().decode(c)))
+    await Promise.all([p1, p2])
+    emit("sau")
+    expect(first).toEqual([])
+    expect(second).toEqual(["snapshot", "sau"])
+  })
 })

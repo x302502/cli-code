@@ -66,8 +66,22 @@ export function writeToActivePanel(text: string): boolean {
   return true
 }
 
+// In-flight ensureDaemon, shared by concurrent callers (N panels restored at once): without
+// it every caller would probe, see nothing listening, rmSync the socket and spawn its own
+// daemon — all but one would then die with EADDRINUSE and their callers time out.
+let ensuring: Promise<string> | undefined
+
 /** Returns the socket path of this window's daemon, spawning one if nobody is listening yet. */
-export async function ensureDaemon(context: vscode.ExtensionContext): Promise<string> {
+export function ensureDaemon(context: vscode.ExtensionContext): Promise<string> {
+  if (!ensuring) {
+    ensuring = ensureDaemonUncached(context).finally(() => {
+      ensuring = undefined
+    })
+  }
+  return ensuring
+}
+
+async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<string> {
   let id = context.workspaceState.get<string>(DAEMON_ID_KEY)
   if (!id) {
     id = randomBytes(4).toString("hex")
@@ -97,6 +111,24 @@ export async function ensureDaemon(context: vscode.ExtensionContext): Promise<st
     await new Promise((r) => setTimeout(r, 50))
   }
   throw new Error("Không khởi động được daemon terminal của CLI Code.")
+}
+
+/**
+ * Keeps this window's daemon from idle-exiting while restored tabs are still hidden.
+ * VS Code only calls deserializeWebviewPanel when a restored tab first becomes visible,
+ * so if another editor sits on top of every CLI tab after a reload, no panel connects and
+ * the daemon's 60 s idle timer would kill every session. A bare connection (no Hello) is
+ * enough: the server counts any open socket as activity. Disposed on deactivate.
+ */
+export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise<vscode.Disposable> {
+  const id = context.workspaceState.get<string>(DAEMON_ID_KEY)
+  if (!id) return { dispose: () => {} }
+  const socketPath = daemonSocketPath(id)
+  if (!(await isListening(socketPath))) return { dispose: () => {} }
+  const socket = net.createConnection(socketPath)
+  socket.on("error", () => {})
+  socket.on("close", () => {})
+  return { dispose: () => socket.destroy() }
 }
 
 function isListening(socketPath: string): Promise<boolean> {
@@ -134,7 +166,9 @@ export async function openTerminalPanel(context: vscode.ExtensionContext, tool: 
     return
   }
 
-  const panel = vscode.window.createWebviewPanel(VIEW_TYPE, tool.label, vscode.ViewColumn.Beside, {
+  // Stack CLIs as tabs in one editor group: reuse the column of an existing CLI panel.
+  const column = [...activePanels][0]?.viewColumn ?? vscode.ViewColumn.Beside
+  const panel = vscode.window.createWebviewPanel(VIEW_TYPE, tool.label, column, {
     enableScripts: true,
     retainContextWhenHidden: true,
     localResourceRoots: [vscode.Uri.file(context.extensionPath)],
@@ -179,6 +213,10 @@ function showGone(
 ): void {
   existingListener?.dispose()
   panelConnections.delete(panel)
+  // A "gone" panel has no session, so it must not be picked by cli-code.open (reuse)
+  // or addFilepath — they should open/target a working CLI instead.
+  activePanels.delete(panel)
+  if (lastFocusedPanel === panel) lastFocusedPanel = undefined
   panel.webview.html = goneHtml(tool.label)
   panel.webview.onDidReceiveMessage(async (m) => {
     if (m.type !== "restart") return
@@ -243,15 +281,18 @@ function wirePanel(
     if (e.webviewPanel.active) lastFocusedPanel = panel
   })
 
-  // Closing the tab in this phase does NOT kill the CLI: the daemon keeps the session
-  // alive until its own idle-exit timer fires, so the process survives a reload. The
-  // "ask before closing a live session" UX is a later phase.
+  // The user closing the tab kills the CLI (spec §7.2): a closed tab must not leave
+  // an orphan process running in the daemon. If the connection is already gone
+  // (showGone ran: daemon died or evicted us) there is nothing to kill.
+  // The panel is deliberately NOT pushed into context.subscriptions: on Reload Window
+  // VS Code runs deactivate() and disposes every subscription, which would fire this
+  // handler and kill every session — the very thing the daemon exists to prevent.
   panel.onDidDispose(() => {
     activePanels.delete(panel)
+    if (panelConnections.has(panel)) connection.kill()
     connection.dispose()
     if (lastFocusedPanel === panel) lastFocusedPanel = undefined
   })
-  context.subscriptions.push(panel)
 }
 
 function iconFor(context: vscode.ExtensionContext, tool: CliTool): { light: vscode.Uri; dark: vscode.Uri } {
@@ -285,11 +326,19 @@ function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview)
 }
 
 function goneHtml(label: string): string {
-  return `<!DOCTYPE html><html lang="vi"><body style="font-family: var(--vscode-font-family); padding: 24px">
-<p>Phiên <strong>${label}</strong> đã kết thúc.</p>
+  const nonce = randomBytes(16).toString("base64")
+  const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';`
+  return `<!DOCTYPE html><html lang="vi"><head>
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+</head><body style="font-family: var(--vscode-font-family); padding: 24px">
+<p>Phiên <strong>${escapeHtml(label)}</strong> đã kết thúc.</p>
 <button id="restart">Khởi động lại</button>
-<script>
+<script nonce="${nonce}">
   const vscode = acquireVsCodeApi()
   document.getElementById("restart").addEventListener("click", () => vscode.postMessage({ type: "restart" }))
 </script></body></html>`
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 }
