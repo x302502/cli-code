@@ -5,7 +5,7 @@ import * as net from "node:net"
 import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
-import { buildEnv } from "./terminal.js"
+import { buildEnv, randomPort } from "./terminal.js"
 import { resolveTabTitle } from "./tab-title.js"
 
 export const VIEW_TYPE = "cliCode.terminal"
@@ -22,6 +22,9 @@ const customTitles = new WeakMap<vscode.WebviewPanel, string>()
 // Each panel's message sender from wirePanel, so setCustomTitle can push the updated
 // state to the webview (which persists it via vscode.setState for the next Reload Window).
 const panelSenders = new WeakMap<vscode.WebviewPanel, (msg: unknown) => void>()
+// The last panel to have editor focus, so addFilepathToTerminal (invoked from a text
+// editor, where no panel is `active`) still knows which session to write into.
+let lastFocusedPanel: vscode.WebviewPanel | undefined
 
 /** Sets a panel's custom title, updates the tab, and persists it across Reload Window. */
 export function setCustomTitle(panel: vscode.WebviewPanel, title: string): void {
@@ -52,13 +55,14 @@ export function findExistingPanel(tool: CliTool): vscode.WebviewPanel | undefine
   return undefined
 }
 
-/** Writes text into the active panel's session. Returns false if there is no active panel. */
+/** Writes text into the active (or last-focused) panel's session. Returns false if there is none. */
 export function writeToActivePanel(text: string): boolean {
-  const panel = activeTerminalPanel()
+  const panel = activeTerminalPanel() ?? lastFocusedPanel
   if (!panel) return false
   const connection = panelConnections.get(panel)
   if (!connection) return false
   connection.write(text)
+  panel.reveal()
   return true
 }
 
@@ -114,13 +118,14 @@ function isListening(socketPath: string): Promise<boolean> {
 export async function openTerminalPanel(context: vscode.ExtensionContext, tool: CliTool): Promise<void> {
   const socketPath = await ensureDaemon(context)
   const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
+  const port = tool.hasHttpApi ? randomPort() : undefined
 
   const connection = await connectSession(socketPath, {
     op: "spawn",
     toolId: tool.id,
-    command: tool.command,
+    command: port ? tool.command.replace("{port}", String(port)) : tool.command,
     cwd,
-    env: buildEnv(tool, undefined),
+    env: buildEnv(tool, port),
     cols: 80,
     rows: 24,
   })
@@ -199,6 +204,7 @@ function wirePanel(
   activePanels.add(panel)
   panelTools.set(panel, tool)
   panelConnections.set(panel, connection)
+  lastFocusedPanel = panel
 
   // Host -> webview messages must queue until the webview signals it is ready (its
   // terminal is open and focused) — otherwise the daemon's Snapshot on attach, which
@@ -233,12 +239,17 @@ function wirePanel(
 
   connection.onClose(() => showGone(context, panel, tool, messageListener))
 
+  panel.onDidChangeViewState((e) => {
+    if (e.webviewPanel.active) lastFocusedPanel = panel
+  })
+
   // Closing the tab in this phase does NOT kill the CLI: the daemon keeps the session
   // alive until its own idle-exit timer fires, so the process survives a reload. The
   // "ask before closing a live session" UX is a later phase.
   panel.onDidDispose(() => {
     activePanels.delete(panel)
     connection.dispose()
+    if (lastFocusedPanel === panel) lastFocusedPanel = undefined
   })
   context.subscriptions.push(panel)
 }
