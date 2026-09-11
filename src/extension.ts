@@ -19,7 +19,11 @@ export function activate(context: vscode.ExtensionContext) {
           panel.dispose()
           return
         }
-        await restoreTerminalPanel(context, panel, state)
+        try {
+          await restoreTerminalPanel(context, panel, state)
+        } catch (err) {
+          void vscode.window.showErrorMessage(String(err))
+        }
       },
     }),
   )

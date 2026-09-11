@@ -31,10 +31,11 @@ function cleanup() {
   fs.rmSync(socketPath, { force: true })
 }
 
-function pass() {
+function pass(output) {
   if (done) return
   done = true
   console.log("PASS: real PTY round-trips through the daemon")
+  console.log(`output: ${JSON.stringify(output)}`)
   cleanup()
   process.exit(0)
 }
@@ -56,7 +57,15 @@ function tryConnect() {
     socket.removeAllListeners("error")
     socket.on("error", (err) => fail(`socket error: ${err.message}`))
 
-    const hello = { op: "spawn", toolId: "shell", command: "echo SMOKE_OK", cwd: process.cwd(), env: {}, cols: 80, rows: 24 }
+    const hello = {
+      op: "spawn",
+      toolId: "shell",
+      command: "echo SMOKE_OK ELECTRON=${ELECTRON_RUN_AS_NODE:-unset}",
+      cwd: process.cwd(),
+      env: {},
+      cols: 80,
+      rows: 24,
+    }
     const payload = Buffer.from(JSON.stringify(hello))
     const frame = Buffer.alloc(5 + payload.length)
     frame[0] = 1
@@ -67,7 +76,9 @@ function tryConnect() {
     let output = ""
     socket.on("data", (chunk) => {
       output += chunk.toString("utf8")
-      if (output.includes("SMOKE_OK")) pass()
+      // ELECTRON=unset proves the daemon stripped ELECTRON_RUN_AS_NODE before handing the
+      // env down into the CLI's shell (see src/daemon/entry.ts).
+      if (output.includes("SMOKE_OK") && output.includes("ELECTRON=unset")) pass(output)
     })
   })
   socket.once("error", () => {

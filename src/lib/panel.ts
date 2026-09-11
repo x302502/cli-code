@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process"
 import { randomBytes } from "node:crypto"
+import * as fs from "node:fs"
 import * as net from "node:net"
 import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
@@ -45,7 +46,7 @@ export function writeToActivePanel(text: string): boolean {
   return true
 }
 
-/** Trả về socket path của daemon cho cửa sổ này, spawn nếu chưa có ai lắng nghe. */
+/** Returns the socket path of this window's daemon, spawning one if nobody is listening yet. */
 export async function ensureDaemon(context: vscode.ExtensionContext): Promise<string> {
   let id = context.workspaceState.get<string>(DAEMON_ID_KEY)
   if (!id) {
@@ -55,13 +56,22 @@ export async function ensureDaemon(context: vscode.ExtensionContext): Promise<st
   const socketPath = daemonSocketPath(id)
   if (await isListening(socketPath)) return socketPath
 
-  spawn(process.execPath, [context.asAbsolutePath("dist/daemon.js"), socketPath], {
+  // The probe above proved nothing is listening. The daemon exits via process.exit(0) on
+  // idle without unlinking its socket file, so a stale file can still be sitting at this
+  // path — leaving it there would make the new daemon's listen() fail with EADDRINUSE.
+  if (process.platform !== "win32") fs.rmSync(socketPath, { force: true })
+
+  const daemon = spawn(process.execPath, [context.asAbsolutePath("dist/daemon.js"), socketPath], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
     detached: true,
     stdio: "ignore",
-  }).unref()
+  })
+  // A spawn failure (e.g. EACCES/EMFILE) must not become an uncaught exception in the
+  // extension host; the poll loop below already reports "daemon didn't come up" on its own.
+  daemon.on("error", () => {})
+  daemon.unref()
 
-  // Đợi daemon mở socket. 20 × 50ms là dư cho một tiến trình node khởi động.
+  // Wait for the daemon to open its socket. 20 × 50ms is generous for a node process to start.
   for (let i = 0; i < 20; i++) {
     if (await isListening(socketPath)) return socketPath
     await new Promise((r) => setTimeout(r, 50))
@@ -72,13 +82,16 @@ export async function ensureDaemon(context: vscode.ExtensionContext): Promise<st
 function isListening(socketPath: string): Promise<boolean> {
   return new Promise((resolve) => {
     const probe = net.createConnection(socketPath)
-    // A hung pipe (neither connect nor error) must not stall ensureDaemon forever.
-    probe.setTimeout(500, () => probe.destroy())
+    // A hung pipe (neither connect, error, nor close) must not stall ensureDaemon forever.
+    probe.setTimeout(500, () => probe.destroy(new Error("timeout")))
     probe.on("connect", () => {
-      probe.destroy()
       resolve(true)
+      probe.destroy()
     })
     probe.on("error", () => resolve(false))
+    // destroy() with no error argument (the timeout path) emits close but not error, so
+    // isListening must also resolve here or it would hang forever on a stuck pipe.
+    probe.on("close", () => resolve(false))
   })
 }
 
@@ -122,7 +135,7 @@ export async function restoreTerminalPanel(
   const socketPath = await ensureDaemon(context)
   const connection = await connectSession(socketPath, { op: "attach", sessionId: state.sessionId })
   if (!connection) {
-    // Phiên đã mất (thoát hẳn app, hoặc daemon đã tự dọn). Nói thật với người dùng.
+    // The session is gone (the app quit, or the daemon cleaned it up itself). Be honest with the user.
     panel.iconPath = iconFor(context, tool)
     panel.title = tool.label
     showGone(context, panel, tool)
@@ -132,13 +145,26 @@ export async function restoreTerminalPanel(
 }
 
 /** Renders the "session gone" view and wires its restart button. Shared by a failed
- * attach (restoreTerminalPanel) and a live connection closing (daemon died/evicted). */
-function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, tool: CliTool): void {
+ * attach (restoreTerminalPanel) and a live connection closing (daemon died/evicted).
+ * `existingListener`, when given, is the panel's previous onDidReceiveMessage registration
+ * from wirePanel — it must be disposed so a stale input/resize/ack handler doesn't linger. */
+function showGone(
+  context: vscode.ExtensionContext,
+  panel: vscode.WebviewPanel,
+  tool: CliTool,
+  existingListener?: vscode.Disposable,
+): void {
+  existingListener?.dispose()
+  panelConnections.delete(panel)
   panel.webview.html = goneHtml(tool.label)
   panel.webview.onDidReceiveMessage(async (m) => {
     if (m.type !== "restart") return
     panel.dispose()
-    await openTerminalPanel(context, tool)
+    try {
+      await openTerminalPanel(context, tool)
+    } catch (err) {
+      void vscode.window.showErrorMessage(String(err))
+    }
   })
 }
 
@@ -169,9 +195,8 @@ function wirePanel(
   connection.onSnapshot((text) => send({ type: "snapshot", text }))
   connection.onData((bytes) => send({ type: "data", bytes }))
   connection.onExit((e) => send({ type: "exit", code: e.code }))
-  connection.onClose(() => showGone(context, panel, tool))
 
-  panel.webview.onDidReceiveMessage((message) => {
+  const messageListener = panel.webview.onDidReceiveMessage((message) => {
     if (message.type === "input") connection.write(message.data)
     else if (message.type === "resize") connection.resize(message.cols, message.rows)
     else if (message.type === "ack") connection.ack(message.bytes)
@@ -179,10 +204,12 @@ function wirePanel(
       ready = true
       for (const msg of pending) void panel.webview.postMessage(msg)
       pending.length = 0
-      // State này là thứ VS Code trả lại cho serializer sau Reload Window.
+      // This state is what VS Code hands back to the serializer after a Reload Window.
       void panel.webview.postMessage({ type: "state", state: { sessionId: connection.sessionId, toolId: tool.id } })
     }
   })
+
+  connection.onClose(() => showGone(context, panel, tool, messageListener))
 
   // Closing the tab in this phase does NOT kill the CLI: the daemon keeps the session
   // alive until its own idle-exit timer fires, so the process survives a reload. The
