@@ -185,4 +185,69 @@ describe("startDaemon", () => {
     expect(decodeJsonPayload<{ code: number }>(exit.payload).code).toBe(9)
     client.socket.destroy()
   })
+
+  it("client mới attach trước khi socket cũ đóng vẫn nhận được Data sau snapshot", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty })
+    stop = daemon.close
+    const first = connect(p)
+    first.socket.write(
+      encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }),
+    )
+    const ok = await first.waitFor(MSG.HelloOk)
+    const { sessionId } = decodeJsonPayload<{ sessionId: string }>(ok.payload)
+    // Do NOT destroy `first` yet — the second client attaches while the first is still open.
+    const second = connect(p)
+    second.socket.write(encodeJsonFrame(MSG.Hello, { op: "attach", sessionId }))
+    await second.waitFor(MSG.Snapshot)
+    harness.emit("sau khi doi chu")
+    const data = await second.waitFor(MSG.Data)
+    expect(new TextDecoder().decode(data.payload)).toBe("sau khi doi chu")
+    first.socket.destroy()
+    second.socket.destroy()
+  })
+
+  it("attach lại rồi PTY thoát thì client mới nhận khung Exit", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty })
+    stop = daemon.close
+    const first = connect(p)
+    first.socket.write(
+      encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }),
+    )
+    const ok = await first.waitFor(MSG.HelloOk)
+    const { sessionId } = decodeJsonPayload<{ sessionId: string }>(ok.payload)
+    first.socket.destroy()
+    await new Promise((r) => setTimeout(r, 20))
+    const second = connect(p)
+    second.socket.write(encodeJsonFrame(MSG.Hello, { op: "attach", sessionId }))
+    await second.waitFor(MSG.Snapshot)
+    harness.die(4)
+    const exit = await second.waitFor(MSG.Exit)
+    expect(decodeJsonPayload<{ code: number }>(exit.payload).code).toBe(4)
+    second.socket.destroy()
+  })
+
+  it("khung hỏng chỉ làm rớt kết nối đó, daemon và phiên khác vẫn sống", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty })
+    stop = daemon.close
+    const good = connect(p)
+    good.socket.write(
+      encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }),
+    )
+    await good.waitFor(MSG.HelloOk)
+    const bad = connect(p)
+    bad.socket.write(encodeFrame(MSG.Hello, new TextEncoder().encode("{khong phai json")))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(daemon.sessionCount()).toBe(1)
+    harness.emit("van chay")
+    const data = await good.waitFor(MSG.Data)
+    expect(new TextDecoder().decode(data.payload)).toBe("van chay")
+    good.socket.destroy()
+    bad.socket.destroy()
+  })
 })

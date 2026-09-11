@@ -73,6 +73,13 @@ export class Session {
    * delivered, so the client never sees data older than its snapshot.
    */
   async attach(onSnapshot: (text: string) => void, onOutput: (chunk: Uint8Array) => void): Promise<void> {
+    // Start from a clean slate: the new client owes nothing yet, and a
+    // previous client's outstanding byte count must not be charged to it.
+    this.unacked = 0
+    if (this.paused) {
+      this.paused = false
+      this.pty.resume()
+    }
     const backlog: Uint8Array[] = []
     this.backlog = backlog
     // Queue the snapshot marker before any later chunk can arrive, so every

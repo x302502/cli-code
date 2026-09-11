@@ -24,6 +24,10 @@ export async function startDaemon(args: {
   onIdleExit?: () => void
 }): Promise<{ close(): Promise<void>; sessionCount(): number }> {
   const sessions = new Map<string, Session>()
+  // The socket currently wired to each session, so a stale connection's
+  // eventual 'close' cannot detach a session another connection has since
+  // taken over.
+  const owners = new Map<string, net.Socket>()
   const idleMs = args.idleMs ?? DEFAULT_IDLE_MS
   let connections = 0
   let idleTimer: ReturnType<typeof setTimeout> | undefined
@@ -37,29 +41,40 @@ export async function startDaemon(args: {
     let session: Session | undefined
 
     socket.on("data", (chunk) => {
-      for (const frame of decode(new Uint8Array(chunk))) {
-        if (frame.type === MSG.Hello) {
-          session = handleHello(frame.payload, socket, sessions, args.spawnPty)
-          continue
+      // A single malformed frame from one client must not take down the
+      // daemon or any other hosted session — only that connection is lost.
+      try {
+        for (const frame of decode(new Uint8Array(chunk))) {
+          if (frame.type === MSG.Hello) {
+            session = handleHello(frame.payload, socket, sessions, owners, args.spawnPty)
+            continue
+          }
+          if (!session) continue
+          if (frame.type === MSG.Input) session.write(new TextDecoder().decode(frame.payload))
+          else if (frame.type === MSG.Resize) {
+            const size = decodeJsonPayload<{ cols: number; rows: number }>(frame.payload)
+            session.resize(size.cols, size.rows)
+          } else if (frame.type === MSG.Ack) {
+            session.ack(new DataView(frame.payload.buffer, frame.payload.byteOffset).getUint32(0, false))
+          } else if (frame.type === MSG.Kill) {
+            session.kill()
+            sessions.delete(session.id)
+            owners.delete(session.id)
+          }
         }
-        if (!session) continue
-        if (frame.type === MSG.Input) session.write(new TextDecoder().decode(frame.payload))
-        else if (frame.type === MSG.Resize) {
-          const size = decodeJsonPayload<{ cols: number; rows: number }>(frame.payload)
-          session.resize(size.cols, size.rows)
-        } else if (frame.type === MSG.Ack) {
-          session.ack(new DataView(frame.payload.buffer, frame.payload.byteOffset).getUint32(0, false))
-        } else if (frame.type === MSG.Kill) {
-          session.kill()
-          sessions.delete(session.id)
-        }
+      } catch {
+        socket.destroy()
       }
     })
 
     const onGone = () => {
-      // Only detach the client. The PTY must keep living — this is exactly
-      // what happens during a Reload Window.
-      session?.detach()
+      // Only detach the client if this connection is still the session's
+      // current owner — a stale connection closing after a newer attach has
+      // already taken over must not wipe the new owner's listener.
+      if (session && owners.get(session.id) === socket) {
+        session.detach()
+        owners.delete(session.id)
+      }
       connections--
       if (connections === 0) scheduleIdleExit()
     }
@@ -80,6 +95,7 @@ export async function startDaemon(args: {
       if (connections > 0 || closed) return
       for (const session of sessions.values()) session.kill()
       sessions.clear()
+      owners.clear()
       args.onIdleExit?.()
     }, idleMs)
     idleTimer.unref?.()
@@ -92,6 +108,7 @@ export async function startDaemon(args: {
       if (idleTimer) clearTimeout(idleTimer)
       for (const session of sessions.values()) session.kill()
       sessions.clear()
+      owners.clear()
       await new Promise<void>((resolve) => server.close(() => resolve()))
       if (process.platform !== "win32") fs.rmSync(args.socketPath, { force: true })
     },
@@ -102,6 +119,7 @@ function handleHello(
   payload: Uint8Array,
   socket: net.Socket,
   sessions: Map<string, Session>,
+  owners: Map<string, net.Socket>,
   spawnPty: SpawnPty,
 ): Session | undefined {
   const hello = decodeJsonPayload<HelloSpawn | HelloAttach>(payload)
@@ -112,6 +130,15 @@ function handleHello(
       socket.write(encodeJsonFrame(MSG.HelloFail, { reason: "gone" }))
       return undefined
     }
+    // A stale owner may still be an open connection (its 'close' hasn't
+    // landed yet). Evict it now so its later close sees it is no longer the
+    // owner and does not detach the connection taking over here.
+    const stale = owners.get(existing.id)
+    if (stale && stale !== socket) {
+      existing.detach()
+      stale.destroy()
+    }
+    owners.set(existing.id, socket)
     socket.write(encodeJsonFrame(MSG.HelloOk, { sessionId: existing.id }))
     void existing
       .attach(
@@ -136,6 +163,7 @@ function handleHello(
     spawnPty,
   })
   sessions.set(session.id, session)
+  owners.set(session.id, socket)
   socket.write(encodeJsonFrame(MSG.HelloOk, { sessionId: session.id }))
   wire(session, socket)
   return session
