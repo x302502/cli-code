@@ -122,7 +122,11 @@ export function connectSession(
               kill: () => socket.write(encodeFrame(MSG.Kill, new Uint8Array(0))),
               dispose: () => {
                 disposed = true
-                socket.destroy()
+                // end(), not destroy(): destroy() discards unflushed writes, and the
+                // panel calls kill() immediately before dispose() — under write
+                // backpressure the Kill frame would be dropped and the CLI would
+                // outlive its tab. end() flushes, then sends FIN.
+                socket.end()
               },
             })
             continue

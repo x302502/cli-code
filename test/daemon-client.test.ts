@@ -16,16 +16,17 @@ afterEach(async () => {
 function fakePty() {
   let dataCb: (d: string) => void = () => {}
   const written: string[] = []
+  const counters = { killed: 0 }
   const pty: PtyLike = {
     onData: (cb) => (dataCb = cb),
     onExit: () => {},
     write: (d) => written.push(d),
     resize: () => {},
-    kill: () => {},
+    kill: () => counters.killed++,
     pause: () => {},
     resume: () => {},
   }
-  return { pty, written, emit: (d: string) => dataCb(d) }
+  return { pty, written, counters, emit: (d: string) => dataCb(d) }
 }
 
 const tmpSocket = () => path.join(os.tmpdir(), `cli-code-c-${Math.random().toString(16).slice(2, 10)}.sock`)
@@ -108,6 +109,20 @@ describe("connectSession", () => {
     connection!.dispose()
     await new Promise((r) => setTimeout(r, 50))
     expect(closed).toBe(false)
+  })
+
+  it("kill() ngay trước dispose() vẫn tới được daemon — khung Kill không bị rớt", async () => {
+    const p = tmpSocket()
+    const harness = fakePty()
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty })
+    stop = daemon.close
+
+    const connection = await connectSession(p, spawnHello)
+    connection!.kill()
+    connection!.dispose()
+    for (let i = 0; i < 50 && harness.counters.killed === 0; i++) await new Promise((r) => setTimeout(r, 10))
+    expect(harness.counters.killed).toBe(1)
+    expect(daemon.sessionCount()).toBe(0)
   })
 
   it("trả undefined khi daemon không trả lời bắt tay trong thời hạn", async () => {
