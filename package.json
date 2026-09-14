@@ -89,6 +89,14 @@
       {
         "command": "cli-code.copyContext",
         "title": "CLI Code: Sao chép ngữ cảnh"
+      },
+      {
+        "command": "cli-code.paste",
+        "title": "CLI Code: Dán"
+      },
+      {
+        "command": "cli-code.copySelection",
+        "title": "CLI Code: Sao chép"
       }
     ],
     "menus": {
@@ -96,6 +104,43 @@
         {
           "command": "cli-code.openNew",
           "group": "navigation"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "cli-code.copySelection",
+          "when": "webviewId == cliCode.terminal",
+          "group": "1_clip@1"
+        },
+        {
+          "command": "cli-code.paste",
+          "when": "webviewId == cliCode.terminal",
+          "group": "1_clip@2"
+        },
+        {
+          "command": "cli-code.copyContext",
+          "when": "webviewId == cliCode.terminal",
+          "group": "1_clip@3"
+        },
+        {
+          "command": "cli-code.clear",
+          "when": "webviewId == cliCode.terminal",
+          "group": "2_term@1"
+        },
+        {
+          "command": "cli-code.renameTab",
+          "when": "webviewId == cliCode.terminal",
+          "group": "2_term@2"
+        },
+        {
+          "command": "cli-code.restart",
+          "when": "webviewId == cliCode.terminal",
+          "group": "2_term@3"
+        },
+        {
+          "command": "cli-code.find",
+          "when": "webviewId == cliCode.terminal",
+          "group": "2_term@4"
         }
       ]
     },

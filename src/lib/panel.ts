@@ -370,6 +370,11 @@ function attachConnection(
       void vscode.env.clipboard.writeText(message.text)
       void vscode.window.showInformationMessage(`Đã chép ${message.lines} dòng ngữ cảnh.`)
     } else if (message.type === "openPath" && typeof message.text === "string") void openPathFromPanel(panel, message.text)
+    else if (message.type === "pasteConfirm" && typeof message.size === "number") {
+      void vscode.window
+        .showWarningMessage(`Dán ${Math.round(message.size / 1024)} KB vào terminal?`, { modal: true }, "Dán")
+        .then((choice) => sendTo(panel, { type: choice === "Dán" ? "pasteApproved" : "pasteRejected" }))
+    }
   })
 
   connection.onClose(() => showGone(context, panel, tool))
@@ -488,7 +493,7 @@ function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview)
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="${xtermCss}"><link rel="stylesheet" href="${css}">
 </head><body style="--cli-code-font-family:${escapedFamily};--cli-code-font-size:${fontSize}">
-<div id="term"></div>
+<div id="term" data-vscode-context='{"preventDefaultContextMenuItems": true}'></div>
 <script src="${main}"></script>
 </body></html>`
 }

@@ -36,6 +36,11 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("cli-code.fontZoomReset", () => void applyFontZoom(context, "reset")),
     vscode.commands.registerCommand("cli-code.find", () => sendToActivePanel({ type: "find" })),
     vscode.commands.registerCommand("cli-code.copyContext", () => sendToActivePanel({ type: "copyContext", maxLines: 200 })),
+    vscode.commands.registerCommand("cli-code.paste", async () => {
+      const text = await vscode.env.clipboard.readText()
+      sendToActivePanel({ type: "pasteText", text })
+    }),
+    vscode.commands.registerCommand("cli-code.copySelection", () => sendToActivePanel({ type: "copySelection" })),
     vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
       async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: PanelState | undefined) {
         if (!state?.sessionId) {

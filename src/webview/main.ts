@@ -29,8 +29,17 @@ type HostMessage =
   | { type: "clear" }
   | { type: "find" }
   | { type: "copyContext"; maxLines: number }
+  | { type: "pasteApproved" }
+  | { type: "pasteRejected" }
+  | { type: "pasteText"; text: string }
+  | { type: "copySelection" }
 
 const vscode = acquireVsCodeApi()
+
+// Pastes above this size are held back and confirmed with the host before reaching the
+// terminal — a multi-MB accidental paste into a TUI is hard to undo.
+const PASTE_CONFIRM_BYTES = 100 * 1024
+let heldPaste: string | undefined
 
 /** Reads the font family/size the panel injected on <body style>, falling back to VS Code's editor font. */
 function readFont(): { fontFamily: string; fontSize: number } {
@@ -109,6 +118,21 @@ const termElement = document.getElementById("term")
 if (!termElement) throw new Error("missing #term element")
 term.open(termElement)
 
+// xterm handles paste through its hidden textarea; intercept only oversized pastes so the
+// host can ask first.
+termElement.addEventListener(
+  "paste",
+  (e) => {
+    const text = e.clipboardData?.getData("text") ?? ""
+    if (new TextEncoder().encode(text).length <= PASTE_CONFIRM_BYTES) return
+    e.preventDefault()
+    e.stopPropagation()
+    heldPaste = text
+    vscode.postMessage({ type: "pasteConfirm", size: text.length })
+  },
+  true,
+)
+
 // Same click semantics as the WebLinksAddon above: plain click shows a popover, meta/ctrl-click
 // opens directly.
 term.registerLinkProvider(
@@ -178,6 +202,21 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   } else if (message.type === "copyContext") {
     const r = tailText(term.buffer.active, message.maxLines)
     vscode.postMessage({ type: "context", ...r })
+  } else if (message.type === "pasteApproved") {
+    if (heldPaste !== undefined) term.paste(heldPaste)
+    heldPaste = undefined
+  } else if (message.type === "pasteRejected") {
+    heldPaste = undefined
+  } else if (message.type === "pasteText") {
+    if (new TextEncoder().encode(message.text).length > PASTE_CONFIRM_BYTES) {
+      heldPaste = message.text
+      vscode.postMessage({ type: "pasteConfirm", size: message.text.length })
+    } else {
+      term.paste(message.text)
+    }
+  } else if (message.type === "copySelection") {
+    const selection = term.getSelection()
+    if (selection) vscode.postMessage({ type: "clipboard", text: selection })
   }
 })
 
