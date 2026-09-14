@@ -196,6 +196,11 @@ export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise
   return { dispose: () => socket.destroy() }
 }
 
+/** Shell snippet Claude's hook entry evaluates; the editor's own binary runs our bundle as node. */
+function hookCommand(context: vscode.ExtensionContext): string {
+  return `ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "${context.asAbsolutePath("dist/hook.js")}"`
+}
+
 function isListening(socketPath: string): Promise<boolean> {
   return new Promise((resolve) => {
     const probe = net.createConnection(socketPath)
@@ -227,7 +232,7 @@ export async function openTerminalPanel(
     toolId: tool.id,
     command: port ? baseCommand.replace("{port}", String(port)) : baseCommand,
     cwd,
-    env: buildEnv(tool, port),
+    env: { ...buildEnv(tool, port), CLI_CODE_HOOK: hookCommand(context) },
     cols: 80,
     rows: 24,
   })
@@ -459,7 +464,7 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
       toolId: tool.id,
       command: port ? tool.command.replace("{port}", String(port)) : tool.command,
       cwd: usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
-      env: buildEnv(tool, port),
+      env: { ...buildEnv(tool, port), CLI_CODE_HOOK: hookCommand(context) },
       cols: 80,
       rows: 24,
     })

@@ -50,7 +50,7 @@ export async function startDaemon(args: {
       try {
         for (const frame of decode(new Uint8Array(chunk))) {
           if (frame.type === MSG.Hello) {
-            session = handleHello(frame.payload, socket, sessions, owners, args.spawnPty)
+            session = handleHello(frame.payload, socket, sessions, owners, args.spawnPty, args.socketPath)
             continue
           }
           if (frame.type === MSG.StatusReport) {
@@ -139,6 +139,7 @@ function handleHello(
   sessions: Map<string, Session>,
   owners: Map<string, net.Socket>,
   spawnPty: SpawnPty,
+  socketPath: string,
 ): Session | undefined {
   const hello = decodeJsonPayload<HelloSpawn | HelloAttach>(payload)
 
@@ -176,12 +177,13 @@ function handleHello(
     return existing
   }
 
+  const id = randomUUID()
   const session = createSession({
-    id: randomUUID(),
+    id,
     toolId: hello.toolId,
     command: hello.command,
     cwd: hello.cwd,
-    env: hello.env,
+    env: { ...hello.env, CLI_CODE_SESSION_ID: id, CLI_CODE_DAEMON_SOCK: socketPath },
     cols: hello.cols,
     rows: hello.rows,
     spawnPty,

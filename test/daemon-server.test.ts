@@ -66,6 +66,30 @@ describe("startDaemon", () => {
     client.socket.destroy()
   })
 
+  it("spawn đóng dấu env CLI_CODE_SESSION_ID và CLI_CODE_DAEMON_SOCK", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    let capturedEnv: Record<string, string> | undefined
+    const daemon = await startDaemon({
+      socketPath: p,
+      spawnPty: (opts) => {
+        capturedEnv = opts.env
+        return harness.pty
+      },
+    })
+    stop = daemon.close
+
+    const client = connect(p)
+    client.socket.write(
+      encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }),
+    )
+    const ok = await client.waitFor(MSG.HelloOk)
+    const { sessionId } = decodeJsonPayload<{ sessionId: string }>(ok.payload)
+    expect(capturedEnv?.CLI_CODE_SESSION_ID).toBe(sessionId)
+    expect(capturedEnv?.CLI_CODE_DAEMON_SOCK).toBe(p)
+    client.socket.destroy()
+  })
+
   it("chuyển output của PTY về client dưới dạng khung Data", async () => {
     const p = socketPath()
     const harness = scriptedPty()
