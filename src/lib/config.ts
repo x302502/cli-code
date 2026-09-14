@@ -15,6 +15,10 @@ export type CliTool = {
   readyCheckPath?: string
   /** Extra environment variables to set when launching the terminal. */
   extraEnv?: Record<string, string>
+  /** Reopens a specific past session; `{sessionId}` is substituted. Only for CLIs verified to accept an id. */
+  resumeCommand?: string
+  /** Reopens the most recent session when the CLI cannot address one by id. */
+  continueCommand?: string
 }
 
 // Ordered roughly by popularity. Every entry is offered to the user; nothing
@@ -32,6 +36,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Anthropic Claude Code CLI",
     command: "claude --dangerously-skip-permissions",
     hasHttpApi: false,
+    resumeCommand: "claude --resume {sessionId} --dangerously-skip-permissions",
   },
   {
     id: "claude-agent-teams",
@@ -41,6 +46,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Claude Code multi-agent teams",
     command: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --dangerously-skip-permissions",
     hasHttpApi: false,
+    resumeCommand: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --resume {sessionId} --dangerously-skip-permissions",
   },
   {
     id: "codex",
@@ -50,6 +56,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "OpenAI Codex CLI",
     command: "codex --dangerously-bypass-approvals-and-sandbox",
     hasHttpApi: false,
+    resumeCommand: "codex resume {sessionId} --dangerously-bypass-approvals-and-sandbox",
   },
   {
     id: "grok",
@@ -59,6 +66,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "xAI Grok CLI",
     command: "grok --permission-mode bypassPermissions",
     hasHttpApi: false,
+    resumeCommand: "grok --permission-mode bypassPermissions --resume {sessionId}",
   },
   {
     id: "copilot",
@@ -68,6 +76,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "GitHub Copilot in the terminal",
     command: "copilot --yolo",
     hasHttpApi: false,
+    continueCommand: "copilot --yolo --continue",
   },
   {
     id: "opencode",
@@ -81,6 +90,7 @@ export const CLI_TOOLS: CliTool[] = [
     appendPromptPath: "/tui/append-prompt",
     readyCheckPath: "/app",
     extraEnv: { OPENCODE_CALLER: "vscode" },
+    continueCommand: "opencode --port {port} --auto --continue",
   },
   {
     id: "mimo",
@@ -90,6 +100,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "MiMo Code coding agent",
     command: "mimo",
     hasHttpApi: false,
+    continueCommand: "mimo --continue",
   },
   {
     id: "pi",
@@ -108,6 +119,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Oh My Pi coding agent",
     command: "omp",
     hasHttpApi: false,
+    continueCommand: "omp --continue",
   },
   {
     id: "antigravity",
@@ -117,6 +129,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Google Antigravity CLI",
     command: "agy --dangerously-skip-permissions",
     hasHttpApi: false,
+    continueCommand: "agy --dangerously-skip-permissions --continue",
   },
   {
     id: "amp",
@@ -126,6 +139,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Sourcegraph Amp coding agent",
     command: "amp --dangerously-allow-all",
     hasHttpApi: false,
+    continueCommand: "amp --dangerously-allow-all threads continue",
   },
   {
     id: "kilo",
@@ -135,6 +149,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Kilo Code coding agent (opencode fork, 500+ models)",
     command: "kilo",
     hasHttpApi: false,
+    continueCommand: "kilo --continue",
   },
   {
     id: "cline",
@@ -153,6 +168,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "CommandCode coding agent",
     command: "command-code --yolo",
     hasHttpApi: false,
+    continueCommand: "command-code --yolo --continue",
   },
   {
     id: "droid",
@@ -162,6 +178,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Factory AI Droid coding agent",
     command: "droid",
     hasHttpApi: false,
+    continueCommand: "droid --resume",
   },
   {
     id: "openclaude",
@@ -207,6 +224,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Aider AI pair-programming CLI",
     command: "aider --yes-always",
     hasHttpApi: false,
+    continueCommand: "aider --yes-always --restore-chat-history",
   },
   {
     id: "goose",

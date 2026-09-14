@@ -32,3 +32,19 @@ describe("CLI_TOOLS", () => {
     }
   })
 })
+
+describe("resume commands", () => {
+  it("claude/grok/codex có resumeCommand với {sessionId}", () => {
+    for (const id of ["claude", "grok", "codex"]) {
+      const t = CLI_TOOLS.find((x) => x.id === id)!
+      expect(t.resumeCommand).toContain("{sessionId}")
+    }
+  })
+  it("các CLI --continue có continueCommand, không có resumeCommand", () => {
+    for (const id of ["copilot", "opencode", "omp", "amp", "droid"]) {
+      const t = CLI_TOOLS.find((x) => x.id === id)!
+      expect(t.continueCommand).toBeTruthy()
+      expect(t.resumeCommand).toBeUndefined()
+    }
+  })
+})
