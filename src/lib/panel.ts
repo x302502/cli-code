@@ -58,18 +58,23 @@ function notifyFinished(panel: vscode.WebviewPanel, state: AgentState): void {
     })
 }
 
-/** Single place that turns the registries into what the tab shows. */
-function updateTitle(panel: vscode.WebviewPanel): void {
+/** The tab title without the status glyph / unread marker (what rename should start from). */
+export function baseTitle(panel: vscode.WebviewPanel): string {
   const tool = panelTools.get(panel)
-  if (!tool) return
-  const base = resolveTabTitle({
+  if (!tool) return panel.title
+  return resolveTabTitle({
     customTitle: customTitles.get(panel),
     quickCommandLabel: panelQuickLabels.get(panel),
     oscTitle: panelOscTitles.get(panel),
     promptTitle: panelPromptTitles.get(panel),
     toolLabel: tool.label,
   })
-  panel.title = decorateTitle(base, panelStatus.get(panel)?.state, panelUnread.has(panel))
+}
+
+/** Single place that turns the registries into what the tab shows. */
+function updateTitle(panel: vscode.WebviewPanel): void {
+  if (!panelTools.has(panel)) return
+  panel.title = decorateTitle(baseTitle(panel), panelStatus.get(panel)?.state, panelUnread.has(panel))
 }
 
 /** A cwd is only usable as a spawn cwd if it exists locally as a directory. OSC 7 drops the

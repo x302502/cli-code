@@ -4,6 +4,7 @@ import { addFilepathToTerminal, addQuickCommand, openCli, resumeSession, runQuic
 import {
   activeTerminalPanel,
   applyFontZoom,
+  baseTitle,
   holdDaemonAlive,
   restartPanel,
   restoreTerminalPanel,
@@ -27,7 +28,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("cli-code.renameTab", async () => {
       const panel = activeTerminalPanel()
       if (!panel) return
-      const title = await vscode.window.showInputBox({ prompt: "Tên mới cho tab", value: panel.title })
+      const title = await vscode.window.showInputBox({ prompt: "Tên mới cho tab", value: baseTitle(panel) })
       if (title?.trim()) setCustomTitle(panel, title.trim())
     }),
     vscode.commands.registerCommand("cli-code.restart", () => {

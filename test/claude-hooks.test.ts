@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, describe, expect, it } from "bun:test"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
@@ -63,10 +63,15 @@ describe("claude hooks merge", () => {
 })
 
 describe("claude hooks disk I/O (temp dir only — never the real ~/.claude/settings.json)", () => {
+  const dirs: string[] = []
   function tempSettingsFile(): string {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-claude-hooks-"))
+    dirs.push(dir)
     return path.join(dir, "settings.json")
   }
+  afterEach(() => {
+    for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
+  })
 
   it("file JSON không hợp lệ → installHooksToDisk ném lỗi, không đổi bytes", () => {
     const file = tempSettingsFile()

@@ -45,7 +45,8 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
     return
   }
   type Item = vscode.QuickPickItem & { run: () => Promise<void> }
-  const items: Item[] = sessions.map((s) => {
+  // The id is spliced into a shell command line; anything outside [\w.-] is not a session id.
+  const items: Item[] = sessions.filter((s) => /^[\w.-]+$/.test(s.sessionId)).map((s) => {
     const tool = CLI_TOOLS.find((t) => t.id === s.toolId)!
     return {
       label: `$(history) ${s.title}`,
@@ -101,8 +102,8 @@ export async function addQuickCommand(): Promise<void> {
   if (!scope) return
 
   const config = vscode.workspace.getConfiguration("cliCode")
-  const inspected = config.inspect<unknown[]>("quickCommands")
-  const existing =
-    (scope.target === vscode.ConfigurationTarget.Global ? inspected?.globalValue : inspected?.workspaceValue) ?? []
+  const inspected = config.inspect<unknown>("quickCommands")
+  const current = scope.target === vscode.ConfigurationTarget.Global ? inspected?.globalValue : inspected?.workspaceValue
+  const existing = Array.isArray(current) ? current : []
   await config.update("quickCommands", [...existing, { label: label.trim(), text }], scope.target)
 }
