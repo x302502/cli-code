@@ -59,6 +59,10 @@
         "title": "CLI: Insert At-Mentioned"
       },
       {
+        "command": "cli-code.resume",
+        "title": "CLI Code: Mở lại phiên cũ"
+      },
+      {
         "command": "cli-code.renameTab",
         "title": "CLI Code: Đổi tên tab"
       },
@@ -149,6 +153,11 @@
           "command": "cli-code.find",
           "when": "webviewId == cliCode.terminal",
           "group": "2_term@4"
+        },
+        {
+          "command": "cli-code.resume",
+          "when": "webviewId == cliCode.terminal",
+          "group": "3_more@1"
         }
       ]
     },
