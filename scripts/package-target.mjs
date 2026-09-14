@@ -1,6 +1,8 @@
 // scripts/package-target.mjs
 // Usage: node scripts/package-target.mjs darwin-arm64
 // Builds a VSIX for one VS Code target, shipping only that platform's node-pty prebuild.
+// vsce runs vscode:prepublish (the full build pipeline) unless CLI_CODE_SKIP_PREPUBLISH=1 is
+// set — package:target / package:all set it after running the pipeline once themselves.
 import { execFileSync } from "node:child_process"
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"

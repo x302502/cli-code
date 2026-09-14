@@ -55,7 +55,8 @@ jobs:
             cp linux-prebuilds/prebuild-linux-$a/* node_modules/node-pty/prebuilds/linux-$a/
           done
           chmod +x node_modules/node-pty/prebuilds/*/spawn-helper
-      # Runs check-types, lint, test, fix-perms, esbuild once, then packages all six targets.
+      # Runs the full pipeline (check-types, lint, test, fix-perms, esbuild) once; each of the
+      # six vsce runs then skips vscode:prepublish via CLI_CODE_SKIP_PREPUBLISH=1.
       - run: bun run package:all
       - run: for f in cli-code-*.vsix; do node scripts/verify-vsix.mjs "$f" || exit 1; done
       - uses: actions/upload-artifact@v4

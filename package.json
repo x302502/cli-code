@@ -269,7 +269,7 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "bun run package",
+    "vscode:prepublish": "node -e \"if (!process.env.CLI_CODE_SKIP_PREPUBLISH) require('node:child_process').execSync('bun run package', { stdio: 'inherit' })\"",
     "fix-perms": "chmod +x node_modules/node-pty/prebuilds/*/spawn-helper || true",
     "compile": "bun run check-types && bun run lint && bun run fix-perms && bun esbuild.js",
     "watch:esbuild": "bun esbuild.js --watch",
@@ -280,8 +280,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "bun test",
-    "package:target": "bun run package && node scripts/package-target.mjs",
-    "package:all": "bun run package && for t in darwin-arm64 darwin-x64 win32-x64 win32-arm64 linux-x64 linux-arm64; do node scripts/package-target.mjs $t || exit 1; done",
+    "package:target": "bun run package && CLI_CODE_SKIP_PREPUBLISH=1 node scripts/package-target.mjs",
+    "package:all": "bun run package && for t in darwin-arm64 darwin-x64 win32-x64 win32-arm64 linux-x64 linux-arm64; do CLI_CODE_SKIP_PREPUBLISH=1 node scripts/package-target.mjs $t || exit 1; done",
     "verify:vsix": "node scripts/verify-vsix.mjs",
     "vsix": "echo 'use package:target <target>' && exit 1"
   },
