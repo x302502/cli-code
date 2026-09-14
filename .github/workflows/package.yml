@@ -1,0 +1,62 @@
+name: package
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  prebuild-linux:
+    strategy:
+      matrix:
+        include:
+          - { arch: x64, runner: ubuntu-22.04 }
+          # Prefer a native arm64 runner. If ubuntu-24.04-arm is not available in this org,
+          # fall back to: runner: ubuntu-22.04, then build inside QEMU emulation with
+          # `docker run --platform linux/arm64 node:22 …` instead of the steps below.
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: sudo apt-get update && sudo apt-get install -y python3 make g++
+      # node-pty is Node-API, so one build per arch serves every Node/Electron the editor ships.
+      - run: npm install --no-save node-pty@1.1.0 --build-from-source
+      # NOTE: these output paths (build/Release/pty.node, build/Release/spawn-helper) must be
+      # re-checked when node-pty is upgraded — a future version may change its build layout.
+      - run: |
+          mkdir -p out/linux-${{ matrix.arch }}
+          cp node_modules/node-pty/build/Release/pty.node out/linux-${{ matrix.arch }}/
+          cp node_modules/node-pty/build/Release/spawn-helper out/linux-${{ matrix.arch }}/
+          chmod +x out/linux-${{ matrix.arch }}/spawn-helper
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "prebuild-linux-${{ matrix.arch }}"
+          path: "out/linux-${{ matrix.arch }}"
+
+  package:
+    needs: prebuild-linux
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      # bun install writes a node_modules tree that npm can also read (needed below, since
+      # scripts/package-target.mjs runs vsce without --no-dependencies, which shells out to `npm ls`).
+      - run: bun install --frozen-lockfile
+      # Diagnostic only: confirms npm can see the dependency tree bun installed.
+      - run: npm ls --omit=dev --depth=0 || true
+      - uses: actions/download-artifact@v4
+        with: { pattern: prebuild-linux-*, path: linux-prebuilds }
+      - run: |
+          for a in x64 arm64; do
+            mkdir -p node_modules/node-pty/prebuilds/linux-$a
+            cp linux-prebuilds/prebuild-linux-$a/* node_modules/node-pty/prebuilds/linux-$a/
+          done
+          chmod +x node_modules/node-pty/prebuilds/*/spawn-helper
+      # Runs check-types, lint, test, fix-perms, esbuild once, then packages all six targets.
+      - run: bun run package:all
+      - run: for f in cli-code-*.vsix; do node scripts/verify-vsix.mjs "$f" || exit 1; done
+      - uses: actions/upload-artifact@v4
+        with: { name: vsix, path: "cli-code-*.vsix" }
