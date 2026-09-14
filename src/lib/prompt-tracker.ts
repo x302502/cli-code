@@ -1,0 +1,62 @@
+import { formatPromptTitle } from "./tab-title.js"
+
+const PASTE_START = "\x1b[200~"
+const PASTE_END = "\x1b[201~"
+
+/**
+ * Rebuilds the line the user is typing from raw terminal input. It only needs to
+ * be good enough for a tab title: printable characters append, backspace deletes,
+ * escape sequences are skipped, bracketed paste is taken verbatim, Enter submits.
+ */
+export function createPromptTracker(): (input: string) => string | undefined {
+  let line = ""
+  let pasting = false
+
+  return (input) => {
+    let submitted: string | undefined
+    let i = 0
+    while (i < input.length) {
+      if (pasting) {
+        const end = input.indexOf(PASTE_END, i)
+        if (end === -1) {
+          line += input.slice(i)
+          return undefined
+        }
+        line += input.slice(i, end)
+        pasting = false
+        i = end + PASTE_END.length
+        continue
+      }
+      if (input.startsWith(PASTE_START, i)) {
+        pasting = true
+        i += PASTE_START.length
+        continue
+      }
+      const ch = input[i]!
+      if (ch === "\x1b") {
+        // ESC CR is Shift+Enter (soft newline) — keep the first line, drop the rest.
+        if (input[i + 1] === "\r") {
+          line += "\n"
+          i += 2
+          continue
+        }
+        // CSI: ESC [ params final-byte(0x40–0x7e). Other ESC: skip one byte.
+        if (input[i + 1] === "[") {
+          let j = i + 2
+          while (j < input.length && !(input.charCodeAt(j) >= 0x40 && input.charCodeAt(j) <= 0x7e)) j++
+          i = j + 1
+        } else i += 1
+        continue
+      }
+      if (ch === "\r" || ch === "\n") {
+        const title = formatPromptTitle(line)
+        submitted = title || undefined
+        line = ""
+      } else if (ch === "\x7f" || ch === "\b") line = line.slice(0, -1)
+      else if (ch === "\x03" || ch === "\x15") line = ""
+      else if (ch >= " ") line += ch
+      i++
+    }
+    return submitted
+  }
+}
