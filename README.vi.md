@@ -114,20 +114,80 @@ CLI Code chèn một tham chiếu tới file của bạn vào prompt:
 
 Giờ chỉ cần gõ câu hỏi — trợ lý đã biết bạn đang nói về file (và dòng) nào.
 
+## Terminal riêng (0.2.0)
+
+Từ 0.2.0, CLI Code không còn mở trợ lý trong terminal tích hợp thường của VS Code — mỗi trợ lý mở trong **terminal riêng của extension**: một webview panel nối tới một daemon PTY chạy nền. Nhờ đó:
+
+- Tab terminal có **icon màu** riêng cho từng trợ lý.
+- **Tên tab tự cập nhật** theo prompt bạn vừa gõ (không cần đặt tên tay).
+- Tab hiển thị **trạng thái agent** — đang chạy, đang chờ bạn, hay đã xong — ngay trên tiêu đề.
+- Phiên **sống qua Reload Window**: reload cửa sổ xong, terminal tự nối lại vào đúng phiên CLI đang chạy, không mất ngữ cảnh.
+
+### Giới hạn
+
+- **Đóng tab = kết thúc CLI đó.** VS Code không cho extension "hỏi trước khi đóng" một tab, nên đóng tab sẽ dừng luôn tiến trình CLI trong đó — không có cảnh báo.
+- **Thoát hẳn VS Code = kết thúc mọi phiên.** Tất cả các CLI đang chạy trong CLI Code sẽ dừng theo.
+- **Hook trạng thái Claude chỉ hoạt động trên POSIX** (macOS, Linux) — Windows không cài được hook này.
+
+### Hook trạng thái Claude Code
+
+CLI Code có thể cài một hook nhỏ vào Claude Code để hiển thị đúng trạng thái (đang chạy / đang chờ / xong) trên tab, thay vì chỉ suy đoán từ tiêu đề. Đây là tính năng **opt-in**:
+
+- Lần đầu bạn mở Claude Code trong CLI Code, extension sẽ hỏi có muốn cài hook không (điều khiển bằng setting `cliCode.claudeStatusHooks`).
+- Nếu đồng ý, nó ghi thêm vào `~/.claude/settings.json`. Trước lần ghi đầu tiên, file gốc được sao lưu thành `~/.claude/settings.json.cli-code.bak`; các hook đã có của bạn được giữ nguyên.
+- Gỡ bất kỳ lúc nào bằng lệnh Command Palette **"CLI Code: Gỡ hook trạng thái Claude"**.
+- Nội dung mỗi entry được thêm cho 4 sự kiện `UserPromptSubmit`, `Stop`, `Notification`, `PermissionRequest`:
+
+  ```json
+  {
+    "type": "command",
+    "command": "[ -n \"$CLI_CODE_HOOK\" ] && eval \"$CLI_CODE_HOOK\" || true"
+  }
+  ```
+
+  Lệnh này vô hại khi Claude Code chạy ngoài CLI Code (biến `CLI_CODE_HOOK` không tồn tại nên không làm gì cả).
+
+### Settings
+
+| Setting                     | Kiểu                     | Mặc định | Mô tả                                                                                       |
+| ---------------------------- | ------------------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `cliCode.claudeStatusHooks`  | `"ask" \| "on" \| "off"`   | `"ask"`  | Cài hook trạng thái vào `~/.claude/settings.json` để tab Claude hiện đang chạy / chờ / xong. |
+| `cliCode.notifications`      | `boolean`                  | `true`   | Thông báo khi agent xong việc ở một tab đang ẩn.                                              |
+| `cliCode.quickCommands`      | mảng object                | `[]`     | Lệnh hoặc prompt dùng lại. Đặt trong User settings = Global, Workspace settings = Project.    |
+
+Ví dụ `cliCode.quickCommands`:
+
+```json
+"cliCode.quickCommands": [
+  { "label": "Chạy test", "text": "npm test" },
+  { "label": "Tóm tắt PR", "text": "Tóm tắt các thay đổi trong PR này", "submit": true }
+]
+```
+
+### Menu chuột phải trong terminal
+
+Sao chép, Dán, Sao chép ngữ cảnh, Xoá màn hình, Đổi tên tab, Khởi động lại phiên, Tìm trong terminal, Mở lại phiên cũ, Lệnh nhanh.
+
+### Lệnh Command Palette
+
+`CLI Code:` **Mở lại phiên cũ**, **Lệnh nhanh**, **Lưu thành lệnh nhanh**, **Đổi tên tab**, **Khởi động lại phiên**, **Xoá màn hình**, **Phóng to chữ**, **Thu nhỏ chữ**, **Cỡ chữ mặc định**, **Tìm trong terminal**, **Sao chép ngữ cảnh**, **Dán**, **Sao chép**, **Cài hook trạng thái Claude**, **Gỡ hook trạng thái Claude**.
+
 ## Phím tắt
 
-| Thao tác                     | macOS               | Windows / Linux      |
-| ---------------------------- | ------------------- | -------------------- |
-| Mở / focus một trợ lý        | `Cmd + Esc`         | `Ctrl + Esc`         |
-| Mở trợ lý trong terminal mới | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
-| Gửi file hiện tại vào trợ lý | `Cmd + Alt + K`     | `Ctrl + Alt + K`     |
+| Thao tác                      | macOS                | Windows / Linux       |
+| ------------------------------ | --------------------- | ----------------------- |
+| Mở / focus một trợ lý          | `Cmd + Esc`           | `Ctrl + Esc`             |
+| Mở trợ lý trong terminal mới   | `Cmd + Shift + Esc`   | `Ctrl + Shift + Esc`     |
+| Gửi file hiện tại vào trợ lý   | `Cmd + Alt + K`       | `Ctrl + Alt + K`         |
+| Xuống dòng trong prompt        | `Shift + Enter`       | `Shift + Enter`         |
+| Tìm trong terminal             | `Cmd + F`             | `Ctrl + F`               |
+| Phóng to chữ                   | `Cmd + =`             | `Ctrl + =`               |
+| Thu nhỏ chữ                    | `Cmd + -`             | `Ctrl + -`               |
+| Cỡ chữ mặc định                | `Cmd + 0`             | `Ctrl + 0`               |
 
-Cả ba lệnh cũng có trong Command Palette (`Cmd/Ctrl + Shift + P`): **Open CLI**, **Open CLI in new tab**, và **CLI: Insert At-Mentioned**.
+Các lệnh trên cũng có trong Command Palette (`Cmd/Ctrl + Shift + P`): **Open CLI**, **Open CLI in new tab**, và **CLI: Insert At-Mentioned**.
 
 ## Câu hỏi thường gặp
-
-**Menu mở ra nhưng terminal báo "command not found".**
-Trợ lý đó chưa được cài hoặc không có trong `PATH`. Mở terminal thường và kiểm tra lệnh (vd `claude`) có chạy không. Nếu không, hãy cài công cụ đó trước.
 
 **Trợ lý mở lên nhưng yêu cầu đăng nhập.**
 Đó là điều bình thường — CLI Code chỉ khởi chạy công cụ, không lo phần xác thực. Hãy hoàn tất bước đăng nhập của chính trợ lý đó một lần (ở bất kỳ terminal nào); sau đó nó sẽ nhớ bạn.

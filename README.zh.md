@@ -110,20 +110,80 @@ CLI Code 会把对你文件的引用插入到提示词中：
 
 现在只需输入你的问题 —— 助手已经知道你指的是哪个文件（和哪些行）。
 
+## 专属终端（0.2.0）
+
+从 0.2.0 起，CLI Code 不再在普通的 VS Code 集成终端中打开助手 —— 每个助手都在**扩展专属的终端**中打开：一个连接到后台 PTY 守护进程的 webview 面板。这带来了：
+
+- 每个助手的终端标签都有**彩色图标**。
+- **标签标题自动更新**，根据你刚输入的提示词变化（无需手动改名）。
+- 标签标题上直接显示**助手状态** —— 运行中、等待你、或已完成。
+- 会话**在 Reload Window 后依然存活**：重新加载窗口后，终端会自动重新连接到正在运行的 CLI 会话，不会丢失任何内容。
+
+### 限制
+
+- **关闭标签＝结束该 CLI。** VS Code 不允许扩展在关闭标签前"询问确认"，所以关闭标签会立即终止其中的 CLI 进程 —— 没有警告。
+- **退出 VS Code＝结束所有会话。** CLI Code 下运行的所有 CLI 都会随之停止。
+- **Claude 状态钩子仅支持 POSIX**（macOS、Linux） —— Windows 无法安装该钩子。
+
+### Claude Code 状态钩子
+
+CLI Code 可以在 Claude Code 中安装一个小钩子，让标签显示准确的状态（运行中 / 等待 / 完成），而不是靠标题猜测。这是一个**可选启用**的功能：
+
+- 你在 CLI Code 中第一次打开 Claude Code 时，扩展会询问是否安装该钩子（由 `cliCode.claudeStatusHooks` 设置控制）。
+- 如果同意，它会追加写入 `~/.claude/settings.json`。首次写入前，原文件会备份为 `~/.claude/settings.json.cli-code.bak`；你已有的钩子会被保留。
+- 随时可通过命令面板中的 **"CLI Code: 卸载 Claude 状态钩子"** 移除。
+- 为 `UserPromptSubmit`、`Stop`、`Notification`、`PermissionRequest` 这 4 个事件各自添加的条目内容：
+
+  ```json
+  {
+    "type": "command",
+    "command": "[ -n \"$CLI_CODE_HOOK\" ] && eval \"$CLI_CODE_HOOK\" || true"
+  }
+  ```
+
+  当 Claude Code 在 CLI Code 之外运行时，这条命令不会产生任何效果（因为 `CLI_CODE_HOOK` 变量不存在）。
+
+### 设置项
+
+| 设置项                       | 类型                        | 默认值   | 说明                                                                          |
+| ------------------------------ | ---------------------------- | -------- | -------------------------------------------------------------------------------- |
+| `cliCode.claudeStatusHooks`    | `"ask" \| "on" \| "off"`     | `"ask"`  | 在 `~/.claude/settings.json` 中安装状态钩子，让 Claude 标签显示运行中/等待/完成。 |
+| `cliCode.notifications`        | `boolean`                    | `true`   | 当隐藏标签中的助手完成工作时发出通知。                                          |
+| `cliCode.quickCommands`        | 对象数组                     | `[]`     | 可复用的命令或提示词。设置在 User settings = 全局，Workspace settings = 项目。   |
+
+`cliCode.quickCommands` 示例：
+
+```json
+"cliCode.quickCommands": [
+  { "label": "运行测试", "text": "npm test" },
+  { "label": "总结 PR", "text": "总结这个 PR 中的改动", "submit": true }
+]
+```
+
+### 终端右键菜单
+
+复制、粘贴、复制上下文、清屏、重命名标签、重启会话、在终端中查找、恢复历史会话、快捷命令。
+
+### 命令面板命令
+
+`CLI Code:` **恢复历史会话**、**快捷命令**、**保存为快捷命令**、**重命名标签**、**重启会话**、**清屏**、**放大字体**、**缩小字体**、**重置字体大小**、**在终端中查找**、**复制上下文**、**粘贴**、**复制**、**安装 Claude 状态钩子**、**卸载 Claude 状态钩子**。
+
 ## 快捷键
 
-| 操作                | macOS               | Windows / Linux      |
-| ------------------- | ------------------- | -------------------- |
-| 打开 / 聚焦一个助手 | `Cmd + Esc`         | `Ctrl + Esc`         |
-| 在新终端中打开助手  | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
-| 把当前文件发送给它  | `Cmd + Alt + K`     | `Ctrl + Alt + K`     |
+| 操作                  | macOS                | Windows / Linux        |
+| ----------------------- | --------------------- | ------------------------ |
+| 打开 / 聚焦一个助手     | `Cmd + Esc`           | `Ctrl + Esc`             |
+| 在新终端中打开助手      | `Cmd + Shift + Esc`   | `Ctrl + Shift + Esc`     |
+| 把当前文件发送给它      | `Cmd + Alt + K`       | `Ctrl + Alt + K`         |
+| 在提示词中换行          | `Shift + Enter`       | `Shift + Enter`         |
+| 在终端中查找            | `Cmd + F`             | `Ctrl + F`               |
+| 放大字体                | `Cmd + =`             | `Ctrl + =`               |
+| 缩小字体                | `Cmd + -`             | `Ctrl + -`               |
+| 重置字体大小            | `Cmd + 0`             | `Ctrl + 0`               |
 
-这三个命令也可在命令面板（`Cmd/Ctrl + Shift + P`）中找到：**Open CLI**、**Open CLI in new tab**、**CLI: Insert At-Mentioned**。
+以上命令也都可在命令面板（`Cmd/Ctrl + Shift + P`）中找到：**Open CLI**、**Open CLI in new tab**、**CLI: Insert At-Mentioned**。
 
 ## 常见问题
-
-**菜单打开了，但终端显示 "command not found"。**
-该助手未安装或不在 `PATH` 中。打开普通终端，检查命令（如 `claude`）能否运行。如果不能，请先安装该工具。
 
 **助手打开了，但要求我登录。**
 这是正常的 —— CLI Code 只负责启动工具，不处理身份验证。在任意终端中完成该助手自己的登录流程一次，之后它会记住你。

@@ -114,20 +114,80 @@ CLI Code drops a reference to your file into the prompt:
 
 Now just type your question — the assistant already knows which file (and lines) you mean.
 
+## Built-in terminal (0.2.0)
+
+As of 0.2.0, CLI Code no longer opens assistants in a regular VS Code integrated terminal — each assistant opens in the **extension's own terminal**: a webview panel connected to a background PTY daemon. That gets you:
+
+- A **coloured icon** on the terminal tab for each assistant.
+- **Automatic tab titles** that update from the prompt you just typed (no manual renaming needed).
+- **Agent status** shown right on the tab title — working, waiting on you, or done.
+- Sessions that **survive Reload Window**: after a reload, the terminal reconnects to the running CLI session automatically, with nothing lost.
+
+### Limits
+
+- **Closing a tab ends that CLI.** VS Code doesn't let an extension "ask before closing" a tab, so closing one stops the CLI process inside it immediately — no warning.
+- **Quitting VS Code ends all sessions.** Every CLI running under CLI Code stops with it.
+- **Claude status hooks only work on POSIX** (macOS, Linux) — Windows can't install this hook.
+
+### Claude Code status hook
+
+CLI Code can install a small hook into Claude Code so the tab shows accurate status (working / waiting / done) instead of guessing from the title. This is **opt-in**:
+
+- The first time you open Claude Code inside CLI Code, the extension asks whether to install the hook (controlled by the `cliCode.claudeStatusHooks` setting).
+- If you agree, it appends to `~/.claude/settings.json`. Before the first write, the original file is backed up to `~/.claude/settings.json.cli-code.bak`; any hooks you already had are kept.
+- Remove it anytime with the Command Palette entry **"CLI Code: Uninstall Claude Status Hooks"**.
+- The entry added for each of the 4 events `UserPromptSubmit`, `Stop`, `Notification`, `PermissionRequest`:
+
+  ```json
+  {
+    "type": "command",
+    "command": "[ -n \"$CLI_CODE_HOOK\" ] && eval \"$CLI_CODE_HOOK\" || true"
+  }
+  ```
+
+  This command is a no-op when Claude Code runs outside CLI Code (the `CLI_CODE_HOOK` variable doesn't exist, so nothing happens).
+
+### Settings
+
+| Setting                     | Type                       | Default | Description                                                                                 |
+| ---------------------------- | --------------------------- | ------- | ---------------------------------------------------------------------------------------------- |
+| `cliCode.claudeStatusHooks`  | `"ask" \| "on" \| "off"`   | `"ask"` | Install a status hook into `~/.claude/settings.json` so the Claude tab shows working / waiting / done. |
+| `cliCode.notifications`      | `boolean`                   | `true`  | Notify when an agent finishes work on a hidden tab.                                           |
+| `cliCode.quickCommands`      | array of objects            | `[]`    | Reusable commands or prompts. Set in User settings = Global, Workspace settings = Project.     |
+
+Example `cliCode.quickCommands`:
+
+```json
+"cliCode.quickCommands": [
+  { "label": "Run tests", "text": "npm test" },
+  { "label": "Summarize PR", "text": "Summarize the changes in this PR", "submit": true }
+]
+```
+
+### Terminal right-click menu
+
+Copy, Paste, Copy Context, Clear, Rename Tab, Restart Session, Find in Terminal, Resume Past Session, Quick Command.
+
+### Command Palette commands
+
+`CLI Code:` **Resume Past Session**, **Quick Command**, **Save as Quick Command**, **Rename Tab**, **Restart Session**, **Clear**, **Font Zoom In**, **Font Zoom Out**, **Font Zoom Reset**, **Find in Terminal**, **Copy Context**, **Paste**, **Copy**, **Install Claude Status Hooks**, **Uninstall Claude Status Hooks**.
+
 ## Keyboard shortcuts
 
-| Action                              | macOS               | Windows / Linux      |
-| ----------------------------------- | ------------------- | -------------------- |
-| Open / focus an assistant           | `Cmd + Esc`         | `Ctrl + Esc`         |
-| Open an assistant in a new terminal | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
-| Send the current file to it         | `Cmd + Alt + K`     | `Ctrl + Alt + K`     |
+| Action                               | macOS                | Windows / Linux        |
+| -------------------------------------- | --------------------- | ------------------------ |
+| Open / focus an assistant              | `Cmd + Esc`           | `Ctrl + Esc`             |
+| Open an assistant in a new terminal    | `Cmd + Shift + Esc`   | `Ctrl + Shift + Esc`     |
+| Send the current file to it            | `Cmd + Alt + K`       | `Ctrl + Alt + K`         |
+| Newline in the prompt                  | `Shift + Enter`       | `Shift + Enter`         |
+| Find in terminal                       | `Cmd + F`             | `Ctrl + F`               |
+| Font zoom in                           | `Cmd + =`             | `Ctrl + =`               |
+| Font zoom out                          | `Cmd + -`             | `Ctrl + -`               |
+| Reset font zoom                        | `Cmd + 0`             | `Ctrl + 0`               |
 
-All three are also in the Command Palette (`Cmd/Ctrl + Shift + P`) as **Open CLI**, **Open CLI in new tab**, and **CLI: Insert At-Mentioned**.
+All of the above are also in the Command Palette (`Cmd/Ctrl + Shift + P`) as **Open CLI**, **Open CLI in new tab**, and **CLI: Insert At-Mentioned**.
 
 ## FAQ
-
-**The menu opens but the terminal says "command not found".**
-The assistant isn't installed or isn't on your `PATH`. Open a normal terminal and check that the command (e.g. `claude`) runs. If it doesn't, install that tool first.
 
 **The assistant opens but asks me to log in.**
 That's expected — CLI Code only launches the tool, it doesn't handle authentication. Complete the assistant's own login flow once (in any terminal); it will remember you afterwards.
