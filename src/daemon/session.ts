@@ -1,6 +1,8 @@
 import { Terminal } from "@xterm/headless"
 import { SerializeAddon } from "@xterm/addon-serialize"
 import { COALESCE_MS, createCoalescer, nextPauseState } from "../lib/flow-control.js"
+import { createOscScanner } from "../lib/osc-scan.js"
+import { AGENT_STATES, type AgentState, type MetaEvent } from "../lib/protocol.js"
 
 export type PtyLike = {
   onData(cb: (data: string) => void): void
@@ -35,6 +37,11 @@ export class Session {
   // would forward bytes to a dead socket and grow `unacked` with nobody to ack.
   private attachGen = 0
   private readonly coalescer: { push(chunk: Uint8Array): void; flush(): void }
+  cwd: string | undefined
+  oscTitle: string | undefined
+  status: { state: AgentState; prompt?: string } | undefined
+  private metaListener: ((e: MetaEvent) => void) | undefined
+  private readonly scan = createOscScanner()
 
   constructor(
     readonly id: string,
@@ -47,6 +54,7 @@ export class Session {
     this.coalescer = createCoalescer(COALESCE_MS, (chunk) => this.listener?.(chunk), schedule)
 
     this.pty.onData((data) => {
+      for (const osc of this.scan(data)) this.applyOsc(osc)
       // The headless mirror is always fed, even when nobody is attached — this
       // is what lets a snapshot be rebuilt correctly after a reload.
       this.mirror.write(data)
@@ -70,6 +78,37 @@ export class Session {
 
   onExit(cb: (e: { code: number; signal?: number }) => void): void {
     this.exitListener = cb
+  }
+
+  onMeta(cb: (e: MetaEvent) => void): void {
+    this.metaListener = cb
+  }
+
+  /** Status pushed from outside the PTY stream (a CLI hook talking to the daemon). */
+  reportStatus(state: AgentState, prompt?: string): void {
+    this.status = { state, prompt }
+    this.metaListener?.({ kind: "status", state, prompt })
+  }
+
+  private applyOsc(osc: { kind: "title"; title: string } | { kind: "cwd"; cwd: string } | { kind: "status"; payload: string }): void {
+    if (osc.kind === "cwd") {
+      this.cwd = osc.cwd
+      this.metaListener?.({ kind: "cwd", cwd: osc.cwd })
+    } else if (osc.kind === "title") {
+      this.oscTitle = osc.title
+      this.metaListener?.({ kind: "title", title: osc.title })
+    } else {
+      // OSC 9999 carries JSON; anything malformed or with an unknown state is ignored
+      // rather than surfaced — a CLI must not be able to put the tab into a bogus state.
+      try {
+        const parsed = JSON.parse(osc.payload) as { state?: unknown; prompt?: unknown }
+        if (typeof parsed.state === "string" && (AGENT_STATES as readonly string[]).includes(parsed.state)) {
+          this.reportStatus(parsed.state as AgentState, typeof parsed.prompt === "string" ? parsed.prompt : undefined)
+        }
+      } catch {
+        // ignore
+      }
+    }
   }
 
   /**
@@ -108,6 +147,7 @@ export class Session {
     this.attachGen++
     this.listener = undefined
     this.exitListener = undefined
+    this.metaListener = undefined
     this.backlog = undefined
     this.unacked = 0
     if (this.paused) {

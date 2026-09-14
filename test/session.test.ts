@@ -170,4 +170,44 @@ describe("Session", () => {
     expect(first).toEqual([])
     expect(second).toEqual(["snapshot", "sau"])
   })
+
+  it("phát meta cwd/title từ OSC trong output và nhớ giá trị mới nhất", () => {
+    const { session, emit } = makeSession()
+    const seen: unknown[] = []
+    session.onMeta((e) => seen.push(e))
+    emit("\x1b]7;file://h/tmp/a\x07\x1b]0;Claude • fix\x07")
+    expect(seen).toEqual([
+      { kind: "cwd", cwd: "/tmp/a" },
+      { kind: "title", title: "Claude • fix" },
+    ])
+    expect(session.cwd).toBe("/tmp/a")
+    expect(session.oscTitle).toBe("Claude • fix")
+  })
+
+  it("OSC 9999 hợp lệ thành meta status, không hợp lệ thì bỏ qua", () => {
+    const { session, emit } = makeSession()
+    const seen: unknown[] = []
+    session.onMeta((e) => seen.push(e))
+    emit('\x1b]9999;{"state":"working","prompt":"sua bug"}\x07\x1b]9999;{"state":"nope"}\x07\x1b]9999;{\x07')
+    expect(seen).toEqual([{ kind: "status", state: "working", prompt: "sua bug" }])
+    expect(session.status).toEqual({ state: "working", prompt: "sua bug" })
+  })
+
+  it("reportStatus phát meta như OSC 9999", () => {
+    const { session } = makeSession()
+    const seen: unknown[] = []
+    session.onMeta((e) => seen.push(e))
+    session.reportStatus("done")
+    expect(seen).toEqual([{ kind: "status", state: "done", prompt: undefined }])
+  })
+
+  it("detach gỡ meta listener", () => {
+    const { session, emit } = makeSession()
+    const seen: unknown[] = []
+    session.onMeta((e) => seen.push(e))
+    session.detach()
+    emit("\x1b]0;x\x07")
+    expect(seen).toEqual([])
+    expect(session.oscTitle).toBe("x")
+  })
 })

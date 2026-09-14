@@ -1,13 +1,14 @@
 import * as net from "node:net"
 import * as os from "node:os"
 import * as path from "node:path"
-import { MSG, createFrameDecoder, decodeJsonPayload, encodeFrame, encodeJsonFrame } from "./protocol.js"
+import { AGENT_STATES, MSG, type AgentState, type MetaEvent, createFrameDecoder, decodeJsonPayload, encodeFrame, encodeJsonFrame } from "./protocol.js"
 
 export type SessionConnection = {
   sessionId: string
   onData(cb: (chunk: Uint8Array) => void): void
   onSnapshot(cb: (text: string) => void): void
   onExit(cb: (e: { code: number; signal?: number }) => void): void
+  onMeta(cb: (e: MetaEvent) => void): void
   onClose(cb: () => void): void
   write(data: string): void
   resize(cols: number, rows: number): void
@@ -48,6 +49,7 @@ export function connectSession(
     let onData: ((chunk: Uint8Array) => void) | undefined
     let onSnapshot: ((text: string) => void) | undefined
     let onExit: ((e: { code: number; signal?: number }) => void) | undefined
+    let onMeta: ((e: MetaEvent) => void) | undefined
     let onClose: (() => void) | undefined
 
     // Frames (and the close signal) can arrive before the consumer has had a
@@ -57,6 +59,7 @@ export function connectSession(
     const pendingData: Uint8Array[] = []
     const pendingSnapshot: string[] = []
     const pendingExit: { code: number; signal?: number }[] = []
+    const pendingMeta: MetaEvent[] = []
     let closePending = false
 
     const timer = setTimeout(fail, timeoutMs)
@@ -105,6 +108,10 @@ export function connectSession(
                 onExit = cb
                 while (pendingExit.length > 0) cb(pendingExit.shift()!)
               },
+              onMeta: (cb) => {
+                onMeta = cb
+                while (pendingMeta.length > 0) cb(pendingMeta.shift()!)
+              },
               onClose: (cb) => {
                 onClose = cb
                 if (closePending) {
@@ -142,6 +149,18 @@ export function connectSession(
             const e = decodeJsonPayload<{ code: number; signal?: number }>(frame.payload)
             if (onExit) onExit(e)
             else pendingExit.push(e)
+          } else if (frame.type === MSG.Cwd || frame.type === MSG.Title || frame.type === MSG.Status) {
+            const body = decodeJsonPayload<Record<string, unknown>>(frame.payload)
+            let e: MetaEvent | undefined
+            if (frame.type === MSG.Cwd) e = { kind: "cwd", cwd: String(body.cwd) }
+            else if (frame.type === MSG.Title) e = { kind: "title", title: String(body.title) }
+            else if (typeof body.state === "string" && (AGENT_STATES as readonly string[]).includes(body.state)) {
+              e = { kind: "status", state: body.state as AgentState, prompt: typeof body.prompt === "string" ? body.prompt : undefined }
+            }
+            if (e) {
+              if (onMeta) onMeta(e)
+              else pendingMeta.push(e)
+            }
           }
         }
       } catch (err) {

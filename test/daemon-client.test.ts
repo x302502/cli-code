@@ -174,4 +174,18 @@ describe("connectSession", () => {
       await new Promise<void>((r) => server.close(() => r()))
     }
   })
+
+  it("onMeta nhận cwd/title, kể cả frame tới trước khi đăng ký", async () => {
+    const p = tmpSocket()
+    const harness = fakePty()
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty })
+    stop = daemon.close
+    const connection = await connectSession(p, spawnHello)
+    harness.emit("\x1b]7;file://h/tmp/z\x07")
+    await new Promise((r) => setTimeout(r, 30))
+    const seen: unknown[] = []
+    connection!.onMeta((e) => seen.push(e))
+    expect(seen).toEqual([{ kind: "cwd", cwd: "/tmp/z" }])
+    connection!.dispose()
+  })
 })

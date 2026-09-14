@@ -5,12 +5,24 @@ export const MSG = {
   Resize: 3,
   Ack: 4,
   Kill: 5,
+  StatusReport: 6,
   HelloOk: 16,
   HelloFail: 17,
   Snapshot: 18,
   Data: 19,
   Exit: 20,
+  Cwd: 21,
+  Title: 22,
+  Status: 23,
 } as const
+
+export type AgentState = "working" | "waiting" | "blocked" | "done"
+export const AGENT_STATES: readonly AgentState[] = ["working", "waiting", "blocked", "done"]
+
+export type MetaEvent =
+  | { kind: "cwd"; cwd: string }
+  | { kind: "title"; title: string }
+  | { kind: "status"; state: AgentState; prompt?: string }
 
 const HEADER_LEN = 5
 

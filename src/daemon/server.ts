@@ -1,7 +1,7 @@
 import * as fs from "node:fs"
 import * as net from "node:net"
 import { randomUUID } from "node:crypto"
-import { MSG, createFrameDecoder, decodeJsonPayload, encodeFrame, encodeJsonFrame } from "../lib/protocol.js"
+import { AGENT_STATES, type AgentState, MSG, type MetaEvent, createFrameDecoder, decodeJsonPayload, encodeFrame, encodeJsonFrame } from "../lib/protocol.js"
 import { createSession, type Session, type SpawnPty } from "./session.js"
 
 const DEFAULT_IDLE_MS = 60_000
@@ -51,6 +51,15 @@ export async function startDaemon(args: {
         for (const frame of decode(new Uint8Array(chunk))) {
           if (frame.type === MSG.Hello) {
             session = handleHello(frame.payload, socket, sessions, owners, args.spawnPty)
+            continue
+          }
+          if (frame.type === MSG.StatusReport) {
+            // Sent by a CLI hook over its own short-lived connection: it names the
+            // session explicitly because it never did a Hello.
+            const report = decodeJsonPayload<{ sessionId: string; state: AgentState; prompt?: string }>(frame.payload)
+            if ((AGENT_STATES as readonly string[]).includes(report.state)) {
+              sessions.get(report.sessionId)?.reportStatus(report.state, report.prompt)
+            }
             continue
           }
           if (!session) continue
@@ -156,6 +165,8 @@ function handleHello(
         // the snapshot was pending — then it no longer owns the session and
         // must not overwrite the current owner's exit listener.
         if (owners.get(existing.id) !== socket) return
+        for (const frame of currentMeta(existing)) socket.write(frame)
+        existing.onMeta((e) => socket.write(metaFrame(e)))
         existing.onExit((e) => socket.write(encodeJsonFrame(MSG.Exit, e)))
         if (existing.exit) socket.write(encodeJsonFrame(MSG.Exit, existing.exit))
       })
@@ -183,4 +194,20 @@ function wire(session: Session, socket: net.Socket): void {
   session.onOutput((chunk) => socket.write(encodeFrame(MSG.Data, chunk)))
   session.onExit((e) => socket.write(encodeJsonFrame(MSG.Exit, e)))
   if (session.exit) socket.write(encodeJsonFrame(MSG.Exit, session.exit))
+  session.onMeta((e) => socket.write(metaFrame(e)))
+}
+
+function metaFrame(e: MetaEvent): Uint8Array {
+  if (e.kind === "cwd") return encodeJsonFrame(MSG.Cwd, { cwd: e.cwd })
+  if (e.kind === "title") return encodeJsonFrame(MSG.Title, { title: e.title })
+  return encodeJsonFrame(MSG.Status, { state: e.state, prompt: e.prompt })
+}
+
+/** Current meta of a session, for a client that just attached. */
+function currentMeta(session: Session): Uint8Array[] {
+  const frames: Uint8Array[] = []
+  if (session.cwd) frames.push(encodeJsonFrame(MSG.Cwd, { cwd: session.cwd }))
+  if (session.oscTitle) frames.push(encodeJsonFrame(MSG.Title, { title: session.oscTitle }))
+  if (session.status) frames.push(encodeJsonFrame(MSG.Status, session.status))
+  return frames
 }
