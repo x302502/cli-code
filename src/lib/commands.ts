@@ -2,7 +2,7 @@ import * as vscode from "vscode"
 import { CLI_TOOLS } from "./config.js"
 import { getActiveFileReference } from "./editor.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
-import { activePanelCwd, findExistingPanel, openTerminalPanel, writeToActivePanel } from "./panel.js"
+import { activePanelCwd, findExistingPanel, openTerminalPanel, pasteToActivePanel, writeToActivePanel } from "./panel.js"
 import { mergeQuickCommands } from "./quick-commands.js"
 import { pickTool } from "./terminal.js"
 
@@ -75,11 +75,11 @@ export async function runQuickCommand(context: vscode.ExtensionContext): Promise
     { placeHolder: "Chọn lệnh nhanh" },
   )
   if (!picked) return
-  const text = picked.c.text + (picked.c.submit === false ? "" : "\r")
-  if (writeToActivePanel(text)) return
+  const submit = picked.c.submit !== false
+  if (pasteToActivePanel(picked.c.text, submit)) return
   const tool = await pickTool(context)
   if (!tool) return
-  await openTerminalPanel(context, tool, { quickCommandLabel: picked.c.label, initialInput: text })
+  await openTerminalPanel(context, tool, { quickCommandLabel: picked.c.label, initialInput: { text: picked.c.text, submit } })
 }
 
 /** Saves the active editor's selection as a quick command in user or workspace settings. */

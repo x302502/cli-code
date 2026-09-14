@@ -27,7 +27,7 @@ const panelTools = new WeakMap<vscode.WebviewPanel, CliTool>()
 const panelConnections = new WeakMap<vscode.WebviewPanel, SessionConnection>()
 const customTitles = new WeakMap<vscode.WebviewPanel, string>()
 const panelQuickLabels = new WeakMap<vscode.WebviewPanel, string>()
-const panelInitialInputs = new WeakMap<vscode.WebviewPanel, string>()
+const panelInitialInputs = new WeakMap<vscode.WebviewPanel, { text: string; submit: boolean }>()
 // The command the panel was spawned with (e.g. `claude --resume <id>`), so a restart re-runs it.
 const panelCommands = new WeakMap<vscode.WebviewPanel, string>()
 // The last panel to have editor focus, so addFilepathToTerminal (invoked from a text
@@ -140,6 +140,17 @@ export function findExistingPanel(tool: CliTool): vscode.WebviewPanel | undefine
     if (panelTools.get(panel) === tool) return panel
   }
   return undefined
+}
+
+/** Pastes text into the active (or last-focused) panel's terminal, optionally pressing Enter
+ * after it. Goes through xterm so a TUI with bracketed paste sees multi-line text as one
+ * paste, not as line-by-line submissions. Returns false if there is no panel. */
+export function pasteToActivePanel(text: string, submit: boolean): boolean {
+  const panel = activeTerminalPanel() ?? lastFocusedPanel
+  if (!panel || !panelConnections.has(panel)) return false
+  sendTo(panel, { type: "pasteText", text, submit })
+  panel.reveal()
+  return true
 }
 
 /** Writes text into the active (or last-focused) panel's session. Returns false if there is none. */
@@ -276,7 +287,13 @@ async function maybeOfferClaudeHooks(context: vscode.ExtensionContext): Promise<
 export async function openTerminalPanel(
   context: vscode.ExtensionContext,
   tool: CliTool,
-  options: { cwd?: string; command?: string; title?: string; quickCommandLabel?: string; initialInput?: string } = {},
+  options: {
+    cwd?: string
+    command?: string
+    title?: string
+    quickCommandLabel?: string
+    initialInput?: { text: string; submit: boolean }
+  } = {},
 ): Promise<void> {
   // Not awaited: the offer is a non-modal toast, and the terminal must open right away.
   if (tool.id.startsWith("claude") && process.platform !== "win32") void maybeOfferClaudeHooks(context)
@@ -437,7 +454,25 @@ function attachConnection(
   panelTrackers.set(panel, tracker)
 
   connection.onSnapshot((text) => sendTo(panel, { type: "snapshot", text }))
-  connection.onData((bytes) => sendTo(panel, { type: "data", bytes }))
+  // A quick command's text is pasted once the CLI has drawn its prompt: after the first
+  // output, wait for 400 ms of quiet, but never longer than 5 s after the webview is ready.
+  let quietTimer: ReturnType<typeof setTimeout> | undefined
+  let capTimer: ReturnType<typeof setTimeout> | undefined
+  const flushInitialInput = () => {
+    clearTimeout(quietTimer)
+    clearTimeout(capTimer)
+    const initial = panelInitialInputs.get(panel)
+    if (!initial) return
+    panelInitialInputs.delete(panel)
+    sendTo(panel, { type: "pasteText", ...initial })
+  }
+  connection.onData((bytes) => {
+    sendTo(panel, { type: "data", bytes })
+    if (panelInitialInputs.has(panel)) {
+      clearTimeout(quietTimer)
+      quietTimer = setTimeout(flushInitialInput, 400)
+    }
+  })
   connection.onExit((e) => sendTo(panel, { type: "exit", code: e.code }))
   connection.onMeta((e) => {
     if (e.kind === "cwd") panelCwds.set(panel, e.cwd)
@@ -473,13 +508,7 @@ function attachConnection(
       for (const msg of wiring.pending) void panel.webview.postMessage(msg)
       wiring.pending.length = 0
       postState(panel)
-      // A quick command's text is queued until the CLI has drawn its prompt, so a 500 ms
-      // delay after the webview signals ready is needed before writing it in.
-      const initial = panelInitialInputs.get(panel)
-      if (initial) {
-        panelInitialInputs.delete(panel)
-        setTimeout(() => panelConnections.get(panel)?.write(initial), 500)
-      }
+      if (panelInitialInputs.has(panel)) capTimer = setTimeout(flushInitialInput, 5000)
     } else if (message.type === "restart") void restartPanel(context, panel)
     else if (message.type === "clipboard" && typeof message.text === "string" && message.text.length <= 1024 * 1024) {
       void vscode.env.clipboard.writeText(message.text)

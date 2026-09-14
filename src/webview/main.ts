@@ -31,7 +31,7 @@ type HostMessage =
   | { type: "copyContext"; maxLines: number }
   | { type: "pasteApproved" }
   | { type: "pasteRejected" }
-  | { type: "pasteText"; text: string }
+  | { type: "pasteText"; text: string; submit?: boolean }
   | { type: "copySelection" }
 
 const vscode = acquireVsCodeApi()
@@ -213,6 +213,8 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
       vscode.postMessage({ type: "pasteConfirm", size: message.text.length })
     } else {
       term.paste(message.text)
+      // Enter after the paste (quick commands): as user input so it reaches the PTY via onData.
+      if (message.submit) term.input("\r")
     }
   } else if (message.type === "copySelection") {
     const selection = term.getSelection()
