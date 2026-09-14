@@ -4,10 +4,33 @@ body {
   margin: 0;
 }
 body {
+  position: relative;
   background: var(--vscode-terminal-background, var(--vscode-editor-background));
 }
 #term {
   height: 100%;
   padding: 4px;
   box-sizing: border-box;
+}
+#exit-overlay {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-editorWidget-foreground);
+  border: 1px solid var(--vscode-widget-border);
+  font: 12px var(--vscode-font-family);
+}
+#exit-overlay button {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 0;
+  padding: 3px 8px;
+  border-radius: 2px;
+  cursor: pointer;
 }

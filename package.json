@@ -61,6 +61,14 @@
       {
         "command": "cli-code.renameTab",
         "title": "CLI Code: Đổi tên tab"
+      },
+      {
+        "command": "cli-code.restart",
+        "title": "CLI Code: Khởi động lại phiên"
+      },
+      {
+        "command": "cli-code.clear",
+        "title": "CLI Code: Xoá màn hình"
       }
     ],
     "menus": {

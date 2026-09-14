@@ -238,9 +238,11 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   panel.webview.html = goneHtml(tool.label)
   panel.webview.onDidReceiveMessage(async (m) => {
     if (m.type !== "restart") return
+    const cwd = panelCwds.get(panel)
+    const title = customTitles.get(panel)
     panel.dispose()
     try {
-      await openTerminalPanel(context, tool)
+      await openTerminalPanel(context, tool, { cwd, title })
     } catch (err) {
       void vscode.window.showErrorMessage(String(err))
     }
@@ -324,10 +326,40 @@ function attachConnection(
       for (const msg of wiring.pending) void panel.webview.postMessage(msg)
       wiring.pending.length = 0
       postState(panel)
-    }
+    } else if (message.type === "restart") void restartPanel(context, panel)
   })
 
   connection.onClose(() => showGone(context, panel, tool))
+}
+
+/** Spawns a fresh session for the panel's tool and re-attaches it to the same tab. */
+export async function restartPanel(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
+  const tool = panelTools.get(panel)
+  if (!tool) return
+  panelConnections.get(panel)?.dispose()
+  panelConnections.delete(panel)
+  const socketPath = await ensureDaemon(context)
+  const port = tool.hasHttpApi ? randomPort() : undefined
+  const connection = await connectSession(socketPath, {
+    op: "spawn",
+    toolId: tool.id,
+    command: port ? tool.command.replace("{port}", String(port)) : tool.command,
+    cwd: panelCwds.get(panel) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
+    env: buildEnv(tool, port),
+    cols: 80,
+    rows: 24,
+  })
+  if (!connection) {
+    void vscode.window.showErrorMessage("Không khởi động lại được: daemon không phản hồi.")
+    return
+  }
+  panelStatus.delete(panel)
+  // A connection that died before the webview signaled ready may have left a stale
+  // snapshot/data queued; drop it before the new connection posts its own.
+  const wiring = panelWiring.get(panel)
+  if (wiring) wiring.pending.length = 0
+  sendTo(panel, { type: "reset" })
+  attachConnection(context, panel, tool, connection)
 }
 
 /** Posts the state VS Code hands back to the serializer after a Reload Window. */

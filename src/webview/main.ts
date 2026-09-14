@@ -5,6 +5,7 @@ import { SearchAddon } from "@xterm/addon-search"
 import { WebLinksAddon } from "@xterm/addon-web-links"
 import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { buildXtermTheme } from "../lib/webview-theme.js"
+import { createExitOverlay } from "./exit-overlay.js"
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void
@@ -18,6 +19,10 @@ type HostMessage =
   | { type: "snapshot"; text: string }
   | { type: "exit"; code: number }
   | { type: "state"; state: unknown }
+  | { type: "font"; size: number }
+  | { type: "reset" }
+  | { type: "clear" }
+  | { type: "find" }
 
 const vscode = acquireVsCodeApi()
 
@@ -85,6 +90,18 @@ fit.fit()
 term.onData((data) => vscode.postMessage({ type: "input", data }))
 term.onBinary((data) => vscode.postMessage({ type: "input", data }))
 
+const overlay = createExitOverlay(() => vscode.postMessage({ type: "restart" }))
+
+// Claude Code's /terminal-setup teaches terminals to send ESC CR for Shift+Enter; do the
+// same here so multi-line prompts work without any per-user setup.
+term.attachCustomKeyEventHandler((e) => {
+  if (e.type === "keydown" && e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    vscode.postMessage({ type: "input", data: "\x1b\r" })
+    return false
+  }
+  return true
+})
+
 window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   const message = event.data
   if (message.type === "data") {
@@ -96,8 +113,23 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     term.write(message.text)
   } else if (message.type === "exit") {
     term.write(`\r\n\x1b[2m[process exited, code ${message.code}]\x1b[0m\r\n`)
+    overlay.show(message.code)
   } else if (message.type === "state") {
     vscode.setState(message.state)
+  } else if (message.type === "font") {
+    term.options.fontSize = message.size
+    fit.fit()
+    vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
+  } else if (message.type === "reset") {
+    overlay.hide()
+    term.reset()
+    fit.fit()
+    vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
+    term.focus()
+  } else if (message.type === "clear") {
+    term.clear()
+  } else if (message.type === "find") {
+    // No-op for now; Task 6 adds the search bar UI.
   }
 })
 

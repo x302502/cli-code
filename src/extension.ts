@@ -3,7 +3,9 @@ import { addFilepathToTerminal, openCli } from "./lib/commands.js"
 import {
   activeTerminalPanel,
   holdDaemonAlive,
+  restartPanel,
   restoreTerminalPanel,
+  sendToActivePanel,
   setCustomTitle,
   VIEW_TYPE,
   type PanelState,
@@ -23,6 +25,11 @@ export function activate(context: vscode.ExtensionContext) {
       const title = await vscode.window.showInputBox({ prompt: "Tên mới cho tab", value: panel.title })
       if (title?.trim()) setCustomTitle(panel, title.trim())
     }),
+    vscode.commands.registerCommand("cli-code.restart", () => {
+      const panel = activeTerminalPanel()
+      if (panel) void restartPanel(context, panel)
+    }),
+    vscode.commands.registerCommand("cli-code.clear", () => sendToActivePanel({ type: "clear" })),
     vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
       async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: PanelState | undefined) {
         if (!state?.sessionId) {
