@@ -28,6 +28,8 @@ const panelConnections = new WeakMap<vscode.WebviewPanel, SessionConnection>()
 const customTitles = new WeakMap<vscode.WebviewPanel, string>()
 const panelQuickLabels = new WeakMap<vscode.WebviewPanel, string>()
 const panelInitialInputs = new WeakMap<vscode.WebviewPanel, string>()
+// The command the panel was spawned with (e.g. `claude --resume <id>`), so a restart re-runs it.
+const panelCommands = new WeakMap<vscode.WebviewPanel, string>()
 // The last panel to have editor focus, so addFilepathToTerminal (invoked from a text
 // editor, where no panel is `active`) still knows which session to write into.
 let lastFocusedPanel: vscode.WebviewPanel | undefined
@@ -51,7 +53,8 @@ function notifyFinished(panel: vscode.WebviewPanel, state: AgentState): void {
   void vscode.window
     .showInformationMessage(`${tool?.label ?? "CLI"} ${verb}${what ? `: ${what}` : ""}`, "Mở tab")
     .then((choice) => {
-      if (choice === "Mở tab") panel.reveal()
+      // The tab may have been closed while the toast sat there; reveal() on a disposed panel throws.
+      if (choice === "Mở tab" && activePanels.has(panel)) panel.reveal()
     })
 }
 
@@ -85,7 +88,8 @@ export function activePanelCwd(): string | undefined {
 
 function sendTo(panel: vscode.WebviewPanel, msg: unknown): void {
   const wiring = panelWiring.get(panel)
-  if (!wiring) return
+  // A closed panel (e.g. while a modal paste confirm was up) has no webview to post into.
+  if (!wiring || !activePanels.has(panel)) return
   if (wiring.ready) void panel.webview.postMessage(msg)
   else wiring.pending.push(msg)
 }
@@ -214,9 +218,10 @@ export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise
   return { dispose: () => socket.destroy() }
 }
 
-/** Shell snippet Claude's hook entry evaluates; the editor's own binary runs our bundle as node. */
+/** Shell snippet Claude's hook entry evaluates; the editor's own binary runs our bundle as node.
+ * stdout is discarded so nothing the bundle prints can be read by Claude as hook output. */
 function hookCommand(context: vscode.ExtensionContext): string {
-  return `ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "${context.asAbsolutePath("dist/hook.js")}"`
+  return `ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "${context.asAbsolutePath("dist/hook.js")}" >/dev/null`
 }
 
 function isListening(socketPath: string): Promise<boolean> {
@@ -241,15 +246,19 @@ function isListening(socketPath: string): Promise<boolean> {
 async function maybeOfferClaudeHooks(context: vscode.ExtensionContext): Promise<void> {
   try {
     const mode = vscode.workspace.getConfiguration("cliCode").get<string>("claudeStatusHooks") ?? "ask"
-    if (mode === "off" || hooksInstalledOnDisk()) return
+    if (mode === "off") return
+    // Mark "asked" before touching disk so a corrupt settings.json shows its error once,
+    // not on every Claude open.
+    const asked = context.globalState.get<boolean>("cliCode.hooksAsked")
+    if (mode === "ask" && !asked) await context.globalState.update("cliCode.hooksAsked", true)
+    if (hooksInstalledOnDisk()) return
     if (mode === "on") {
       installHooksToDisk()
       return
     }
-    if (context.globalState.get<boolean>("cliCode.hooksAsked")) return
-    await context.globalState.update("cliCode.hooksAsked", true)
+    if (asked) return
     const choice = await vscode.window.showInformationMessage(
-      "Cài hook trạng thái vào ~/.claude/settings.json (có sao lưu .bak)?",
+      "Cài hook trạng thái vào ~/.claude/settings.json (có sao lưu .bak)? Có hiệu lực từ lần mở Claude tiếp theo.",
       "Cài",
       "Không",
     )
@@ -269,9 +278,8 @@ export async function openTerminalPanel(
   tool: CliTool,
   options: { cwd?: string; command?: string; title?: string; quickCommandLabel?: string; initialInput?: string } = {},
 ): Promise<void> {
-  if (tool.id.startsWith("claude") && process.platform !== "win32") {
-    await maybeOfferClaudeHooks(context)
-  }
+  // Not awaited: the offer is a non-modal toast, and the terminal must open right away.
+  if (tool.id.startsWith("claude") && process.platform !== "win32") void maybeOfferClaudeHooks(context)
   const socketPath = await ensureDaemon(context)
   const cwd = usableCwd(options.cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
   const port = tool.hasHttpApi ? randomPort() : undefined
@@ -298,6 +306,7 @@ export async function openTerminalPanel(
     retainContextWhenHidden: true,
     localResourceRoots: [vscode.Uri.file(context.extensionPath)],
   })
+  panelCommands.set(panel, baseCommand)
   if (options.title) customTitles.set(panel, options.title)
   if (options.quickCommandLabel) panelQuickLabels.set(panel, options.quickCommandLabel)
   if (options.initialInput) panelInitialInputs.set(panel, options.initialInput)
@@ -316,6 +325,8 @@ export async function restoreTerminalPanel(
     return
   }
 
+  // Restore the custom title first: even a failed attach must keep it for "Khởi động lại".
+  if (state.customTitle) customTitles.set(panel, state.customTitle)
   const socketPath = await ensureDaemon(context)
   const connection = await connectSession(socketPath, { op: "attach", sessionId: state.sessionId })
   if (!connection) {
@@ -325,8 +336,7 @@ export async function restoreTerminalPanel(
     showGone(context, panel, tool)
     return
   }
-  // Restore the custom/prompt title before wiring so the first title/state posted is already correct.
-  if (state.customTitle) customTitles.set(panel, state.customTitle)
+  // Restore the prompt title before wiring so the first title/state posted is already correct.
   if (state.promptTitle) panelPromptTitles.set(panel, state.promptTitle)
   if (state.quickCommandLabel) panelQuickLabels.set(panel, state.quickCommandLabel)
   wirePanel(context, panel, tool, connection)
@@ -382,6 +392,8 @@ function wirePanel(
   panelWiring.set(panel, { ready: false, pending: [] })
 
   panel.onDidChangeViewState((e) => {
+    // A "gone" panel keeps this listener but must keep its plain tool.label title.
+    if (!activePanels.has(panel)) return
     if (e.webviewPanel.active) lastFocusedPanel = panel
     if (e.webviewPanel.visible) {
       panelUnread.delete(panel)
@@ -506,10 +518,14 @@ async function openPathFromPanel(panel: vscode.WebviewPanel, text: string): Prom
   const folders = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath)
   for (const candidate of pathCandidates(parsed.path, panelCwds.get(panel), folders, os.homedir())) {
     if (!fs.existsSync(candidate) || fs.statSync(candidate).isDirectory()) continue
-    const doc = await vscode.workspace.openTextDocument(candidate)
     const line = Math.max(0, (parsed.line ?? 1) - 1)
     const col = Math.max(0, (parsed.col ?? 1) - 1)
-    await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, col, line, col), preview: true })
+    try {
+      const doc = await vscode.workspace.openTextDocument(candidate)
+      await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, col, line, col), preview: true })
+    } catch {
+      void vscode.window.showWarningMessage(`Không mở được tệp: ${candidate}`)
+    }
     return
   }
   void vscode.window.showInformationMessage(`Không tìm thấy tệp: ${parsed.path}`)
@@ -536,10 +552,11 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     panelConnections.delete(panel)
     const socketPath = await ensureDaemon(context)
     const port = tool.hasHttpApi ? randomPort() : undefined
+    const baseCommand = panelCommands.get(panel) ?? tool.command
     const connection = await connectSession(socketPath, {
       op: "spawn",
       toolId: tool.id,
-      command: port ? tool.command.replace("{port}", String(port)) : tool.command,
+      command: port ? baseCommand.replace("{port}", String(port)) : baseCommand,
       cwd: usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
       env: { ...buildEnv(tool, port), CLI_CODE_HOOK: hookCommand(context) },
       cols: 80,
@@ -560,6 +577,8 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     panelOscTitles.delete(panel)
     panelPromptTitles.delete(panel)
     panelUnread.delete(panel)
+    // The quick command is not re-run, so its label must not name the fresh session.
+    panelQuickLabels.delete(panel)
     // A connection that died before the webview signaled ready may have left a stale
     // snapshot/data queued; drop it before the new connection posts its own.
     const wiring = panelWiring.get(panel)
