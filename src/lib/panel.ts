@@ -39,6 +39,20 @@ const panelPromptTitles = new WeakMap<vscode.WebviewPanel, string>()
 const panelUnread = new WeakSet<vscode.WebviewPanel>()
 const panelTrackers = new WeakMap<vscode.WebviewPanel, (input: string) => string | undefined>()
 
+/** Shows a completion notification for a panel that just left "working" while hidden,
+ * unless the user turned notifications off. */
+function notifyFinished(panel: vscode.WebviewPanel, state: AgentState): void {
+  if (!vscode.workspace.getConfiguration("cliCode").get<boolean>("notifications", true)) return
+  const tool = panelTools.get(panel)
+  const what = panelPromptTitles.get(panel) ?? customTitles.get(panel) ?? ""
+  const verb = state === "done" ? "đã xong" : "đang chờ bạn"
+  void vscode.window
+    .showInformationMessage(`${tool?.label ?? "CLI"} ${verb}${what ? `: ${what}` : ""}`, "Mở tab")
+    .then((choice) => {
+      if (choice === "Mở tab") panel.reveal()
+    })
+}
+
 /** Single place that turns the registries into what the tab shows. */
 function updateTitle(panel: vscode.WebviewPanel): void {
   const tool = panelTools.get(panel)
@@ -321,6 +335,9 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   // A "gone" panel has no session, so it must not be picked by cli-code.open (reuse)
   // or addFilepath — they should open/target a working CLI instead.
   activePanels.delete(panel)
+  panelStatus.delete(panel)
+  panelUnread.delete(panel)
+  panel.title = tool.label
   if (lastFocusedPanel === panel) lastFocusedPanel = undefined
   panel.webview.html = goneHtml(tool.label)
   panel.webview.onDidReceiveMessage(async (m) => {
@@ -360,6 +377,10 @@ function wirePanel(
 
   panel.onDidChangeViewState((e) => {
     if (e.webviewPanel.active) lastFocusedPanel = panel
+    if (e.webviewPanel.visible) {
+      panelUnread.delete(panel)
+      updateTitle(panel)
+    }
   })
 
   // The user closing the tab kills the CLI (spec §7.2): a closed tab must not leave
@@ -405,7 +426,17 @@ function attachConnection(
     else if (e.kind === "title") {
       panelOscTitles.set(panel, e.title)
       updateTitle(panel)
-    } else panelStatus.set(panel, { state: e.state, prompt: e.prompt })
+    } else if (e.kind === "status") {
+      const previous = panelStatus.get(panel)?.state
+      panelStatus.set(panel, { state: e.state, prompt: e.prompt })
+      if (e.state === "done" || e.state === "waiting" || e.state === "blocked") {
+        if (!panel.visible) {
+          panelUnread.add(panel)
+          if (previous === "working") notifyFinished(panel, e.state)
+        }
+      } else panelUnread.delete(panel)
+      updateTitle(panel)
+    }
   })
 
   wiring.listener = panel.webview.onDidReceiveMessage((message) => {
