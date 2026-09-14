@@ -5,6 +5,7 @@ import * as net from "node:net"
 import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
+import type { AgentState } from "./protocol.js"
 import { buildEnv, randomPort } from "./terminal.js"
 import { resolveTabTitle } from "./tab-title.js"
 
@@ -19,24 +20,40 @@ const activePanels = new Set<vscode.WebviewPanel>()
 const panelTools = new WeakMap<vscode.WebviewPanel, CliTool>()
 const panelConnections = new WeakMap<vscode.WebviewPanel, SessionConnection>()
 const customTitles = new WeakMap<vscode.WebviewPanel, string>()
-// Each panel's message sender from wirePanel, so setCustomTitle can push the updated
-// state to the webview (which persists it via vscode.setState for the next Reload Window).
-const panelSenders = new WeakMap<vscode.WebviewPanel, (msg: unknown) => void>()
 // The last panel to have editor focus, so addFilepathToTerminal (invoked from a text
 // editor, where no panel is `active`) still knows which session to write into.
 let lastFocusedPanel: vscode.WebviewPanel | undefined
+
+type Wiring = { ready: boolean; pending: unknown[]; listener?: vscode.Disposable }
+const panelWiring = new WeakMap<vscode.WebviewPanel, Wiring>()
+const panelCwds = new WeakMap<vscode.WebviewPanel, string>()
+const panelOscTitles = new WeakMap<vscode.WebviewPanel, string>()
+const panelStatus = new WeakMap<vscode.WebviewPanel, { state: AgentState; prompt?: string }>()
+
+/** cwd reported (OSC 7) by the active/last-focused CLI panel, if any. */
+export function activePanelCwd(): string | undefined {
+  const panel = activeTerminalPanel() ?? lastFocusedPanel
+  return panel ? panelCwds.get(panel) : undefined
+}
+
+function sendTo(panel: vscode.WebviewPanel, msg: unknown): void {
+  const wiring = panelWiring.get(panel)
+  if (!wiring) return
+  if (wiring.ready) void panel.webview.postMessage(msg)
+  else wiring.pending.push(msg)
+}
+
+/** Sends a message to the active (or last-focused) CLI panel, if any. */
+export function sendToActivePanel(msg: unknown): void {
+  const p = activeTerminalPanel() ?? lastFocusedPanel
+  if (p) sendTo(p, msg)
+}
 
 /** Sets a panel's custom title, updates the tab, and persists it across Reload Window. */
 export function setCustomTitle(panel: vscode.WebviewPanel, title: string): void {
   customTitles.set(panel, title)
   panel.title = resolveTabTitle({ customTitle: title, toolLabel: panelTools.get(panel)?.label ?? panel.title })
-
-  const send = panelSenders.get(panel)
-  const connection = panelConnections.get(panel)
-  if (send && connection) {
-    const toolId = panelTools.get(panel)?.id
-    send({ type: "state", state: { sessionId: connection.sessionId, toolId, customTitle: title } })
-  }
+  postState(panel)
 }
 
 /** First terminal panel that currently has editor focus, if any. */
@@ -147,15 +164,20 @@ function isListening(socketPath: string): Promise<boolean> {
   })
 }
 
-export async function openTerminalPanel(context: vscode.ExtensionContext, tool: CliTool): Promise<void> {
+export async function openTerminalPanel(
+  context: vscode.ExtensionContext,
+  tool: CliTool,
+  options: { cwd?: string; command?: string; title?: string } = {},
+): Promise<void> {
   const socketPath = await ensureDaemon(context)
-  const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
+  const cwd = options.cwd ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
   const port = tool.hasHttpApi ? randomPort() : undefined
+  const baseCommand = options.command ?? tool.command
 
   const connection = await connectSession(socketPath, {
     op: "spawn",
     toolId: tool.id,
-    command: port ? tool.command.replace("{port}", String(port)) : tool.command,
+    command: port ? baseCommand.replace("{port}", String(port)) : baseCommand,
     cwd,
     env: buildEnv(tool, port),
     cols: 80,
@@ -173,6 +195,8 @@ export async function openTerminalPanel(context: vscode.ExtensionContext, tool: 
     retainContextWhenHidden: true,
     localResourceRoots: [vscode.Uri.file(context.extensionPath)],
   })
+  if (options.title) customTitles.set(panel, options.title)
+  panelCwds.set(panel, cwd)
   wirePanel(context, panel, tool, connection)
 }
 
@@ -203,15 +227,9 @@ export async function restoreTerminalPanel(
 
 /** Renders the "session gone" view and wires its restart button. Shared by a failed
  * attach (restoreTerminalPanel) and a live connection closing (daemon died/evicted).
- * `existingListener`, when given, is the panel's previous onDidReceiveMessage registration
- * from wirePanel — it must be disposed so a stale input/resize/ack handler doesn't linger. */
-function showGone(
-  context: vscode.ExtensionContext,
-  panel: vscode.WebviewPanel,
-  tool: CliTool,
-  existingListener?: vscode.Disposable,
-): void {
-  existingListener?.dispose()
+ * Disposes the panel's wiring listener so a stale input/resize/ack handler doesn't linger. */
+function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, tool: CliTool): void {
+  panelWiring.get(panel)?.listener?.dispose()
   panelConnections.delete(panel)
   // A "gone" panel has no session, so it must not be picked by cli-code.open (reuse)
   // or addFilepath — they should open/target a working CLI instead.
@@ -229,6 +247,9 @@ function showGone(
   })
 }
 
+/** One-time panel setup: icon, title, html, registries, and lifecycle listeners.
+ * Delegates connection wiring (which can happen again for the same panel, e.g. a
+ * future restart) to attachConnection. */
 function wirePanel(
   context: vscode.ExtensionContext,
   panel: vscode.WebviewPanel,
@@ -241,41 +262,12 @@ function wirePanel(
 
   activePanels.add(panel)
   panelTools.set(panel, tool)
-  panelConnections.set(panel, connection)
   lastFocusedPanel = panel
 
   // Host -> webview messages must queue until the webview signals it is ready (its
   // terminal is open and focused) — otherwise the daemon's Snapshot on attach, which
   // can arrive before the page finishes loading, would be posted into the void.
-  let ready = false
-  const pending: unknown[] = []
-  const send = (msg: unknown) => {
-    if (ready) void panel.webview.postMessage(msg)
-    else pending.push(msg)
-  }
-  panelSenders.set(panel, send)
-
-  connection.onSnapshot((text) => send({ type: "snapshot", text }))
-  connection.onData((bytes) => send({ type: "data", bytes }))
-  connection.onExit((e) => send({ type: "exit", code: e.code }))
-
-  const messageListener = panel.webview.onDidReceiveMessage((message) => {
-    if (message.type === "input") connection.write(message.data)
-    else if (message.type === "resize") connection.resize(message.cols, message.rows)
-    else if (message.type === "ack") connection.ack(message.bytes)
-    else if (message.type === "ready") {
-      ready = true
-      for (const msg of pending) void panel.webview.postMessage(msg)
-      pending.length = 0
-      // This state is what VS Code hands back to the serializer after a Reload Window.
-      void panel.webview.postMessage({
-        type: "state",
-        state: { sessionId: connection.sessionId, toolId: tool.id, customTitle: customTitles.get(panel) },
-      })
-    }
-  })
-
-  connection.onClose(() => showGone(context, panel, tool, messageListener))
+  panelWiring.set(panel, { ready: false, pending: [] })
 
   panel.onDidChangeViewState((e) => {
     if (e.webviewPanel.active) lastFocusedPanel = panel
@@ -283,15 +275,69 @@ function wirePanel(
 
   // The user closing the tab kills the CLI (spec §7.2): a closed tab must not leave
   // an orphan process running in the daemon. If the connection is already gone
-  // (showGone ran: daemon died or evicted us) there is nothing to kill.
+  // (showGone ran: daemon died or evicted us) there is nothing to kill. The connection
+  // is read at dispose time (not captured) because a restart can have replaced it.
   // The panel is deliberately NOT pushed into context.subscriptions: on Reload Window
   // VS Code runs deactivate() and disposes every subscription, which would fire this
   // handler and kill every session — the very thing the daemon exists to prevent.
   panel.onDidDispose(() => {
     activePanels.delete(panel)
-    if (panelConnections.has(panel)) connection.kill()
-    connection.dispose()
+    const connection = panelConnections.get(panel)
+    if (connection) {
+      connection.kill()
+      connection.dispose()
+    }
     if (lastFocusedPanel === panel) lastFocusedPanel = undefined
+  })
+
+  attachConnection(context, panel, tool, connection)
+}
+
+/** Wires a connection into an already-set-up panel. Runs once per attach — including a
+ * future restart, which calls this again for the same panel with a fresh connection. */
+function attachConnection(
+  context: vscode.ExtensionContext,
+  panel: vscode.WebviewPanel,
+  tool: CliTool,
+  connection: SessionConnection,
+): void {
+  const wiring = panelWiring.get(panel)
+  if (!wiring) return
+  wiring.listener?.dispose()
+  panelConnections.set(panel, connection)
+
+  connection.onSnapshot((text) => sendTo(panel, { type: "snapshot", text }))
+  connection.onData((bytes) => sendTo(panel, { type: "data", bytes }))
+  connection.onExit((e) => sendTo(panel, { type: "exit", code: e.code }))
+  connection.onMeta((e) => {
+    if (e.kind === "cwd") panelCwds.set(panel, e.cwd)
+    else if (e.kind === "title") panelOscTitles.set(panel, e.title)
+    else panelStatus.set(panel, { state: e.state, prompt: e.prompt })
+  })
+
+  wiring.listener = panel.webview.onDidReceiveMessage((message) => {
+    if (message.type === "input") connection.write(message.data)
+    else if (message.type === "resize") connection.resize(message.cols, message.rows)
+    else if (message.type === "ack") connection.ack(message.bytes)
+    else if (message.type === "ready") {
+      wiring.ready = true
+      for (const msg of wiring.pending) void panel.webview.postMessage(msg)
+      wiring.pending.length = 0
+      postState(panel)
+    }
+  })
+
+  connection.onClose(() => showGone(context, panel, tool))
+}
+
+/** Posts the state VS Code hands back to the serializer after a Reload Window. */
+function postState(panel: vscode.WebviewPanel): void {
+  const connection = panelConnections.get(panel)
+  const tool = panelTools.get(panel)
+  if (!connection || !tool) return
+  void panel.webview.postMessage({
+    type: "state",
+    state: { sessionId: connection.sessionId, toolId: tool.id, customTitle: customTitles.get(panel) },
   })
 }
 
