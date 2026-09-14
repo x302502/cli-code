@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import { installHooksToDisk, uninstallHooksFromDisk } from "./lib/claude-hooks.js"
-import { addFilepathToTerminal, openCli, resumeSession } from "./lib/commands.js"
+import { addFilepathToTerminal, addQuickCommand, openCli, resumeSession, runQuickCommand } from "./lib/commands.js"
 import {
   activeTerminalPanel,
   applyFontZoom,
@@ -22,6 +22,8 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("cli-code.openNew", () => openCli(context, { reuseExisting: false })),
     vscode.commands.registerCommand("cli-code.addFilepath", addFilepathToTerminal),
     vscode.commands.registerCommand("cli-code.resume", () => resumeSession(context)),
+    vscode.commands.registerCommand("cli-code.quickCommand", () => runQuickCommand(context)),
+    vscode.commands.registerCommand("cli-code.addQuickCommand", () => addQuickCommand()),
     vscode.commands.registerCommand("cli-code.renameTab", async () => {
       const panel = activeTerminalPanel()
       if (!panel) return

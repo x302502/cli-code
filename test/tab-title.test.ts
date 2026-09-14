@@ -67,6 +67,15 @@ describe("resolveTabTitle", () => {
     ).toBe("Tab của tôi")
   })
 
+  it("tên lệnh nhanh thắng OSC/prompt nhưng thua tên do user đặt", () => {
+    expect(resolveTabTitle({ quickCommandLabel: "Test", oscTitle: "Claude • abc", promptTitle: "xyz", toolLabel })).toBe(
+      "Test",
+    )
+    expect(
+      resolveTabTitle({ customTitle: "Tab của tôi", quickCommandLabel: "Test", toolLabel }),
+    ).toBe("Tab của tôi")
+  })
+
   it("kế đến là OSC title nếu có nghĩa", () => {
     expect(resolveTabTitle({ oscTitle: "Claude • abc", promptTitle: "xyz", toolLabel })).toBe("Claude • abc")
   })

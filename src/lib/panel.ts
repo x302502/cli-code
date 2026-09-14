@@ -18,7 +18,7 @@ export const VIEW_TYPE = "cliCode.terminal"
 const DAEMON_ID_KEY = "cliCode.daemonId"
 const FONT_ZOOM_KEY = "cliCode.fontZoom"
 
-export type PanelState = { sessionId: string; toolId: string; customTitle?: string; promptTitle?: string }
+export type PanelState = { sessionId: string; toolId: string; customTitle?: string; promptTitle?: string; quickCommandLabel?: string }
 
 // Registries for rename (Task 10) and Task 11 (focus tracking, writing at-mentions
 // into the active session).
@@ -26,6 +26,8 @@ const activePanels = new Set<vscode.WebviewPanel>()
 const panelTools = new WeakMap<vscode.WebviewPanel, CliTool>()
 const panelConnections = new WeakMap<vscode.WebviewPanel, SessionConnection>()
 const customTitles = new WeakMap<vscode.WebviewPanel, string>()
+const panelQuickLabels = new WeakMap<vscode.WebviewPanel, string>()
+const panelInitialInputs = new WeakMap<vscode.WebviewPanel, string>()
 // The last panel to have editor focus, so addFilepathToTerminal (invoked from a text
 // editor, where no panel is `active`) still knows which session to write into.
 let lastFocusedPanel: vscode.WebviewPanel | undefined
@@ -59,6 +61,7 @@ function updateTitle(panel: vscode.WebviewPanel): void {
   if (!tool) return
   const base = resolveTabTitle({
     customTitle: customTitles.get(panel),
+    quickCommandLabel: panelQuickLabels.get(panel),
     oscTitle: panelOscTitles.get(panel),
     promptTitle: panelPromptTitles.get(panel),
     toolLabel: tool.label,
@@ -264,7 +267,7 @@ async function maybeOfferClaudeHooks(context: vscode.ExtensionContext): Promise<
 export async function openTerminalPanel(
   context: vscode.ExtensionContext,
   tool: CliTool,
-  options: { cwd?: string; command?: string; title?: string } = {},
+  options: { cwd?: string; command?: string; title?: string; quickCommandLabel?: string; initialInput?: string } = {},
 ): Promise<void> {
   if (tool.id.startsWith("claude") && process.platform !== "win32") {
     await maybeOfferClaudeHooks(context)
@@ -296,6 +299,8 @@ export async function openTerminalPanel(
     localResourceRoots: [vscode.Uri.file(context.extensionPath)],
   })
   if (options.title) customTitles.set(panel, options.title)
+  if (options.quickCommandLabel) panelQuickLabels.set(panel, options.quickCommandLabel)
+  if (options.initialInput) panelInitialInputs.set(panel, options.initialInput)
   panelCwds.set(panel, cwd)
   wirePanel(context, panel, tool, connection)
 }
@@ -323,6 +328,7 @@ export async function restoreTerminalPanel(
   // Restore the custom/prompt title before wiring so the first title/state posted is already correct.
   if (state.customTitle) customTitles.set(panel, state.customTitle)
   if (state.promptTitle) panelPromptTitles.set(panel, state.promptTitle)
+  if (state.quickCommandLabel) panelQuickLabels.set(panel, state.quickCommandLabel)
   wirePanel(context, panel, tool, connection)
 }
 
@@ -455,6 +461,13 @@ function attachConnection(
       for (const msg of wiring.pending) void panel.webview.postMessage(msg)
       wiring.pending.length = 0
       postState(panel)
+      // A quick command's text is queued until the CLI has drawn its prompt, so a 500 ms
+      // delay after the webview signals ready is needed before writing it in.
+      const initial = panelInitialInputs.get(panel)
+      if (initial) {
+        panelInitialInputs.delete(panel)
+        setTimeout(() => panelConnections.get(panel)?.write(initial), 500)
+      }
     } else if (message.type === "restart") void restartPanel(context, panel)
     else if (message.type === "clipboard" && typeof message.text === "string" && message.text.length <= 1024 * 1024) {
       void vscode.env.clipboard.writeText(message.text)
@@ -571,6 +584,7 @@ function postState(panel: vscode.WebviewPanel): void {
       toolId: tool.id,
       customTitle: customTitles.get(panel),
       promptTitle: panelPromptTitles.get(panel),
+      quickCommandLabel: panelQuickLabels.get(panel),
     },
   })
 }

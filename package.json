@@ -63,6 +63,14 @@
         "title": "CLI Code: Mở lại phiên cũ"
       },
       {
+        "command": "cli-code.quickCommand",
+        "title": "CLI Code: Lệnh nhanh"
+      },
+      {
+        "command": "cli-code.addQuickCommand",
+        "title": "CLI Code: Lưu thành lệnh nhanh"
+      },
+      {
         "command": "cli-code.renameTab",
         "title": "CLI Code: Đổi tên tab"
       },
@@ -158,6 +166,11 @@
           "command": "cli-code.resume",
           "when": "webviewId == cliCode.terminal",
           "group": "3_more@1"
+        },
+        {
+          "command": "cli-code.quickCommand",
+          "when": "webviewId == cliCode.terminal",
+          "group": "3_more@2"
         }
       ]
     },
@@ -236,6 +249,21 @@
           "type": "boolean",
           "default": true,
           "description": "Thông báo khi agent xong việc ở một tab đang ẩn."
+        },
+        "cliCode.quickCommands": {
+          "type": "array",
+          "default": [],
+          "scope": "resource",
+          "items": {
+            "type": "object",
+            "required": ["label", "text"],
+            "properties": {
+              "label": { "type": "string" },
+              "text": { "type": "string" },
+              "submit": { "type": "boolean", "default": true }
+            }
+          },
+          "description": "Lệnh hoặc prompt dùng lại. Đặt trong User settings = Global, trong Workspace settings = Project."
         }
       }
     }

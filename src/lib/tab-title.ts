@@ -42,12 +42,17 @@ export function isMeaningfulOscTitle(title: string): boolean {
 
 export function resolveTabTitle(parts: {
   customTitle?: string
+  quickCommandLabel?: string
   oscTitle?: string
   promptTitle?: string
   toolLabel: string
 }): string {
   const custom = parts.customTitle?.trim()
   if (custom) return custom
+
+  // A tab opened from a quick command is named after it until the user renames it.
+  const quick = parts.quickCommandLabel?.trim()
+  if (quick) return quick
 
   const osc = parts.oscTitle?.trim()
   if (osc && isMeaningfulOscTitle(osc)) return osc
