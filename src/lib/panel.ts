@@ -7,7 +7,9 @@ import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { parsePathLink, pathCandidates } from "./path-resolve.js"
+import { createPromptTracker } from "./prompt-tracker.js"
 import type { AgentState } from "./protocol.js"
+import { decorateTitle } from "./status-glyph.js"
 import { buildEnv, randomPort } from "./terminal.js"
 import { resolveTabTitle } from "./tab-title.js"
 
@@ -15,7 +17,7 @@ export const VIEW_TYPE = "cliCode.terminal"
 const DAEMON_ID_KEY = "cliCode.daemonId"
 const FONT_ZOOM_KEY = "cliCode.fontZoom"
 
-export type PanelState = { sessionId: string; toolId: string; customTitle?: string }
+export type PanelState = { sessionId: string; toolId: string; customTitle?: string; promptTitle?: string }
 
 // Registries for rename (Task 10) and Task 11 (focus tracking, writing at-mentions
 // into the active session).
@@ -32,6 +34,22 @@ const panelWiring = new WeakMap<vscode.WebviewPanel, Wiring>()
 const panelCwds = new WeakMap<vscode.WebviewPanel, string>()
 const panelOscTitles = new WeakMap<vscode.WebviewPanel, string>()
 const panelStatus = new WeakMap<vscode.WebviewPanel, { state: AgentState; prompt?: string }>()
+const panelPromptTitles = new WeakMap<vscode.WebviewPanel, string>()
+const panelUnread = new WeakSet<vscode.WebviewPanel>()
+const panelTrackers = new WeakMap<vscode.WebviewPanel, (input: string) => string | undefined>()
+
+/** Single place that turns the registries into what the tab shows. */
+function updateTitle(panel: vscode.WebviewPanel): void {
+  const tool = panelTools.get(panel)
+  if (!tool) return
+  const base = resolveTabTitle({
+    customTitle: customTitles.get(panel),
+    oscTitle: panelOscTitles.get(panel),
+    promptTitle: panelPromptTitles.get(panel),
+    toolLabel: tool.label,
+  })
+  panel.title = decorateTitle(base, panelStatus.get(panel)?.state, panelUnread.has(panel))
+}
 
 /** A cwd is only usable as a spawn cwd if it exists locally as a directory. OSC 7 drops the
  * host, so an ssh session (or a deleted directory) can report a path that is not here —
@@ -82,7 +100,7 @@ export async function applyFontZoom(context: vscode.ExtensionContext, delta: num
 /** Sets a panel's custom title, updates the tab, and persists it across Reload Window. */
 export function setCustomTitle(panel: vscode.WebviewPanel, title: string): void {
   customTitles.set(panel, title)
-  panel.title = resolveTabTitle({ customTitle: title, toolLabel: panelTools.get(panel)?.label ?? panel.title })
+  updateTitle(panel)
   postState(panel)
 }
 
@@ -250,8 +268,9 @@ export async function restoreTerminalPanel(
     showGone(context, panel, tool)
     return
   }
-  // Restore the custom title before wiring so the first title/state posted is already correct.
+  // Restore the custom/prompt title before wiring so the first title/state posted is already correct.
   if (state.customTitle) customTitles.set(panel, state.customTitle)
+  if (state.promptTitle) panelPromptTitles.set(panel, state.promptTitle)
   wirePanel(context, panel, tool, connection)
 }
 
@@ -289,11 +308,11 @@ function wirePanel(
   connection: SessionConnection,
 ): void {
   panel.iconPath = iconFor(context, tool)
-  panel.title = resolveTabTitle({ customTitle: customTitles.get(panel), toolLabel: tool.label })
   panel.webview.html = terminalHtml(context, panel.webview)
 
   activePanels.add(panel)
   panelTools.set(panel, tool)
+  updateTitle(panel)
   lastFocusedPanel = panel
 
   // Host -> webview messages must queue until the webview signals it is ready (its
@@ -337,19 +356,30 @@ function attachConnection(
   if (!wiring) return
   wiring.listener?.dispose()
   panelConnections.set(panel, connection)
+  const tracker = createPromptTracker()
+  panelTrackers.set(panel, tracker)
 
   connection.onSnapshot((text) => sendTo(panel, { type: "snapshot", text }))
   connection.onData((bytes) => sendTo(panel, { type: "data", bytes }))
   connection.onExit((e) => sendTo(panel, { type: "exit", code: e.code }))
   connection.onMeta((e) => {
     if (e.kind === "cwd") panelCwds.set(panel, e.cwd)
-    else if (e.kind === "title") panelOscTitles.set(panel, e.title)
-    else panelStatus.set(panel, { state: e.state, prompt: e.prompt })
+    else if (e.kind === "title") {
+      panelOscTitles.set(panel, e.title)
+      updateTitle(panel)
+    } else panelStatus.set(panel, { state: e.state, prompt: e.prompt })
   })
 
   wiring.listener = panel.webview.onDidReceiveMessage((message) => {
-    if (message.type === "input") connection.write(message.data)
-    else if (message.type === "resize") connection.resize(message.cols, message.rows)
+    if (message.type === "input") {
+      connection.write(message.data)
+      const title = tracker(message.data)
+      if (title) {
+        panelPromptTitles.set(panel, title)
+        updateTitle(panel)
+        postState(panel)
+      }
+    } else if (message.type === "resize") connection.resize(message.cols, message.rows)
     else if (message.type === "ack") connection.ack(message.bytes)
     else if (message.type === "ready") {
       wiring.ready = true
@@ -446,12 +476,15 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     }
     panelStatus.delete(panel)
     panelOscTitles.delete(panel)
+    panelPromptTitles.delete(panel)
+    panelUnread.delete(panel)
     // A connection that died before the webview signaled ready may have left a stale
     // snapshot/data queued; drop it before the new connection posts its own.
     const wiring = panelWiring.get(panel)
     if (wiring) wiring.pending.length = 0
     sendTo(panel, { type: "reset" })
     attachConnection(context, panel, tool, connection)
+    updateTitle(panel)
   } finally {
     restarting.delete(panel)
   }
@@ -464,7 +497,12 @@ function postState(panel: vscode.WebviewPanel): void {
   if (!connection || !tool) return
   void panel.webview.postMessage({
     type: "state",
-    state: { sessionId: connection.sessionId, toolId: tool.id, customTitle: customTitles.get(panel) },
+    state: {
+      sessionId: connection.sessionId,
+      toolId: tool.id,
+      customTitle: customTitles.get(panel),
+      promptTitle: panelPromptTitles.get(panel),
+    },
   })
 }
 
