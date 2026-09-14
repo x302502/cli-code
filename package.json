@@ -280,7 +280,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "bun test",
-    "vsix": "vsce package"
+    "package:target": "bun run package && node scripts/package-target.mjs",
+    "package:all": "bun run package && for t in darwin-arm64 darwin-x64 win32-x64 win32-arm64 linux-x64 linux-arm64; do node scripts/package-target.mjs $t || exit 1; done",
+    "verify:vsix": "node scripts/verify-vsix.mjs",
+    "vsix": "echo 'use package:target <target>' && exit 1"
   },
   "devDependencies": {
     "@types/node": "20.x",
