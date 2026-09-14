@@ -384,7 +384,7 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
     const title = customTitles.get(panel)
     panel.dispose()
     try {
-      await openTerminalPanel(context, tool, { cwd, title })
+      await openTerminalPanel(context, tool, { cwd, title, command: panelCommands.get(panel) })
     } catch (err) {
       void vscode.window.showErrorMessage(String(err))
     }
@@ -613,6 +613,7 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     panelUnread.delete(panel)
     // The quick command is not re-run, so its label must not name the fresh session.
     panelQuickLabels.delete(panel)
+    panelInitialInputs.delete(panel)
     // A connection that died before the webview signaled ready may have left a stale
     // snapshot/data queued; drop it before the new connection posts its own.
     const wiring = panelWiring.get(panel)

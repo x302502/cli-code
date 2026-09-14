@@ -23,6 +23,8 @@ const daemon = spawn(runtime, [daemonPath, socketPath], {
 })
 
 let done = false
+let statusSeen = false
+let hookExited = false
 const watchdog = setTimeout(() => fail("timed out waiting for Status frame"), DEADLINE_MS)
 
 function cleanup() {
@@ -84,13 +86,19 @@ function tryConnect() {
           hook.on("exit", (code) => {
             if (code !== 0) fail(`hook exited ${code}`)
             else if (hookStdout.length > 0) fail(`hook printed to stdout: ${JSON.stringify(hookStdout)}`)
+            else {
+              hookExited = true
+              if (statusSeen) pass()
+            }
           })
           hook.stdin.end(JSON.stringify({ hook_event_name: "Stop" }))
         } else if (type === 23) {
           // MSG.Status
           const status = JSON.parse(payload.toString("utf8"))
-          if (status.state === "done") pass()
-          else fail(`unexpected status: ${JSON.stringify(status)}`)
+          if (status.state !== "done") fail(`unexpected status: ${JSON.stringify(status)}`)
+          // Wait for the hook to exit so the empty-stdout assertion above actually runs.
+          statusSeen = true
+          if (hookExited) pass()
         }
       }
     })

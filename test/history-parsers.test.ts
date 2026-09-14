@@ -27,13 +27,16 @@ describe("claude", () => {
   it("file không có user message → undefined", () => {
     expect(parseClaudeSession('{"type":"summary"}\n', fb)).toBeUndefined()
   })
-  it("bản ghi isSidechain (sub-agent) → undefined", () => {
-    expect(parseClaudeSession(fx("claude-project/22222222-2222-2222-2222-222222222222/subagents/agent-x.jsonl"), fb)).toBeUndefined()
+  it("bản ghi isSidechain (sub-agent) bị bỏ qua, không đặt tên/tiêu đề phiên", () => {
+    const side = '{"type":"user","isSidechain":true,"message":{"role":"user","content":"sub task"},"sessionId":"aaaa"}\n'
+    expect(parseClaudeSession(side, fb)).toBeUndefined()
+    const main = '{"type":"user","message":{"role":"user","content":"main prompt"},"sessionId":"bbbb"}\n'
+    expect(parseClaudeSession(side + main, fb)?.sessionId).toBe("bbbb")
   })
   it("quét thư mục project chỉ lấy *.jsonl cấp đầu, bỏ subagents/", () => {
     const dir = fileURLToPath(new URL("./fixtures/history/claude-project", import.meta.url))
     const sessions = claudeSessionsInDir(dir, 50)
-    expect(sessions.map((s) => s.sessionId)).toEqual(["11111111-1111-1111-1111-111111111111"])
+    expect(sessions.map((s) => s.sessionId)).toEqual(["22222222-2222-2222-2222-222222222222"])
   })
 })
 
