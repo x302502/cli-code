@@ -46,7 +46,7 @@ function connect(p: string) {
     }
     throw new Error(`không thấy khung type=${type}`)
   }
-  return { socket, waitFor }
+  return { socket, frames, waitFor }
 }
 
 describe("startDaemon", () => {
@@ -286,6 +286,34 @@ describe("startDaemon", () => {
     const cwd = await second.waitFor(MSG.Cwd)
     expect(decodeJsonPayload<{ cwd: string }>(cwd.payload)).toEqual({ cwd: "/tmp/y" })
     second.socket.destroy()
+  })
+
+  it("Kill từ owner xoá phiên: attach lại báo gone, StatusReport tới id đó bị bỏ qua", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty })
+    stop = daemon.close
+    const owner = connect(p)
+    owner.socket.write(encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }))
+    const ok = await owner.waitFor(MSG.HelloOk)
+    const { sessionId } = decodeJsonPayload<{ sessionId: string }>(ok.payload)
+    owner.socket.write(encodeFrame(MSG.Kill, new Uint8Array(0)))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(daemon.sessionCount()).toBe(0)
+
+    const again = connect(p)
+    again.socket.write(encodeJsonFrame(MSG.Hello, { op: "attach", sessionId }))
+    const fail = await again.waitFor(MSG.HelloFail)
+    expect(decodeJsonPayload<{ reason: string }>(fail.payload).reason).toBe("gone")
+
+    const hook = connect(p)
+    hook.socket.write(encodeJsonFrame(MSG.StatusReport, { sessionId, state: "working" }))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(owner.frames.some((f) => f.type === MSG.Status)).toBe(false)
+    expect(daemon.sessionCount()).toBe(0)
+    owner.socket.destroy()
+    again.socket.destroy()
+    hook.socket.destroy()
   })
 
   it("StatusReport từ một kết nối không Hello được chuyển tới owner của phiên", async () => {

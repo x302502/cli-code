@@ -34,9 +34,18 @@ export function createSearchBar(term: Terminal, search: SearchAddon): { show(): 
     }
   }
   function find(forward: boolean) {
-    if (!input.value) return
-    if (forward) search.findNext(input.value, options())
-    else search.findPrevious(input.value, options())
+    if (!input.value) {
+      search.clearDecorations()
+      count.textContent = ""
+      return
+    }
+    // An in-progress regex such as "(" throws inside the addon; ignore it until it is valid.
+    try {
+      if (forward) search.findNext(input.value, options())
+      else search.findPrevious(input.value, options())
+    } catch {
+      // ignore
+    }
   }
   input.addEventListener("input", () => find(true))
   input.addEventListener("keydown", (e) => {

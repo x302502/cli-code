@@ -80,6 +80,31 @@ describe("Session", () => {
     expect(seen).toEqual([7])
   })
 
+  it("kill() trên phiên đã thoát không đụng PTY", () => {
+    const { session, calls, die } = makeSession()
+    die(0)
+    session.kill()
+    expect(calls.killed).toBe(0)
+  })
+
+  it("cwd được seed từ spawn và vẫn bị OSC 7 ghi đè", () => {
+    const harness = fakePty()
+    const session = createSession({
+      id: "s1",
+      toolId: "claude",
+      command: "claude",
+      cwd: "/w",
+      env: {},
+      cols: 80,
+      rows: 24,
+      spawnPty: () => harness.pty,
+      schedule: (fn) => fn(),
+    })
+    expect(session.cwd).toBe("/w")
+    harness.emit("\x1b]7;file://h/x\x07")
+    expect(session.cwd).toBe("/x")
+  })
+
   it("snapshot dựng lại được nội dung đã in ra", async () => {
     const { session, emit } = makeSession()
     emit("xin chao")

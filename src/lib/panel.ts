@@ -33,10 +33,18 @@ const panelCwds = new WeakMap<vscode.WebviewPanel, string>()
 const panelOscTitles = new WeakMap<vscode.WebviewPanel, string>()
 const panelStatus = new WeakMap<vscode.WebviewPanel, { state: AgentState; prompt?: string }>()
 
-/** cwd reported (OSC 7) by the active/last-focused CLI panel, if any. */
+/** A cwd is only usable as a spawn cwd if it exists locally as a directory. OSC 7 drops the
+ * host, so an ssh session (or a deleted directory) can report a path that is not here —
+ * node-pty would then throw inside the daemon and the user would see a misleading
+ * "daemon không phản hồi" instead of a running CLI. */
+function usableCwd(p: string | undefined): string | undefined {
+  return p && fs.existsSync(p) && fs.statSync(p).isDirectory() ? p : undefined
+}
+
+/** cwd reported (OSC 7) by the active/last-focused CLI panel, if it exists locally. */
 export function activePanelCwd(): string | undefined {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
-  return panel ? panelCwds.get(panel) : undefined
+  return usableCwd(panel ? panelCwds.get(panel) : undefined)
 }
 
 function sendTo(panel: vscode.WebviewPanel, msg: unknown): void {
@@ -192,7 +200,7 @@ export async function openTerminalPanel(
   options: { cwd?: string; command?: string; title?: string } = {},
 ): Promise<void> {
   const socketPath = await ensureDaemon(context)
-  const cwd = options.cwd ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
+  const cwd = usableCwd(options.cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
   const port = tool.hasHttpApi ? randomPort() : undefined
   const baseCommand = options.command ?? tool.command
 
@@ -349,7 +357,9 @@ function attachConnection(
       wiring.pending.length = 0
       postState(panel)
     } else if (message.type === "restart") void restartPanel(context, panel)
-    else if (message.type === "clipboard" && typeof message.text === "string") void vscode.env.clipboard.writeText(message.text)
+    else if (message.type === "clipboard" && typeof message.text === "string" && message.text.length <= 1024 * 1024) {
+      void vscode.env.clipboard.writeText(message.text)
+    }
     else if (message.type === "openLink" && typeof message.uri === "string") {
       // A hostile CLI must not be able to trigger file:/custom-scheme handlers via a printed "link" —
       // only http(s) and mailto are allowed through to the OS.
@@ -363,6 +373,12 @@ function attachConnection(
   })
 
   connection.onClose(() => showGone(context, panel, tool))
+
+  // The `ready` handler above posts state only once, on the webview's first load. After a
+  // restart the panel holds a new sessionId while the webview's saved state still names the
+  // killed one — on Reload Window the serializer would attach to the dead session ("gone"
+  // page) and the restarted CLI would keep running unowned. Re-post now if already ready.
+  if (wiring.ready) postState(panel)
 }
 
 /** Resolves a file-path link from the terminal (relative to the panel's cwd, then each
@@ -407,7 +423,7 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
       op: "spawn",
       toolId: tool.id,
       command: port ? tool.command.replace("{port}", String(port)) : tool.command,
-      cwd: panelCwds.get(panel) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
+      cwd: usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
       env: buildEnv(tool, port),
       cols: 80,
       rows: 24,
@@ -424,6 +440,7 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
       return
     }
     panelStatus.delete(panel)
+    panelOscTitles.delete(panel)
     // A connection that died before the webview signaled ready may have left a stale
     // snapshot/data queued; drop it before the new connection posts its own.
     const wiring = panelWiring.get(panel)

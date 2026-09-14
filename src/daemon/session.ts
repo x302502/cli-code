@@ -227,5 +227,9 @@ export function createSession(args: {
     rows: args.rows,
   })
 
-  return new Session(args.id, args.toolId, pty, mirror, serializer, args.schedule ?? setTimeout)
+  const session = new Session(args.id, args.toolId, pty, mirror, serializer, args.schedule ?? setTimeout)
+  // Seed with the spawn cwd: CLIs run via `$SHELL -lc <cmd>` rarely emit OSC 7, and a
+  // client attaching after Reload Window still needs a cwd (restart, path links).
+  session.cwd = args.cwd
+  return session
 }

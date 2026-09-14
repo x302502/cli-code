@@ -86,6 +86,9 @@ export function connectSession(
     socket.on("connect", () => socket.write(encodeJsonFrame(MSG.Hello, hello)))
 
     socket.on("data", (chunk) => {
+      // Frames still in flight after dispose() must not reach the consumer's callbacks —
+      // the panel has already moved on (e.g. to a fresh connection after a restart).
+      if (disposed) return
       try {
         for (const frame of decode(new Uint8Array(chunk))) {
           if (frame.type === MSG.HelloFail) return fail()
@@ -152,9 +155,11 @@ export function connectSession(
           } else if (frame.type === MSG.Cwd || frame.type === MSG.Title || frame.type === MSG.Status) {
             const body = decodeJsonPayload<Record<string, unknown>>(frame.payload)
             let e: MetaEvent | undefined
-            if (frame.type === MSG.Cwd) e = { kind: "cwd", cwd: String(body.cwd) }
-            else if (frame.type === MSG.Title) e = { kind: "title", title: String(body.title) }
-            else if (typeof body.state === "string" && (AGENT_STATES as readonly string[]).includes(body.state)) {
+            if (frame.type === MSG.Cwd) {
+              if (typeof body.cwd === "string") e = { kind: "cwd", cwd: body.cwd }
+            } else if (frame.type === MSG.Title) {
+              if (typeof body.title === "string") e = { kind: "title", title: body.title }
+            } else if (typeof body.state === "string" && (AGENT_STATES as readonly string[]).includes(body.state)) {
               e = { kind: "status", state: body.state as AgentState, prompt: typeof body.prompt === "string" ? body.prompt : undefined }
             }
             if (e) {

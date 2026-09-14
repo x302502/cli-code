@@ -69,7 +69,10 @@ export async function startDaemon(args: {
             session.resize(size.cols, size.rows)
           } else if (frame.type === MSG.Ack) {
             session.ack(new DataView(frame.payload.buffer, frame.payload.byteOffset).getUint32(0, false))
-          } else if (frame.type === MSG.Kill) {
+          } else if (frame.type === MSG.Kill && owners.get(session.id) === socket) {
+            // Only the current owner may kill; a stale connection's late Kill must not
+            // take down a session another connection has since taken over.
+            session.detach()
             session.kill()
             sessions.delete(session.id)
             owners.delete(session.id)
