@@ -93,10 +93,14 @@ term.onBinary((data) => vscode.postMessage({ type: "input", data }))
 const overlay = createExitOverlay(() => vscode.postMessage({ type: "restart" }))
 
 // Claude Code's /terminal-setup teaches terminals to send ESC CR for Shift+Enter; do the
-// same here so multi-line prompts work without any per-user setup.
+// same here so multi-line prompts work without any per-user setup. Returning false only on
+// "keydown" is not enough: xterm's custom handler also runs on the "keypress" that Chromium
+// fires right after, and if that call returns true xterm falls through to its default Enter
+// handling and emits "\r" — submitting the prompt right after the newline. So the handler
+// must return false (swallow) for every event type, and only post the input on keydown.
 term.attachCustomKeyEventHandler((e) => {
-  if (e.type === "keydown" && e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-    vscode.postMessage({ type: "input", data: "\x1b\r" })
+  if (e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (e.type === "keydown") vscode.postMessage({ type: "input", data: "\x1b\r" })
     return false
   }
   return true

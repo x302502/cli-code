@@ -332,34 +332,57 @@ function attachConnection(
   connection.onClose(() => showGone(context, panel, tool))
 }
 
+// Guards against a second restart request (e.g. a doubled click, or the palette command
+// firing while a "restart" webview message is still in flight) racing the same panel.
+const restarting = new WeakSet<vscode.WebviewPanel>()
+
 /** Spawns a fresh session for the panel's tool and re-attaches it to the same tab. */
 export async function restartPanel(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
-  const tool = panelTools.get(panel)
-  if (!tool) return
-  panelConnections.get(panel)?.dispose()
-  panelConnections.delete(panel)
-  const socketPath = await ensureDaemon(context)
-  const port = tool.hasHttpApi ? randomPort() : undefined
-  const connection = await connectSession(socketPath, {
-    op: "spawn",
-    toolId: tool.id,
-    command: port ? tool.command.replace("{port}", String(port)) : tool.command,
-    cwd: panelCwds.get(panel) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
-    env: buildEnv(tool, port),
-    cols: 80,
-    rows: 24,
-  })
-  if (!connection) {
-    void vscode.window.showErrorMessage("Không khởi động lại được: daemon không phản hồi.")
-    return
+  if (restarting.has(panel)) return
+  restarting.add(panel)
+  try {
+    const tool = panelTools.get(panel)
+    if (!tool) return
+    // A client close only detaches in the daemon; the old session keeps running until it is
+    // explicitly killed. Without this it leaks an orphan CLI process on every restart.
+    const old = panelConnections.get(panel)
+    if (old) {
+      old.kill()
+      old.dispose()
+    }
+    panelConnections.delete(panel)
+    const socketPath = await ensureDaemon(context)
+    const port = tool.hasHttpApi ? randomPort() : undefined
+    const connection = await connectSession(socketPath, {
+      op: "spawn",
+      toolId: tool.id,
+      command: port ? tool.command.replace("{port}", String(port)) : tool.command,
+      cwd: panelCwds.get(panel) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
+      env: buildEnv(tool, port),
+      cols: 80,
+      rows: 24,
+    })
+    if (!connection) {
+      void vscode.window.showErrorMessage("Không khởi động lại được: daemon không phản hồi.")
+      return
+    }
+    // The panel may have been closed while awaiting connectSession above; a disposed panel
+    // must not adopt a fresh session (it would leak, since nothing would ever kill it).
+    if (!activePanels.has(panel)) {
+      connection.kill()
+      connection.dispose()
+      return
+    }
+    panelStatus.delete(panel)
+    // A connection that died before the webview signaled ready may have left a stale
+    // snapshot/data queued; drop it before the new connection posts its own.
+    const wiring = panelWiring.get(panel)
+    if (wiring) wiring.pending.length = 0
+    sendTo(panel, { type: "reset" })
+    attachConnection(context, panel, tool, connection)
+  } finally {
+    restarting.delete(panel)
   }
-  panelStatus.delete(panel)
-  // A connection that died before the webview signaled ready may have left a stale
-  // snapshot/data queued; drop it before the new connection posts its own.
-  const wiring = panelWiring.get(panel)
-  if (wiring) wiring.pending.length = 0
-  sendTo(panel, { type: "reset" })
-  attachConnection(context, panel, tool, connection)
 }
 
 /** Posts the state VS Code hands back to the serializer after a Reload Window. */
