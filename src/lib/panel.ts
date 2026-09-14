@@ -348,6 +348,12 @@ function attachConnection(
       postState(panel)
     } else if (message.type === "restart") void restartPanel(context, panel)
     else if (message.type === "clipboard" && typeof message.text === "string") void vscode.env.clipboard.writeText(message.text)
+    else if (message.type === "openLink" && typeof message.uri === "string") {
+      // A hostile CLI must not be able to trigger file:/custom-scheme handlers via a printed "link" —
+      // only http(s) and mailto are allowed through to the OS.
+      const uri = vscode.Uri.parse(message.uri)
+      if (uri.scheme === "http" || uri.scheme === "https" || uri.scheme === "mailto") void vscode.env.openExternal(uri)
+    }
     else if (message.type === "context" && typeof message.text === "string" && typeof message.lines === "number") {
       void vscode.env.clipboard.writeText(message.text)
       void vscode.window.showInformationMessage(`Đã chép ${message.lines} dòng ngữ cảnh.`)

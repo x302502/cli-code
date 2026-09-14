@@ -7,6 +7,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from "@xterm/addon-clipboard"
 import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createExitOverlay } from "./exit-overlay.js"
+import { createLinkPopover } from "./link-popover.js"
 import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
 
@@ -68,7 +69,17 @@ term.unicode.activeVersion = "11"
 
 const searchAddon = new SearchAddon()
 term.loadAddon(searchAddon)
-term.loadAddon(new WebLinksAddon())
+const popover = createLinkPopover()
+// Plain click shows a popover (Orca-style) so a stray click never yanks the user out of the
+// terminal; meta/ctrl+click opens immediately, like VS Code's own terminal.
+term.loadAddon(
+  new WebLinksAddon((event, uri) => {
+    const open = () => vscode.postMessage({ type: "openLink", uri })
+    const copy = () => vscode.postMessage({ type: "clipboard", text: uri })
+    if (event.metaKey || event.ctrlKey) open()
+    else popover.show(event.clientX, event.clientY, uri, { open, copy })
+  }),
+)
 
 // OSC 52 write goes through the extension host (vscode.env.clipboard): reliable in a
 // sandboxed webview, and it keeps reads closed — a program in the terminal must not be
