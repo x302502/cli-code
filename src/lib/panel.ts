@@ -327,6 +327,7 @@ function attachConnection(
       wiring.pending.length = 0
       postState(panel)
     } else if (message.type === "restart") void restartPanel(context, panel)
+    else if (message.type === "clipboard" && typeof message.text === "string") void vscode.env.clipboard.writeText(message.text)
   })
 
   connection.onClose(() => showGone(context, panel, tool))

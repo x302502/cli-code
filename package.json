@@ -137,6 +137,7 @@
     "node-pty"
   ],
   "dependencies": {
+    "@xterm/addon-clipboard": "0.1.0",
     "@xterm/addon-fit": "0.10.0",
     "@xterm/addon-search": "0.15.0",
     "@xterm/addon-serialize": "0.13.0",

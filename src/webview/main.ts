@@ -4,6 +4,7 @@ import { WebglAddon } from "@xterm/addon-webgl"
 import { SearchAddon } from "@xterm/addon-search"
 import { WebLinksAddon } from "@xterm/addon-web-links"
 import { Unicode11Addon } from "@xterm/addon-unicode11"
+import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from "@xterm/addon-clipboard"
 import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createExitOverlay } from "./exit-overlay.js"
 
@@ -64,6 +65,18 @@ term.unicode.activeVersion = "11"
 
 term.loadAddon(new SearchAddon())
 term.loadAddon(new WebLinksAddon())
+
+// OSC 52 write goes through the extension host (vscode.env.clipboard): reliable in a
+// sandboxed webview, and it keeps reads closed — a program in the terminal must not be
+// able to pull the user's clipboard contents.
+const clipboardProvider: IClipboardProvider = {
+  readText: (_selection: ClipboardSelectionType) => Promise.resolve(""),
+  writeText: (_selection: ClipboardSelectionType, text: string) => {
+    if (text.length <= 1024 * 1024) vscode.postMessage({ type: "clipboard", text })
+    return Promise.resolve()
+  },
+}
+term.loadAddon(new ClipboardAddon(clipboardProvider))
 
 // WebGL renders faster, but if the context is lost it must be torn down instead of used again.
 // This only guards a constructor throw (e.g. very old browsers); if WebGL2 itself is unsupported,
