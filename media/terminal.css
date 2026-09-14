@@ -35,3 +35,36 @@ body {
   border-radius: 2px;
   cursor: pointer;
 }
+#search-bar {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-editorWidget-foreground);
+  border: 1px solid var(--vscode-widget-border);
+  font: 12px var(--vscode-font-family);
+}
+#search-bar input {
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 2px;
+  padding: 2px 6px;
+}
+#search-bar button {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 0;
+  padding: 3px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.on {
+  outline: 1px solid var(--vscode-focusBorder);
+}

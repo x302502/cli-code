@@ -2,6 +2,7 @@ import * as vscode from "vscode"
 import { addFilepathToTerminal, openCli } from "./lib/commands.js"
 import {
   activeTerminalPanel,
+  applyFontZoom,
   holdDaemonAlive,
   restartPanel,
   restoreTerminalPanel,
@@ -30,6 +31,10 @@ export function activate(context: vscode.ExtensionContext) {
       if (panel) void restartPanel(context, panel)
     }),
     vscode.commands.registerCommand("cli-code.clear", () => sendToActivePanel({ type: "clear" })),
+    vscode.commands.registerCommand("cli-code.fontZoomIn", () => void applyFontZoom(context, 1)),
+    vscode.commands.registerCommand("cli-code.fontZoomOut", () => void applyFontZoom(context, -1)),
+    vscode.commands.registerCommand("cli-code.fontZoomReset", () => void applyFontZoom(context, "reset")),
+    vscode.commands.registerCommand("cli-code.find", () => sendToActivePanel({ type: "find" })),
     vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
       async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: PanelState | undefined) {
         if (!state?.sessionId) {

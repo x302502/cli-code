@@ -11,6 +11,7 @@ import { resolveTabTitle } from "./tab-title.js"
 
 export const VIEW_TYPE = "cliCode.terminal"
 const DAEMON_ID_KEY = "cliCode.daemonId"
+const FONT_ZOOM_KEY = "cliCode.fontZoom"
 
 export type PanelState = { sessionId: string; toolId: string; customTitle?: string }
 
@@ -47,6 +48,25 @@ function sendTo(panel: vscode.WebviewPanel, msg: unknown): void {
 export function sendToActivePanel(msg: unknown): void {
   const p = activeTerminalPanel() ?? lastFocusedPanel
   if (p) sendTo(p, msg)
+}
+
+function baseFontSize(): number {
+  const terminalConfig = vscode.workspace.getConfiguration("terminal.integrated")
+  const editorConfig = vscode.workspace.getConfiguration("editor")
+  return terminalConfig.get<number>("fontSize") || editorConfig.get<number>("fontSize") || 14
+}
+
+export function currentFontSize(context: vscode.ExtensionContext): number {
+  return baseFontSize() + (context.workspaceState.get<number>(FONT_ZOOM_KEY) ?? 0)
+}
+
+/** Steps every open panel's font size; clamped so a runaway keypress cannot make text unreadable. */
+export async function applyFontZoom(context: vscode.ExtensionContext, delta: number | "reset"): Promise<void> {
+  const current = context.workspaceState.get<number>(FONT_ZOOM_KEY) ?? 0
+  const next = delta === "reset" ? 0 : Math.max(-5, Math.min(10, current + delta))
+  await context.workspaceState.update(FONT_ZOOM_KEY, next)
+  const size = baseFontSize() + next
+  for (const panel of activePanels) sendTo(panel, { type: "font", size })
 }
 
 /** Sets a panel's custom title, updates the tab, and persists it across Reload Window. */
@@ -415,7 +435,7 @@ function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview)
   const editorConfig = vscode.workspace.getConfiguration("editor")
   const fontFamily =
     terminalConfig.get<string>("fontFamily") || editorConfig.get<string>("fontFamily") || "monospace"
-  const fontSize = terminalConfig.get<number>("fontSize") || editorConfig.get<number>("fontSize") || 14
+  const fontSize = currentFontSize(context)
   const escapedFamily = fontFamily.replace(/"/g, "&quot;")
 
   return `<!DOCTYPE html><html lang="vi"><head>

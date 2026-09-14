@@ -69,6 +69,22 @@
       {
         "command": "cli-code.clear",
         "title": "CLI Code: Xoá màn hình"
+      },
+      {
+        "command": "cli-code.fontZoomIn",
+        "title": "CLI Code: Phóng to chữ"
+      },
+      {
+        "command": "cli-code.fontZoomOut",
+        "title": "CLI Code: Thu nhỏ chữ"
+      },
+      {
+        "command": "cli-code.fontZoomReset",
+        "title": "CLI Code: Cỡ chữ mặc định"
+      },
+      {
+        "command": "cli-code.find",
+        "title": "CLI Code: Tìm trong terminal"
       }
     ],
     "menus": {
@@ -103,6 +119,42 @@
         "mac": "cmd+alt+k",
         "win": "ctrl+alt+K",
         "linux": "ctrl+alt+K"
+      },
+      {
+        "command": "cli-code.fontZoomIn",
+        "title": "CLI Code: Phóng to chữ",
+        "key": "cmd+=",
+        "mac": "cmd+=",
+        "win": "ctrl+=",
+        "linux": "ctrl+=",
+        "when": "activeWebviewPanelId == cliCode.terminal"
+      },
+      {
+        "command": "cli-code.fontZoomOut",
+        "title": "CLI Code: Thu nhỏ chữ",
+        "key": "cmd+-",
+        "mac": "cmd+-",
+        "win": "ctrl+-",
+        "linux": "ctrl+-",
+        "when": "activeWebviewPanelId == cliCode.terminal"
+      },
+      {
+        "command": "cli-code.fontZoomReset",
+        "title": "CLI Code: Cỡ chữ mặc định",
+        "key": "cmd+0",
+        "mac": "cmd+0",
+        "win": "ctrl+0",
+        "linux": "ctrl+0",
+        "when": "activeWebviewPanelId == cliCode.terminal"
+      },
+      {
+        "command": "cli-code.find",
+        "title": "CLI Code: Tìm trong terminal",
+        "key": "cmd+f",
+        "mac": "cmd+f",
+        "win": "ctrl+f",
+        "linux": "ctrl+f",
+        "when": "activeWebviewPanelId == cliCode.terminal"
       }
     ]
   },

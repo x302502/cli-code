@@ -7,6 +7,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from "@xterm/addon-clipboard"
 import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createExitOverlay } from "./exit-overlay.js"
+import { createSearchBar } from "./search-bar.js"
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void
@@ -63,7 +64,8 @@ term.loadAddon(fit)
 term.loadAddon(new Unicode11Addon())
 term.unicode.activeVersion = "11"
 
-term.loadAddon(new SearchAddon())
+const searchAddon = new SearchAddon()
+term.loadAddon(searchAddon)
 term.loadAddon(new WebLinksAddon())
 
 // OSC 52 write goes through the extension host (vscode.env.clipboard): reliable in a
@@ -104,6 +106,7 @@ term.onData((data) => vscode.postMessage({ type: "input", data }))
 term.onBinary((data) => vscode.postMessage({ type: "input", data }))
 
 const overlay = createExitOverlay(() => vscode.postMessage({ type: "restart" }))
+const searchBar = createSearchBar(term, searchAddon)
 
 // Claude Code's /terminal-setup teaches terminals to send ESC CR for Shift+Enter; do the
 // same here so multi-line prompts work without any per-user setup. Returning false only on
@@ -146,7 +149,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   } else if (message.type === "clear") {
     term.clear()
   } else if (message.type === "find") {
-    // No-op for now; Task 6 adds the search bar UI.
+    searchBar.show()
   }
 })
 
