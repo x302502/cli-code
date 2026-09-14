@@ -14,7 +14,12 @@ if (!target) { console.error("file name must end with -<platform>-<arch>.vsix");
 const dir = mkdtempSync(join(tmpdir(), "vsix-verify-"))
 const failures = []
 try {
-  execFileSync("unzip", ["-q", file, "-d", dir])
+  try {
+    execFileSync("unzip", ["-q", file, "-d", dir])
+  } catch (err) {
+    console.error(`FAIL: cannot extract ${file}: ${err.message}`)
+    process.exit(2)
+  }
   const ext = join(dir, "extension")
   const must = [
     "dist/extension.js", "dist/daemon.js", "dist/webview.js", "dist/hook.js",
