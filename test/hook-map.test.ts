@@ -8,6 +8,12 @@ describe("mapHookEvent", () => {
     expect(mapHookEvent({ hook_event_name: "Notification", message: "needs input" })).toEqual({ state: "waiting", prompt: undefined })
     expect(mapHookEvent({ hook_event_name: "PermissionRequest" })).toEqual({ state: "waiting", prompt: undefined })
   })
+  it("Notification: chỉ permission_prompt/elicitation_dialog là waiting; idle_prompt/auth_success bỏ qua", () => {
+    expect(mapHookEvent({ hook_event_name: "Notification", notification_type: "permission_prompt" })).toEqual({ state: "waiting", prompt: undefined })
+    expect(mapHookEvent({ hook_event_name: "Notification", notification_type: "elicitation_dialog" })).toEqual({ state: "waiting", prompt: undefined })
+    expect(mapHookEvent({ hook_event_name: "Notification", notification_type: "idle_prompt" })).toBeUndefined()
+    expect(mapHookEvent({ hook_event_name: "Notification", notification_type: "auth_success" })).toBeUndefined()
+  })
   it("bỏ qua sự kiện khác và payload hỏng", () => {
     expect(mapHookEvent({ hook_event_name: "SubagentStop" })).toBeUndefined()
     expect(mapHookEvent(null)).toBeUndefined()
