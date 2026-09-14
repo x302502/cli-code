@@ -29,7 +29,7 @@ function safeMtimeMs(file: string): number | undefined {
   }
 }
 
-function newestFiles(dir: string, filter: (name: string) => boolean, limit: number): string[] {
+function newestFiles(dir: string, filter: (name: string) => boolean, limit: number, recursive: boolean): string[] {
   if (!fs.existsSync(dir)) return []
   const walk = (d: string, out: string[]) => {
     let entries: fs.Dirent[]
@@ -40,8 +40,9 @@ function newestFiles(dir: string, filter: (name: string) => boolean, limit: numb
     }
     for (const e of entries) {
       const p = path.join(d, e.name)
-      if (e.isDirectory()) walk(p, out)
-      else if (filter(e.name)) out.push(p)
+      if (e.isDirectory()) {
+        if (recursive) walk(p, out)
+      } else if (filter(e.name)) out.push(p)
     }
   }
   const files: string[] = []
@@ -55,8 +56,13 @@ function newestFiles(dir: string, filter: (name: string) => boolean, limit: numb
 }
 
 function claudeSessions(cwd: string, limit: number): SessionSummary[] {
-  const dir = path.join(os.homedir(), ".claude", "projects", encodeClaudeProjectDir(cwd))
-  return newestFiles(dir, (n) => n.endsWith(".jsonl"), limit).flatMap((f) => {
+  return claudeSessionsInDir(path.join(os.homedir(), ".claude", "projects", encodeClaudeProjectDir(cwd)), limit)
+}
+
+/** Top-level `*.jsonl` only: sub-agent transcripts live in `<sessionId>/subagents/agent-*.jsonl`
+ * under the project dir and are not resumable sessions. */
+export function claudeSessionsInDir(dir: string, limit: number): SessionSummary[] {
+  return newestFiles(dir, (n) => n.endsWith(".jsonl"), limit, false).flatMap((f) => {
     const m = safeMtimeMs(f)
     if (m === undefined) return []
     let text: string
@@ -72,7 +78,7 @@ function claudeSessions(cwd: string, limit: number): SessionSummary[] {
 
 function codexSessions(cwd: string, limit: number): SessionSummary[] {
   const dir = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "sessions")
-  return newestFiles(dir, (n) => n.startsWith("rollout-") && n.endsWith(".jsonl"), limit).flatMap((f) => {
+  return newestFiles(dir, (n) => n.startsWith("rollout-") && n.endsWith(".jsonl"), limit, true).flatMap((f) => {
     const m = safeMtimeMs(f)
     if (m === undefined) return []
     let text: string

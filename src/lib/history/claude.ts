@@ -24,6 +24,8 @@ export function parseClaudeSession(text: string, fallback: ParseFallback): Sessi
     if (!line.trim()) continue
     let rec: Record<string, unknown>
     try { rec = JSON.parse(line) } catch { continue }
+    // Sub-agent transcripts carry the parent's sessionId with isSidechain: true; never list them.
+    if (rec.isSidechain === true) return undefined
     if (rec.type === "custom-title" && typeof rec.customTitle === "string") custom = rec.customTitle
     else if (rec.type === "ai-title" && typeof rec.aiTitle === "string") ai = rec.aiTitle
     else if (rec.type === "user" && rec.isMeta !== true) {
