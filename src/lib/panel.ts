@@ -4,6 +4,7 @@ import * as fs from "node:fs"
 import * as net from "node:net"
 import * as os from "node:os"
 import * as vscode from "vscode"
+import { hooksInstalledOnDisk, installHooksToDisk } from "./claude-hooks.js"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { parsePathLink, pathCandidates } from "./path-resolve.js"
@@ -217,11 +218,43 @@ function isListening(socketPath: string): Promise<boolean> {
   })
 }
 
+/** Opt-in offer to install the Claude status hooks (Task 3's UserPromptSubmit/Stop/Notification/
+ * PermissionRequest mapping) into ~/.claude/settings.json, asked once per machine unless the
+ * user already set a preference. Windows has no `eval`-based shell hook to install. */
+async function maybeOfferClaudeHooks(context: vscode.ExtensionContext): Promise<void> {
+  try {
+    const mode = vscode.workspace.getConfiguration("cliCode").get<string>("claudeStatusHooks") ?? "ask"
+    if (mode === "off" || hooksInstalledOnDisk()) return
+    if (mode === "on") {
+      installHooksToDisk()
+      return
+    }
+    if (context.globalState.get<boolean>("cliCode.hooksAsked")) return
+    await context.globalState.update("cliCode.hooksAsked", true)
+    const choice = await vscode.window.showInformationMessage(
+      "Cài hook trạng thái vào ~/.claude/settings.json (có sao lưu .bak)?",
+      "Cài",
+      "Không",
+    )
+    if (choice === "Cài") {
+      installHooksToDisk()
+      await vscode.workspace.getConfiguration("cliCode").update("claudeStatusHooks", "on", vscode.ConfigurationTarget.Global)
+    } else {
+      await vscode.workspace.getConfiguration("cliCode").update("claudeStatusHooks", "off", vscode.ConfigurationTarget.Global)
+    }
+  } catch (err) {
+    void vscode.window.showErrorMessage(String(err))
+  }
+}
+
 export async function openTerminalPanel(
   context: vscode.ExtensionContext,
   tool: CliTool,
   options: { cwd?: string; command?: string; title?: string } = {},
 ): Promise<void> {
+  if (tool.id.startsWith("claude") && process.platform !== "win32") {
+    await maybeOfferClaudeHooks(context)
+  }
   const socketPath = await ensureDaemon(context)
   const cwd = usableCwd(options.cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
   const port = tool.hasHttpApi ? randomPort() : undefined

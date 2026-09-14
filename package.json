@@ -97,6 +97,14 @@
       {
         "command": "cli-code.copySelection",
         "title": "CLI Code: Sao chép"
+      },
+      {
+        "command": "cli-code.installClaudeHooks",
+        "title": "CLI Code: Cài hook trạng thái Claude"
+      },
+      {
+        "command": "cli-code.uninstallClaudeHooks",
+        "title": "CLI Code: Gỡ hook trạng thái Claude"
       }
     ],
     "menus": {
@@ -205,7 +213,23 @@
         "linux": "ctrl+f",
         "when": "activeWebviewPanelId == cliCode.terminal"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "CLI Code",
+      "properties": {
+        "cliCode.claudeStatusHooks": {
+          "type": "string",
+          "enum": ["ask", "on", "off"],
+          "default": "ask",
+          "description": "Cài hook trạng thái vào ~/.claude/settings.json để tab Claude hiện đang chạy / chờ / xong."
+        },
+        "cliCode.notifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Thông báo khi agent xong việc ở một tab đang ẩn."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "bun run package",

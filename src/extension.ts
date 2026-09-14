@@ -1,4 +1,5 @@
 import * as vscode from "vscode"
+import { installHooksToDisk, uninstallHooksFromDisk } from "./lib/claude-hooks.js"
 import { addFilepathToTerminal, openCli } from "./lib/commands.js"
 import {
   activeTerminalPanel,
@@ -41,6 +42,14 @@ export function activate(context: vscode.ExtensionContext) {
       sendToActivePanel({ type: "pasteText", text })
     }),
     vscode.commands.registerCommand("cli-code.copySelection", () => sendToActivePanel({ type: "copySelection" })),
+    vscode.commands.registerCommand("cli-code.installClaudeHooks", () => {
+      const changed = installHooksToDisk()
+      void vscode.window.showInformationMessage(changed ? "Đã cài hook." : "Không có gì để thay đổi.")
+    }),
+    vscode.commands.registerCommand("cli-code.uninstallClaudeHooks", () => {
+      const changed = uninstallHooksFromDisk()
+      void vscode.window.showInformationMessage(changed ? "Đã gỡ hook." : "Không có gì để thay đổi.")
+    }),
     vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
       async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: PanelState | undefined) {
         if (!state?.sessionId) {
