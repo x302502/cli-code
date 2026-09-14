@@ -1,5 +1,15 @@
 import { describe, expect, it } from "bun:test"
-import { HOOK_COMMAND, hooksInstalled, installHooks, uninstallHooks } from "../src/lib/claude-hooks.js"
+import * as fs from "node:fs"
+import * as os from "node:os"
+import * as path from "node:path"
+import {
+  HOOK_COMMAND,
+  hooksInstalled,
+  hooksInstalledOnDisk,
+  installHooks,
+  installHooksToDisk,
+  uninstallHooks,
+} from "../src/lib/claude-hooks.js"
 
 describe("claude hooks merge", () => {
   it("thêm entry vào 4 sự kiện, giữ hook sẵn có", () => {
@@ -43,5 +53,52 @@ describe("claude hooks merge", () => {
     expect(changed).toBe(true)
     const hooks = settings.hooks as Record<string, unknown[]>
     expect(hooks.Stop!.length).toBe(1)
+  })
+  it("hooks không phải object (null/array) → cài coi như rỗng, gỡ không đổi gì", () => {
+    expect(installHooks({ hooks: null }).changed).toBe(true)
+    expect(installHooks({ hooks: [1, 2] }).changed).toBe(true)
+    expect(uninstallHooks({ hooks: null }).changed).toBe(false)
+    expect(uninstallHooks({ hooks: [1, 2] }).changed).toBe(false)
+  })
+})
+
+describe("claude hooks disk I/O (temp dir only — never the real ~/.claude/settings.json)", () => {
+  function tempSettingsFile(): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-claude-hooks-"))
+    return path.join(dir, "settings.json")
+  }
+
+  it("file JSON không hợp lệ → installHooksToDisk ném lỗi, không đổi bytes", () => {
+    const file = tempSettingsFile()
+    const original = '{"a":1,}'
+    fs.writeFileSync(file, original)
+    expect(() => installHooksToDisk(file)).toThrow()
+    expect(fs.readFileSync(file, "utf8")).toBe(original)
+    expect(fs.existsSync(`${file}.cli-code.bak`)).toBe(false)
+  })
+
+  it("file không tồn tại → tạo mới với hook của mình", () => {
+    const file = tempSettingsFile()
+    expect(installHooksToDisk(file)).toBe(true)
+    expect(hooksInstalledOnDisk(file)).toBe(true)
+  })
+
+  it("file hợp lệ có hook khác → giữ nguyên hook khác, .bak khớp bytes gốc", () => {
+    const file = tempSettingsFile()
+    const original = JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: "say done" }] }] } })
+    fs.writeFileSync(file, original)
+    expect(installHooksToDisk(file)).toBe(true)
+    const written = JSON.parse(fs.readFileSync(file, "utf8"))
+    expect(written.hooks.Stop[0].hooks[0].command).toBe("say done")
+    expect(fs.readFileSync(`${file}.cli-code.bak`, "utf8")).toBe(original)
+  })
+
+  it("cài hai lần → lần hai trả về false, không ghi đè .bak lần nữa", () => {
+    const file = tempSettingsFile()
+    fs.writeFileSync(file, JSON.stringify({ other: 1 }))
+    expect(installHooksToDisk(file)).toBe(true)
+    const bakAfterFirst = fs.readFileSync(`${file}.cli-code.bak`, "utf8")
+    expect(installHooksToDisk(file)).toBe(false)
+    expect(fs.readFileSync(`${file}.cli-code.bak`, "utf8")).toBe(bakAfterFirst)
   })
 })

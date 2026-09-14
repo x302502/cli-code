@@ -42,13 +42,27 @@ export function activate(context: vscode.ExtensionContext) {
       sendToActivePanel({ type: "pasteText", text })
     }),
     vscode.commands.registerCommand("cli-code.copySelection", () => sendToActivePanel({ type: "copySelection" })),
-    vscode.commands.registerCommand("cli-code.installClaudeHooks", () => {
-      const changed = installHooksToDisk()
-      void vscode.window.showInformationMessage(changed ? "Đã cài hook." : "Không có gì để thay đổi.")
+    vscode.commands.registerCommand("cli-code.installClaudeHooks", async () => {
+      try {
+        const choice = await vscode.window.showWarningMessage(
+          "Cài hook trạng thái vào ~/.claude/settings.json (có sao lưu .bak)?",
+          { modal: true },
+          "Cài",
+        )
+        if (choice !== "Cài") return
+        const changed = installHooksToDisk()
+        void vscode.window.showInformationMessage(changed ? "Đã cài hook." : "Không có gì để thay đổi.")
+      } catch (err) {
+        void vscode.window.showErrorMessage(String(err))
+      }
     }),
     vscode.commands.registerCommand("cli-code.uninstallClaudeHooks", () => {
-      const changed = uninstallHooksFromDisk()
-      void vscode.window.showInformationMessage(changed ? "Đã gỡ hook." : "Không có gì để thay đổi.")
+      try {
+        const changed = uninstallHooksFromDisk()
+        void vscode.window.showInformationMessage(changed ? "Đã gỡ hook." : "Không có gì để thay đổi.")
+      } catch (err) {
+        void vscode.window.showErrorMessage(String(err))
+      }
     }),
     vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
       async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: PanelState | undefined) {
