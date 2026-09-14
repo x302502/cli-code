@@ -8,6 +8,7 @@ import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from 
 import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createExitOverlay } from "./exit-overlay.js"
 import { createSearchBar } from "./search-bar.js"
+import { tailText } from "./buffer-text.js"
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void
@@ -25,6 +26,7 @@ type HostMessage =
   | { type: "reset" }
   | { type: "clear" }
   | { type: "find" }
+  | { type: "copyContext"; maxLines: number }
 
 const vscode = acquireVsCodeApi()
 
@@ -150,6 +152,9 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     term.clear()
   } else if (message.type === "find") {
     searchBar.show()
+  } else if (message.type === "copyContext") {
+    const r = tailText(term.buffer.active, message.maxLines)
+    vscode.postMessage({ type: "context", ...r })
   }
 })
 

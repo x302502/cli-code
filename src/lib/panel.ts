@@ -348,6 +348,10 @@ function attachConnection(
       postState(panel)
     } else if (message.type === "restart") void restartPanel(context, panel)
     else if (message.type === "clipboard" && typeof message.text === "string") void vscode.env.clipboard.writeText(message.text)
+    else if (message.type === "context" && typeof message.text === "string" && typeof message.lines === "number") {
+      void vscode.env.clipboard.writeText(message.text)
+      void vscode.window.showInformationMessage(`Đã chép ${message.lines} dòng ngữ cảnh.`)
+    }
   })
 
   connection.onClose(() => showGone(context, panel, tool))

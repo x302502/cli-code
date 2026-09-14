@@ -85,6 +85,10 @@
       {
         "command": "cli-code.find",
         "title": "CLI Code: Tìm trong terminal"
+      },
+      {
+        "command": "cli-code.copyContext",
+        "title": "CLI Code: Sao chép ngữ cảnh"
       }
     ],
     "menus": {
