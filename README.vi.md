@@ -133,9 +133,11 @@ Từ 0.2.0, CLI Code không còn mở trợ lý trong terminal tích hợp thư�
 
 CLI Code có thể cài một hook nhỏ vào Claude Code để hiển thị đúng trạng thái (đang chạy / đang chờ / xong) trên tab, thay vì chỉ suy đoán từ tiêu đề. Đây là tính năng **opt-in**:
 
-- Lần đầu bạn mở Claude Code trong CLI Code, extension sẽ hỏi có muốn cài hook không (điều khiển bằng setting `cliCode.claudeStatusHooks`).
+- Lần đầu bạn mở Claude Code trong CLI Code, extension sẽ hỏi có muốn cài hook không (điều khiển bằng setting `cliCode.claudeStatusHooks`). Đóng thông báo mà không trả lời được coi là "off" cho cửa sổ này — cài lại bằng lệnh Command Palette **"CLI Code: Cài hook trạng thái Claude"**.
 - Nếu đồng ý, nó ghi thêm vào `~/.claude/settings.json`. Trước lần ghi đầu tiên, file gốc được sao lưu thành `~/.claude/settings.json.cli-code.bak`; các hook đã có của bạn được giữ nguyên.
+- Hook có hiệu lực từ lần mở Claude Code tiếp theo — phiên đang chạy vẫn suy đoán trạng thái từ tiêu đề.
 - Gỡ bất kỳ lúc nào bằng lệnh Command Palette **"CLI Code: Gỡ hook trạng thái Claude"**.
+- Giới hạn đã biết: lệnh hook được shell `eval` (`eval "$CLI_CODE_HOOK"`), nên đường dẫn cài VS Code chứa `"` hoặc `$` sẽ làm hook hỏng.
 - Nội dung mỗi entry được thêm cho 4 sự kiện `UserPromptSubmit`, `Stop`, `Notification`, `PermissionRequest`:
 
   ```json
@@ -164,6 +166,10 @@ Ví dụ `cliCode.quickCommands`:
 ]
 ```
 
+### Liên kết đường dẫn
+
+Mọi đường dẫn tuyệt đối hoặc `~/` mà CLI in ra (kèm `:dòng:cột` nếu có) đều thành liên kết. Click để hiện popover Mở / Sao chép, hoặc `Cmd/Ctrl + click` để mở tệp ngay.
+
 ### Menu chuột phải trong terminal
 
 Sao chép, Dán, Sao chép ngữ cảnh, Xoá màn hình, Đổi tên tab, Khởi động lại phiên, Tìm trong terminal, Mở lại phiên cũ, Lệnh nhanh.
@@ -180,12 +186,12 @@ Sao chép, Dán, Sao chép ngữ cảnh, Xoá màn hình, Đổi tên tab, Khở
 | Mở trợ lý trong terminal mới   | `Cmd + Shift + Esc`   | `Ctrl + Shift + Esc`     |
 | Gửi file hiện tại vào trợ lý   | `Cmd + Alt + K`       | `Ctrl + Alt + K`         |
 | Xuống dòng trong prompt        | `Shift + Enter`       | `Shift + Enter`         |
-| Tìm trong terminal             | `Cmd + F`             | `Ctrl + F`               |
+| Tìm trong terminal             | `Cmd + F`             | `Ctrl + F` \*           |
 | Phóng to chữ                   | `Cmd + =`             | `Ctrl + =`               |
 | Thu nhỏ chữ                    | `Cmd + -`             | `Ctrl + -`               |
 | Cỡ chữ mặc định                | `Cmd + 0`             | `Ctrl + 0`               |
 
-Các lệnh trên cũng có trong Command Palette (`Cmd/Ctrl + Shift + P`): **Open CLI**, **Open CLI in new tab**, và **CLI: Insert At-Mentioned**.
+\* Trên Windows / Linux, terminal đang focus nuốt `Ctrl + F` (xterm gửi xuống CLI dưới dạng `^F`). Dùng lệnh Command Palette **"CLI Code: Tìm trong terminal"** hoặc mục chuột phải **Tìm trong terminal** thay thế.
 
 ## Câu hỏi thường gặp
 

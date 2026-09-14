@@ -133,9 +133,11 @@ As of 0.2.0, CLI Code no longer opens assistants in a regular VS Code integrated
 
 CLI Code can install a small hook into Claude Code so the tab shows accurate status (working / waiting / done) instead of guessing from the title. This is **opt-in**:
 
-- The first time you open Claude Code inside CLI Code, the extension asks whether to install the hook (controlled by the `cliCode.claudeStatusHooks` setting).
+- The first time you open Claude Code inside CLI Code, the extension asks whether to install the hook (controlled by the `cliCode.claudeStatusHooks` setting). Dismissing that toast without answering counts as "off" for this window — install later with the Command Palette entry **"CLI Code: Cài hook trạng thái Claude"** (Install Claude status hook).
 - If you agree, it appends to `~/.claude/settings.json`. Before the first write, the original file is backed up to `~/.claude/settings.json.cli-code.bak`; any hooks you already had are kept.
-- Remove it anytime with the Command Palette entry **"CLI Code: Uninstall Claude Status Hooks"**.
+- The hook takes effect from the next Claude Code start — a session that was already running keeps guessing status from the title.
+- Remove it anytime with the Command Palette entry **"CLI Code: Gỡ hook trạng thái Claude"** (Uninstall Claude status hook).
+- Known limit: the hook command is evaluated by the shell (`eval "$CLI_CODE_HOOK"`), so a VS Code install path containing `"` or `$` breaks it.
 - The entry added for each of the 4 events `UserPromptSubmit`, `Stop`, `Notification`, `PermissionRequest`:
 
   ```json
@@ -164,13 +166,19 @@ Example `cliCode.quickCommands`:
 ]
 ```
 
+### Path links
+
+Any absolute or `~/` path the CLI prints becomes a link (with an optional `:line:col`). Click it for a popover with Open / Copy, or `Cmd/Ctrl + click` to open the file straight away.
+
 ### Terminal right-click menu
 
-Copy, Paste, Copy Context, Clear, Rename Tab, Restart Session, Find in Terminal, Resume Past Session, Quick Command.
+The menu entries use the commands' Vietnamese titles: **Sao chép** (Copy), **Dán** (Paste), **Sao chép ngữ cảnh** (Copy context), **Xoá màn hình** (Clear), **Đổi tên tab** (Rename tab), **Khởi động lại phiên** (Restart session), **Tìm trong terminal** (Find in terminal), **Mở lại phiên cũ** (Resume past session), **Lệnh nhanh** (Quick command).
 
 ### Command Palette commands
 
-`CLI Code:` **Resume Past Session**, **Quick Command**, **Save as Quick Command**, **Rename Tab**, **Restart Session**, **Clear**, **Font Zoom In**, **Font Zoom Out**, **Font Zoom Reset**, **Find in Terminal**, **Copy Context**, **Paste**, **Copy**, **Install Claude Status Hooks**, **Uninstall Claude Status Hooks**.
+The 0.2.0 commands are listed under their Vietnamese titles (English in parentheses):
+
+`CLI Code:` **Mở lại phiên cũ** (Resume past session), **Lệnh nhanh** (Quick command), **Lưu thành lệnh nhanh** (Save as quick command), **Đổi tên tab** (Rename tab), **Khởi động lại phiên** (Restart session), **Xoá màn hình** (Clear), **Phóng to chữ** (Font zoom in), **Thu nhỏ chữ** (Font zoom out), **Cỡ chữ mặc định** (Reset font zoom), **Tìm trong terminal** (Find in terminal), **Sao chép ngữ cảnh** (Copy context), **Dán** (Paste), **Sao chép** (Copy), **Cài hook trạng thái Claude** (Install Claude status hook), **Gỡ hook trạng thái Claude** (Uninstall Claude status hook).
 
 ## Keyboard shortcuts
 
@@ -180,12 +188,12 @@ Copy, Paste, Copy Context, Clear, Rename Tab, Restart Session, Find in Terminal,
 | Open an assistant in a new terminal    | `Cmd + Shift + Esc`   | `Ctrl + Shift + Esc`     |
 | Send the current file to it            | `Cmd + Alt + K`       | `Ctrl + Alt + K`         |
 | Newline in the prompt                  | `Shift + Enter`       | `Shift + Enter`         |
-| Find in terminal                       | `Cmd + F`             | `Ctrl + F`               |
+| Find in terminal                       | `Cmd + F`             | `Ctrl + F` \*           |
 | Font zoom in                           | `Cmd + =`             | `Ctrl + =`               |
 | Font zoom out                          | `Cmd + -`             | `Ctrl + -`               |
 | Reset font zoom                        | `Cmd + 0`             | `Ctrl + 0`               |
 
-All of the above are also in the Command Palette (`Cmd/Ctrl + Shift + P`) as **Open CLI**, **Open CLI in new tab**, and **CLI: Insert At-Mentioned**.
+\* On Windows / Linux the focused terminal consumes `Ctrl + F` (xterm sends it to the CLI as `^F`). Use the Command Palette command **"CLI Code: Tìm trong terminal"** or the right-click entry **Tìm trong terminal** instead.
 
 ## FAQ
 

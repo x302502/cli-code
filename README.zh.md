@@ -129,9 +129,11 @@ CLI Code 会把对你文件的引用插入到提示词中：
 
 CLI Code 可以在 Claude Code 中安装一个小钩子，让标签显示准确的状态（运行中 / 等待 / 完成），而不是靠标题猜测。这是一个**可选启用**的功能：
 
-- 你在 CLI Code 中第一次打开 Claude Code 时，扩展会询问是否安装该钩子（由 `cliCode.claudeStatusHooks` 设置控制）。
+- 你在 CLI Code 中第一次打开 Claude Code 时，扩展会询问是否安装该钩子（由 `cliCode.claudeStatusHooks` 设置控制）。不作答直接关掉提示，在本窗口中视为"off"——之后可用命令面板中的 **"CLI Code: Cài hook trạng thái Claude"**（安装 Claude 状态钩子）安装。
 - 如果同意，它会追加写入 `~/.claude/settings.json`。首次写入前，原文件会备份为 `~/.claude/settings.json.cli-code.bak`；你已有的钩子会被保留。
-- 随时可通过命令面板中的 **"CLI Code: 卸载 Claude 状态钩子"** 移除。
+- 钩子从下一次启动 Claude Code 时生效——已在运行的会话仍靠标题猜测状态。
+- 随时可通过命令面板中的 **"CLI Code: Gỡ hook trạng thái Claude"**（卸载 Claude 状态钩子）移除。
+- 已知限制：钩子命令由 shell `eval` 执行（`eval "$CLI_CODE_HOOK"`），VS Code 安装路径中含有 `"` 或 `$` 时钩子会失效。
 - 为 `UserPromptSubmit`、`Stop`、`Notification`、`PermissionRequest` 这 4 个事件各自添加的条目内容：
 
   ```json
@@ -160,13 +162,19 @@ CLI Code 可以在 Claude Code 中安装一个小钩子，让标签显示准确�
 ]
 ```
 
+### 路径链接
+
+CLI 输出的任何绝对路径或 `~/` 路径（可带 `:行:列`）都会变成链接。点击显示"打开 / 复制"弹窗，`Cmd/Ctrl + 点击` 直接打开文件。
+
 ### 终端右键菜单
 
-复制、粘贴、复制上下文、清屏、重命名标签、重启会话、在终端中查找、恢复历史会话、快捷命令。
+菜单项使用命令的越南语标题：**Sao chép**（复制）、**Dán**（粘贴）、**Sao chép ngữ cảnh**（复制上下文）、**Xoá màn hình**（清屏）、**Đổi tên tab**（重命名标签）、**Khởi động lại phiên**（重启会话）、**Tìm trong terminal**（在终端中查找）、**Mở lại phiên cũ**（恢复历史会话）、**Lệnh nhanh**（快捷命令）。
 
 ### 命令面板命令
 
-`CLI Code:` **恢复历史会话**、**快捷命令**、**保存为快捷命令**、**重命名标签**、**重启会话**、**清屏**、**放大字体**、**缩小字体**、**重置字体大小**、**在终端中查找**、**复制上下文**、**粘贴**、**复制**、**安装 Claude 状态钩子**、**卸载 Claude 状态钩子**。
+0.2.0 的命令以越南语标题注册（括号内为中文释义）：
+
+`CLI Code:` **Mở lại phiên cũ**（恢复历史会话）、**Lệnh nhanh**（快捷命令）、**Lưu thành lệnh nhanh**（保存为快捷命令）、**Đổi tên tab**（重命名标签）、**Khởi động lại phiên**（重启会话）、**Xoá màn hình**（清屏）、**Phóng to chữ**（放大字体）、**Thu nhỏ chữ**（缩小字体）、**Cỡ chữ mặc định**（重置字体大小）、**Tìm trong terminal**（在终端中查找）、**Sao chép ngữ cảnh**（复制上下文）、**Dán**（粘贴）、**Sao chép**（复制）、**Cài hook trạng thái Claude**（安装 Claude 状态钩子）、**Gỡ hook trạng thái Claude**（卸载 Claude 状态钩子）。
 
 ## 快捷键
 
@@ -176,12 +184,12 @@ CLI Code 可以在 Claude Code 中安装一个小钩子，让标签显示准确�
 | 在新终端中打开助手      | `Cmd + Shift + Esc`   | `Ctrl + Shift + Esc`     |
 | 把当前文件发送给它      | `Cmd + Alt + K`       | `Ctrl + Alt + K`         |
 | 在提示词中换行          | `Shift + Enter`       | `Shift + Enter`         |
-| 在终端中查找            | `Cmd + F`             | `Ctrl + F`               |
+| 在终端中查找            | `Cmd + F`             | `Ctrl + F` \*           |
 | 放大字体                | `Cmd + =`             | `Ctrl + =`               |
 | 缩小字体                | `Cmd + -`             | `Ctrl + -`               |
 | 重置字体大小            | `Cmd + 0`             | `Ctrl + 0`               |
 
-以上命令也都可在命令面板（`Cmd/Ctrl + Shift + P`）中找到：**Open CLI**、**Open CLI in new tab**、**CLI: Insert At-Mentioned**。
+\* 在 Windows / Linux 上，聚焦的终端会吃掉 `Ctrl + F`（xterm 把它作为 `^F` 发给 CLI）。请改用命令面板中的 **"CLI Code: Tìm trong terminal"** 或右键菜单的 **Tìm trong terminal**。
 
 ## 常见问题
 
