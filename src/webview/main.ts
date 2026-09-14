@@ -8,6 +8,7 @@ import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from 
 import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createExitOverlay } from "./exit-overlay.js"
 import { createLinkPopover } from "./link-popover.js"
+import { createPathLinkProvider } from "./path-links.js"
 import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
 
@@ -107,6 +108,17 @@ try {
 const termElement = document.getElementById("term")
 if (!termElement) throw new Error("missing #term element")
 term.open(termElement)
+
+// Same click semantics as the WebLinksAddon above: plain click shows a popover, meta/ctrl-click
+// opens directly.
+term.registerLinkProvider(
+  createPathLinkProvider(term, (event, text) => {
+    const open = () => vscode.postMessage({ type: "openPath", text })
+    const copy = () => vscode.postMessage({ type: "clipboard", text })
+    if (event.metaKey || event.ctrlKey) open()
+    else popover.show(event.clientX, event.clientY, text, { open, copy })
+  }),
+)
 
 // Re-apply the theme whenever VS Code switches themes (reflected as a class change on <body>).
 new MutationObserver(() => {

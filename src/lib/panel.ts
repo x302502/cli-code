@@ -2,9 +2,11 @@ import { spawn } from "node:child_process"
 import { randomBytes } from "node:crypto"
 import * as fs from "node:fs"
 import * as net from "node:net"
+import * as os from "node:os"
 import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
+import { parsePathLink, pathCandidates } from "./path-resolve.js"
 import type { AgentState } from "./protocol.js"
 import { buildEnv, randomPort } from "./terminal.js"
 import { resolveTabTitle } from "./tab-title.js"
@@ -357,10 +359,27 @@ function attachConnection(
     else if (message.type === "context" && typeof message.text === "string" && typeof message.lines === "number") {
       void vscode.env.clipboard.writeText(message.text)
       void vscode.window.showInformationMessage(`Đã chép ${message.lines} dòng ngữ cảnh.`)
-    }
+    } else if (message.type === "openPath" && typeof message.text === "string") void openPathFromPanel(panel, message.text)
   })
 
   connection.onClose(() => showGone(context, panel, tool))
+}
+
+/** Resolves a file-path link from the terminal (relative to the panel's cwd, then each
+ * workspace folder) and opens it, jumping to the parsed line/column if any. */
+async function openPathFromPanel(panel: vscode.WebviewPanel, text: string): Promise<void> {
+  const parsed = parsePathLink(text)
+  if (!parsed) return
+  const folders = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath)
+  for (const candidate of pathCandidates(parsed.path, panelCwds.get(panel), folders, os.homedir())) {
+    if (!fs.existsSync(candidate) || fs.statSync(candidate).isDirectory()) continue
+    const doc = await vscode.workspace.openTextDocument(candidate)
+    const line = Math.max(0, (parsed.line ?? 1) - 1)
+    const col = Math.max(0, (parsed.col ?? 1) - 1)
+    await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, col, line, col), preview: true })
+    return
+  }
+  void vscode.window.showInformationMessage(`Không tìm thấy tệp: ${parsed.path}`)
 }
 
 // Guards against a second restart request (e.g. a doubled click, or the palette command
