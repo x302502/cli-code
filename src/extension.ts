@@ -6,10 +6,13 @@ import {
   applyFontZoom,
   baseTitle,
   currentFontSize,
+  daemonPid,
   holdDaemonAlive,
+  inspectPanel,
   listActivePanels,
   openTerminalPanel,
   pasteToActivePanel,
+  restartFromGone,
   restartPanel,
   restoreTerminalPanel,
   sendToActivePanel,
@@ -35,6 +38,9 @@ export type TestApi = {
   uninstallHooksFromDisk: typeof uninstallHooksFromDisk
   hooksInstalledOnDisk: typeof hooksInstalledOnDisk
   claudeSettingsPath: string
+  daemonPid: typeof daemonPid
+  inspectPanel: typeof inspectPanel
+  restartFromGone: typeof restartFromGone
 }
 
 export function activate(context: vscode.ExtensionContext): TestApi {
@@ -120,6 +126,9 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     uninstallHooksFromDisk,
     hooksInstalledOnDisk,
     claudeSettingsPath: CLAUDE_SETTINGS_PATH,
+    daemonPid,
+    inspectPanel,
+    restartFromGone,
   }
 }
 

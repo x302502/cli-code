@@ -144,6 +144,23 @@ export function listActivePanels(): vscode.WebviewPanel[] {
   return [...activePanels]
 }
 
+/** For integration tests: what the panel registries currently hold for a panel. */
+export function inspectPanel(panel: vscode.WebviewPanel): {
+  sessionId?: string
+  cwd?: string
+  status?: { state: AgentState; prompt?: string }
+  ready: boolean
+  gone: boolean
+} {
+  return {
+    sessionId: panelConnections.get(panel)?.sessionId,
+    cwd: panelCwds.get(panel),
+    status: panelStatus.get(panel),
+    ready: panelWiring.get(panel)?.ready ?? false,
+    gone: panelTools.has(panel) && !activePanels.has(panel),
+  }
+}
+
 /** First open panel for a given tool, if any. */
 export function findExistingPanel(tool: CliTool): vscode.WebviewPanel | undefined {
   for (const panel of activePanels) {
@@ -179,6 +196,14 @@ export function writeToActivePanel(text: string): boolean {
 // daemon — all but one would then die with EADDRINUSE and their callers time out.
 let ensuring: Promise<string> | undefined
 
+// pid of the daemon this window spawned (undefined when it attached to one already running).
+let spawnedDaemonPid: number | undefined
+
+/** For integration tests: the daemon process this window started, if any. */
+export function daemonPid(): number | undefined {
+  return spawnedDaemonPid
+}
+
 /** Returns the socket path of this window's daemon, spawning one if nobody is listening yet. */
 export function ensureDaemon(context: vscode.ExtensionContext): Promise<string> {
   if (!ensuring) {
@@ -212,6 +237,7 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
   // extension host; the poll loop below already reports "daemon didn't come up" on its own.
   daemon.on("error", () => {})
   daemon.unref()
+  spawnedDaemonPid = daemon.pid
 
   // Wait for the daemon to open its socket. 20 × 50ms is generous for a node process to start.
   for (let i = 0; i < 20; i++) {
@@ -383,17 +409,24 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   panel.title = tool.label
   if (lastFocusedPanel === panel) lastFocusedPanel = undefined
   panel.webview.html = goneHtml(tool.label)
-  panel.webview.onDidReceiveMessage(async (m) => {
-    if (m.type !== "restart") return
-    const cwd = panelCwds.get(panel)
-    const title = customTitles.get(panel)
-    panel.dispose()
-    try {
-      await openTerminalPanel(context, tool, { cwd, title, command: panelCommands.get(panel) })
-    } catch (err) {
-      void vscode.window.showErrorMessage(String(err))
-    }
+  panel.webview.onDidReceiveMessage((m) => {
+    if (m.type === "restart") void restartFromGone(context, panel)
   })
+}
+
+/** Reopens a gone panel's tool in a fresh tab with the same cwd, title and command. */
+export async function restartFromGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
+  const tool = panelTools.get(panel)
+  if (!tool) return
+  const cwd = panelCwds.get(panel)
+  const title = customTitles.get(panel)
+  const command = panelCommands.get(panel)
+  panel.dispose()
+  try {
+    await openTerminalPanel(context, tool, { cwd, title, command })
+  } catch (err) {
+    void vscode.window.showErrorMessage(String(err))
+  }
 }
 
 /** One-time panel setup: icon, title, html, registries, and lifecycle listeners.
