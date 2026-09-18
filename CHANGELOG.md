@@ -7,6 +7,7 @@
 - Changed: closing a tab ends the CLI process. Quitting VS Code ends all sessions.
 - Removed: HTTP prompt injection for opencode (replaced by direct terminal input).
 - Packaging: per-platform VSIX (darwin/win32/linux × x64/arm64).
+- Integration tests in a real Extension Host (`bun run test:integration`).
 
 ## 0.1.7
 - Tab labels capped at 20 characters, cut at word boundaries.

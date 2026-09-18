@@ -206,6 +206,11 @@ Make sure (1) a file is open in the editor, and (2) the assistant's terminal is 
 **The shortcut conflicts with something else.**
 Rebind it in VS Code: **Preferences → Keyboard Shortcuts**, search for "CLI", and set your own keys.
 
+## Development
+
+- `bun test` — unit tests.
+- `bun run test:integration` — launches a real VS Code (downloaded once into `.vscode-test/`) and runs the suites in `test/integration/suite/` inside the extension host: open/type/close, gone/restart, hook → status glyph, resume/quick commands, and a real two-stage reload. macOS/Linux only; opens a test window; tests never write your real `~/.claude/settings.json` — the runner snapshots it and fails the run if it changes.
+
 ## License
 
 [MIT](LICENSE) © 2026 Thanh Luan

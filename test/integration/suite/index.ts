@@ -14,7 +14,7 @@ export function run(): Promise<void> {
     require("./commands.test.js")
     require("./lifecycle.test.js")
   }
-  // Later tasks add: reload (both stages).
+  require("./reload.test.js")
 
   return new Promise((resolve, reject) => {
     mocha.run((failures) => {
