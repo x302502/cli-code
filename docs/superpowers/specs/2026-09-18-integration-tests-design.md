@@ -8,12 +8,12 @@ Phases 1–9 (56 commits) have only unit tests (fake PTY, `vscode` mock) and rea
 
 ## What
 
-A second test tier, `bun run test:integration`, that launches a real VS Code (via `@vscode/test-electron`) with this extension in development mode and drives it through the extension's own exported API. It runs on macOS/Linux only (the fake tool is a `sh` script).
+A second test tier, `bun run test:integration`, that launches a real VS Code (via `@vscode/test-electron`) with this extension in development mode and drives it through the extension's own exported API. It runs on macOS/Linux only (the fake tool is a `sh` script; Linux untested so far).
 
 ### Isolation
 
 - Separate `--user-data-dir` and workspace folder under `os.tmpdir()`, `--disable-extensions`, `--disable-workspace-trust`.
-- `HOME` is overridden to a temp dir for the VS Code process → `CLAUDE_SETTINGS_PATH` (`os.homedir()`) never points at the real `~/.claude/settings.json`; the login shell loads no user rc files.
+- Tests run against the real HOME; `run.mjs` hashes `~/.claude/settings.json` (+ `.cli-code.bak`, `.tmp`) before and after each stage and fails the run if any changed; no fixture tool id starts with `claude`, so the hook offer never runs.
 - VS Code binary cached in `.vscode-test/` (gitignored, vscodeignored). Build output in `dist-test/` (same).
 
 ### Test API
@@ -56,11 +56,11 @@ Reload Window cannot run inside a test (it kills the test host). Instead the run
 | Checklist | Automated by |
 |---|---|
 | A-a open/type | session.test: `ready`, `writeToActivePanel("hi\r")` → `.in` = `hi\r` |
-| A-b reload keeps process, A-f rename survives | reload.test (two stages) |
+| A-b reload keeps process, A-f rename survives | reload.test: daemon + PTY survive the VS Code restart; `restoreTerminalPanel` re-attaches the same session and applies the saved title (VS Code's own serializer trigger stays manual) |
 | A-d close kills | session.test: `panel.dispose()` → `.exited` |
 | A-e daemon dies → gone → restart | lifecycle.test: `process.kill(daemonPid())`, html has "Khởi động lại", `restartFromGone` |
 | B zoom, exit→restart, OSC 7 cwd | lifecycle.test + session.test |
-| D hook → glyph, installer | hooks.test: spawn `dist/hook.js` with the env from `.env`; `installHooksToDisk()` lands under temp HOME |
+| D hook → glyph, installer | hooks.test: spawn `dist/hook.js` with the env from `.env`; installer test passes an explicit path under the itest out dir |
 | E resume command, quick command paste | commands.test: argv contains `--resume abc`; `.in` = `ESC[200~l1\rl2\rl3ESC[201~\r` |
 
 Not automated (stay manual): Vietnamese IME + Shift+Enter, right-click menu, first-run hook toast, real Claude/Codex status & resume list, link popover, >100 KB clipboard paste, GitHub Actions on 3 OS, Phase 0 probe.
