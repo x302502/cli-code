@@ -11,8 +11,9 @@ export function run(): Promise<void> {
     require("./smoke.test.js")
     require("./session.test.js")
     require("./hooks.test.js")
+    require("./commands.test.js")
   }
-  // Later tasks add: commands, lifecycle (stage 1) and reload (both stages).
+  // Later tasks add: lifecycle (stage 1) and reload (both stages).
 
   return new Promise((resolve, reject) => {
     mocha.run((failures) => {
