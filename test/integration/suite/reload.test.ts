@@ -7,11 +7,6 @@ import { api, fixture, outDir, pidAlive, readEnvFile, stage, waitFor } from "./h
 
 const STATE = () => path.join(outDir(), "stage1.json")
 
-// Internal key panel.ts uses to remember which daemon this workspace spawned
-// (`context.workspaceState.get<string>(DAEMON_ID_KEY)`). Not part of TestApi; see the
-// stage-2 comment below for why this test reads/writes it directly.
-const DAEMON_ID_KEY = "cliCode.daemonId"
-
 if (stage() === "1") {
   describe("reload — stage 1 (leaves a renamed tab open)", () => {
     it("opens and renames a tab, records pids", async () => {
@@ -32,21 +27,7 @@ if (stage() === "1") {
       const daemonPid = a.daemonPid()
       assert.ok(daemonPid)
       fs.writeFileSync(path.join(outDir(), "daemon.pid"), String(daemonPid))
-      fs.writeFileSync(
-        STATE(),
-        JSON.stringify({
-          sessionId: a.inspectPanel(panel).sessionId,
-          toolPid: Number(env.pid),
-          daemonPid,
-          title: panel.title,
-          // ensureDaemon() finds the running daemon by looking up this id in
-          // workspaceState. The runner ends stage 1 by process.exit()-ing the extension
-          // host (see index.ts run()), which does not go through VS Code's normal
-          // shutdown flush — workspaceState never reaches disk, so stage 2 reads this
-          // key back as undefined. Persist it ourselves so stage 2 can restore it below.
-          daemonId: a.context.workspaceState.get(DAEMON_ID_KEY),
-        }),
-      )
+      fs.writeFileSync(STATE(), JSON.stringify({ sessionId: a.inspectPanel(panel).sessionId, toolPid: Number(env.pid), daemonPid, title: panel.title }))
       // Deliberately NOT disposed: VS Code must restore it in stage 2.
     })
   })
@@ -54,32 +35,38 @@ if (stage() === "1") {
   describe("reload — stage 2 (checklist A-b, A-f)", () => {
     it("restores the tab to the same session with the same title and a live PTY", async () => {
       const a = await api()
-      const saved = JSON.parse(fs.readFileSync(STATE(), "utf8")) as {
-        sessionId: string
-        toolPid: number
-        daemonPid: number
-        title: string
-        daemonId: string | undefined
-      }
+      const saved = JSON.parse(fs.readFileSync(STATE(), "utf8")) as { sessionId: string; toolPid: number; daemonPid: number; title: string }
       assert.ok(pidAlive(saved.daemonPid), "daemon from stage 1 must still be running (stage 2 must start within its 60 s idle window)")
       assert.ok(pidAlive(saved.toolPid), "the CLI process must survive the VS Code restart")
 
-      const restored = await waitFor(() => a.activePanels()[0], 10_000, "restore").catch(() => undefined)
-      const panel =
-        restored ??
-        (await (async () => {
-          // See the comment in stage 1: workspaceState never made it to disk between the
-          // two windows, so ensureDaemon() would otherwise spawn a brand-new daemon
-          // instead of reattaching to the one stage 1 left running. Restore the id first.
-          if (saved.daemonId) await a.context.workspaceState.update(DAEMON_ID_KEY, saved.daemonId)
+      const restored = await waitFor(() => a.activePanels()[0], 30_000, "VS Code to restore the webview tab and call the serializer").catch(() => undefined)
+
+      if (!restored) {
+        // Diagnostic only: exercises the same restore path the serializer would have taken,
+        // to tell apart "the daemon/session attach is broken" from "VS Code just never called
+        // the serializer" — but this must not paper over the real failure, which is that the
+        // serializer did not fire. The test still fails below regardless of what this finds.
+        let diagnostic: string
+        try {
           const p = vscode.window.createWebviewPanel("cliCode.terminal", "restored", vscode.ViewColumn.One, {
             enableScripts: true,
             retainContextWhenHidden: true,
             localResourceRoots: [vscode.Uri.file(a.context.extensionPath)],
           })
           await a.restoreTerminalPanel(a.context, p, { sessionId: saved.sessionId, toolId: "codex", customTitle: saved.title })
-          return p
-        })())
+          await waitFor(() => a.inspectPanel(p).ready, 15_000, "manually-restored webview ready")
+          const ok = a.inspectPanel(p).sessionId === saved.sessionId && p.title === saved.title && pidAlive(saved.toolPid)
+          diagnostic = ok
+            ? "manual restoreTerminalPanel() DID reattach to the saved session/PTY successfully — the daemon and session are fine, only VS Code's own serializer failed to fire"
+            : `manual restoreTerminalPanel() also failed to reattach cleanly (sessionId=${a.inspectPanel(p).sessionId}, title=${JSON.stringify(p.title)}, toolPidAlive=${pidAlive(saved.toolPid)})`
+          p.dispose()
+        } catch (err) {
+          diagnostic = `manual restoreTerminalPanel() threw: ${(err as Error).message}`
+        }
+        throw new Error(`VS Code did not restore the webview tab on its own (no serializer call within 30s). Diagnostic: ${diagnostic}`)
+      }
+
+      const panel = restored
       await waitFor(() => a.inspectPanel(panel).ready, 15_000, "restored webview ready")
       assert.equal(a.inspectPanel(panel).sessionId, saved.sessionId)
       assert.equal(panel.title, saved.title)
