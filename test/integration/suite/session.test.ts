@@ -1,4 +1,5 @@
 import * as assert from "node:assert/strict"
+import * as fs from "node:fs"
 import type * as vscode from "vscode"
 import { inputFile, openReady, pidAlive, readFileOr, waitFor } from "./helpers.js"
 
@@ -22,8 +23,9 @@ describe("session (checklist A-a, A-d, B OSC 7)", () => {
   it("delivers typed bytes to the PTY verbatim", async () => {
     const { a, panel } = await openReady("type")
     openPanel = panel
-    // Let the fake tool reach `tee` before typing; its env file is written first.
-    await new Promise((r) => setTimeout(r, 300))
+    // `tee` creates $TAG.in only after `stty raw`, so its existence is a true "raw mode on,
+    // ready for bytes" signal — the env file alone is written earlier.
+    await waitFor(() => fs.existsSync(inputFile("type")), 10_000, "tee ready")
     const wrote = a.writeToActivePanel("hi\r")
     assert.ok(wrote, `writeToActivePanel returned ${wrote} (panel.active=${panel.active}, in activePanels=${a.activePanels().includes(panel)})`)
     try {

@@ -45,6 +45,8 @@ describe("lifecycle (checklist B, A-e)", () => {
     assert.ok(daemon, "this window must have spawned the daemon")
     process.kill(daemon)
 
+    // The killed daemon takes its PTY children with it.
+    await waitFor(() => !pidAlive(Number(env.pid)), 10_000, "old PTY child to die")
     await waitFor(() => a.inspectPanel(panel).gone, 15_000, "gone page")
     assert.ok(panel.webview.html.includes("Khởi động lại"))
     assert.ok(!a.activePanels().includes(panel))

@@ -12,7 +12,8 @@ out="$ITEST_OUT/$ITEST_TAG"
   echo "CLI_CODE_SESSION_ID=$CLI_CODE_SESSION_ID"
   echo "CLI_CODE_DAEMON_SOCK=$CLI_CODE_DAEMON_SOCK"
   echo "CLI_CODE_HOOK=$CLI_CODE_HOOK"
-} > "$out.env"
+} > "$out.env.tmp"
+mv "$out.env.tmp" "$out.env" # atomic: a test polling $TAG.env never sees a partial file
 if [ -n "$ITEST_EXIT_CODE" ]; then exit "$ITEST_EXIT_CODE"; fi
 # Bracketed paste on (what Claude/Codex do) and an OSC 7 cwd report, then raw mode so
 # every byte xterm sends reaches tee unchanged (no ICRNL, no line buffering).
