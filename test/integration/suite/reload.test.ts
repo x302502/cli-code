@@ -2,6 +2,7 @@ import * as assert from "node:assert/strict"
 import * as fs from "node:fs"
 import * as path from "node:path"
 import * as vscode from "vscode"
+import type { TestApi } from "../../../src/extension.js"
 import { CLI_TOOLS } from "../../../src/lib/config.js"
 import { api, fixture, outDir, pidAlive, readEnvFile, stage, waitFor } from "./helpers.js"
 
@@ -49,40 +50,70 @@ if (stage() === "1") {
   })
 } else {
   describe("reload — stage 2 (checklist A-b, A-f)", () => {
-    it("after a VS Code restart, the serializer's restore path re-attaches the same session with the same title and a live PTY", async () => {
-      const a = await api()
-      const saved = JSON.parse(fs.readFileSync(STATE(), "utf8")) as {
-        sessionId: string
-        toolPid: number
-        daemonPid: number
-        title: string
-        daemonId: string | undefined
-      }
-      assert.ok(pidAlive(saved.daemonPid), "daemon from stage 1 must still be running (stage 2 must start within its 60 s idle window)")
-      assert.ok(pidAlive(saved.toolPid), "the CLI process must survive the VS Code restart")
+    type Saved = { sessionId: string; toolPid: number; daemonPid: number; title: string; daemonId: string | undefined }
+    const saved = (): Saved => JSON.parse(fs.readFileSync(STATE(), "utf8"))
 
-      // VS Code's own reload/restart calls our webview serializer using state it reads back
-      // from workspaceState and the workbench's persisted editor layout. Extension-test mode
-      // (`--extensionTestsPath`) runs with in-memory storage, so nothing written in stage 1
-      // survives into this process — VS Code itself never restores the tab or calls the
-      // serializer here, and no two-launch test can make it (see docs/superpowers/specs/
-      // 2026-09-18-integration-tests-design.md, "Two-stage reload"; that behaviour stays a
-      // manual check, Reload Window). This test instead replays the one piece of state test
-      // mode drops (the daemon id) and calls the serializer's own body, restoreTerminalPanel,
-      // directly — that body is exactly what VS Code would run.
-      if (saved.daemonId) await a.context.workspaceState.update(DAEMON_ID_KEY, saved.daemonId)
+    // VS Code's own reload/restart calls our webview serializer using state it reads back
+    // from workspaceState and the workbench's persisted editor layout. Extension-test mode
+    // (`--extensionTestsPath`) runs with in-memory storage, so nothing written in stage 1
+    // survives into this process — VS Code itself never restores the tab or calls the
+    // serializer here, and no two-launch test can make it (see docs/superpowers/specs/
+    // 2026-09-18-integration-tests-design.md, "Two-stage reload"; that behaviour stays a
+    // manual check, Reload Window). These tests instead replay the one piece of state test
+    // mode drops (the daemon id) and call the serializer's own body, restoreTerminalPanel,
+    // directly — that body is exactly what VS Code would run.
+    async function restoredPanel(a: TestApi, state: Pick<Saved, "sessionId" | "title" | "daemonId">) {
+      if (state.daemonId) await a.context.workspaceState.update(DAEMON_ID_KEY, state.daemonId)
       const panel = vscode.window.createWebviewPanel("cliCode.terminal", "restored", vscode.ViewColumn.One, {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [vscode.Uri.file(a.context.extensionPath)],
       })
-      await a.restoreTerminalPanel(a.context, panel, { sessionId: saved.sessionId, toolId: "codex", customTitle: saved.title })
+      await a.restoreTerminalPanel(a.context, panel, { sessionId: state.sessionId, toolId: "codex", customTitle: state.title })
+      return panel
+    }
+
+    // A failed assertion must not leak the panel (and its PTY) into the next test.
+    let openPanel: vscode.WebviewPanel | undefined
+    afterEach(() => {
+      openPanel?.dispose()
+      openPanel = undefined
+    })
+
+    it("after a VS Code restart, the serializer's restore path re-attaches the same session with the same title and a live PTY", async () => {
+      const a = await api()
+      const s = saved()
+      assert.ok(pidAlive(s.daemonPid), "daemon from stage 1 must still be running (stage 2 must start within its 60 s idle window)")
+      assert.ok(pidAlive(s.toolPid), "the CLI process must survive the VS Code restart")
+
+      const panel = await restoredPanel(a, s)
+      openPanel = panel
       await waitFor(() => a.inspectPanel(panel).ready, 15_000, "restored webview ready")
-      assert.equal(a.inspectPanel(panel).sessionId, saved.sessionId)
-      assert.equal(panel.title, saved.title)
-      assert.ok(pidAlive(saved.toolPid))
+      assert.equal(a.inspectPanel(panel).sessionId, s.sessionId)
+      assert.equal(panel.title, s.title)
+      assert.ok(pidAlive(s.toolPid))
       panel.dispose()
-      await waitFor(() => !pidAlive(saved.toolPid), 5_000, "PTY killed on close")
+      openPanel = undefined
+      await waitFor(() => !pidAlive(s.toolPid), 5_000, "PTY killed on close")
+    })
+
+    // Regression: the failed-attach path never ran wirePanel, so showGone had no tool
+    // recorded for the panel and "Khởi động lại" silently did nothing on a tab restored
+    // after Reload Window whose session was gone.
+    it("a restored tab whose session is gone shows the gone page, and its restart opens a fresh tab with the saved title", async () => {
+      const a = await api()
+      const panel = await restoredPanel(a, { ...saved(), sessionId: "00000000-0000-0000-0000-000000000000", title: "Mất phiên" })
+      openPanel = panel
+      await waitFor(() => a.inspectPanel(panel).gone, 15_000, "gone page")
+      assert.ok(panel.webview.html.includes("Khởi động lại"))
+
+      // Spawns the real `codex` command (no command override survives a restore); it may
+      // not be installed — the tab still opens, the shell reports the missing command.
+      await a.restartFromGone(a.context, panel)
+      const fresh = await waitFor(() => a.activePanels().find((p) => p !== panel), 20_000, "fresh panel")
+      openPanel = fresh
+      await waitFor(() => a.inspectPanel(fresh).ready, 15_000, "fresh webview ready")
+      assert.equal(fresh.title, "Mất phiên")
     })
   })
 }

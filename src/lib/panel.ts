@@ -408,6 +408,9 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   panelUnread.delete(panel)
   panel.title = tool.label
   if (lastFocusedPanel === panel) lastFocusedPanel = undefined
+  // The failed-attach path (restoreTerminalPanel) reaches here without wirePanel, so the
+  // tool must be recorded now or restartFromGone finds nothing and silently does nothing.
+  panelTools.set(panel, tool)
   panel.webview.html = goneHtml(tool.label)
   panel.webview.onDidReceiveMessage((m) => {
     if (m.type === "restart") void restartFromGone(context, panel)
