@@ -67,4 +67,4 @@ Not automated (stay manual): Vietnamese IME + Shift+Enter, right-click menu, fir
 
 ### Non-goals
 
-No CI job in this change (local first; a macOS runner job can follow). No Windows support for the harness. No changes to runtime behaviour beyond the three test-API additions.
+No CI job in this change (local first; a macOS runner job can follow). No Windows support for the harness. No changes to runtime behaviour beyond the three test-API additions and the one-line `showGone` fix (`panelTools.set`) the harness itself uncovered.
