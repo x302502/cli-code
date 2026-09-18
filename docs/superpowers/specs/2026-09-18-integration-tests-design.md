@@ -46,8 +46,8 @@ Additions: `daemonPid()` (pid recorded in `ensureDaemonUncached`), `inspectPanel
 
 Reload Window cannot run inside a test (it kills the test host). Instead the runner launches VS Code twice with the same user-data-dir and workspace:
 
-1. Stage 1 opens a tab, renames it, records `sessionId`, tool pid, daemon pid to `$ITEST_OUT/stage1.json`, and exits without disposing the panel.
-2. Stage 2 starts within the daemon's 60 s idle window; VS Code restores the webview tab and calls our serializer. The test waits for the restored panel and asserts: same `sessionId`, same custom title, tool pid still alive, `ready` true (snapshot delivered). Then it disposes the panel and the runner kills the daemon.
+1. Stage 1 opens a tab, renames it, records `sessionId`, tool pid, daemon pid, and the workspaceState daemon id to `$ITEST_OUT/stage1.json`, and exits without disposing the panel.
+2. Stage 2 starts within the daemon's 60 s idle window. VS Code runs extension tests (`--extensionTestsPath`) with in-memory storage, so `workspaceState` and the workbench editor layout are never written to disk between the two launches — VS Code itself never calls our webview serializer here, and no two-launch test can make it. The test instead re-seeds the daemon id into `workspaceState` (replaying what test mode skips persisting) and calls the serializer's own body, `restoreTerminalPanel()`, directly, asserting the same `sessionId`, same custom title, tool pid still alive, `ready` true (snapshot delivered), and that closing the panel kills the PTY. VS Code's own invocation of the serializer on a real reload remains a manual check (Reload Window, checklist A-b/A-f).
 
 `CLI_CODE_ITEST_STAGE` selects which suites run. Stage-1-only suites are all others.
 

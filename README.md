@@ -209,7 +209,7 @@ Rebind it in VS Code: **Preferences → Keyboard Shortcuts**, search for "CLI", 
 ## Development
 
 - `bun test` — unit tests.
-- `bun run test:integration` — launches a real VS Code (downloaded once into `.vscode-test/`) and runs the suites in `test/integration/suite/` inside the extension host: open/type/close, gone/restart, hook → status glyph, resume/quick commands, and a real two-stage reload. macOS/Linux only; opens a test window; tests never write your real `~/.claude/settings.json` — the runner snapshots it and fails the run if it changes.
+- `bun run test:integration` — launches a real VS Code (downloaded once into `.vscode-test/`) and runs the suites in `test/integration/suite/` inside the extension host: open/type/close, gone/restart, hook → status glyph, resume/quick commands, and a two-stage reload that re-attaches a session across a restart. macOS/Linux only; opens a test window; tests never write your real `~/.claude/settings.json` — the runner snapshots it and fails the run if it changes. VS Code's own invocation of the webview serializer on a real Reload Window can't be exercised this way (extension-test mode uses in-memory storage, so it never fires between the two launches) and stays a manual check.
 
 ## License
 
