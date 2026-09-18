@@ -21,16 +21,33 @@ fs.writeFileSync(path.join(dirs.ws, "README.md"), "# itest workspace\n")
 
 const launchArgs = [dirs.ws, "--user-data-dir", dirs.udd, "--disable-extensions", "--disable-workspace-trust", "--skip-welcome", "--skip-release-notes"]
 
-// Safety net: fails loudly if any test wrote to the real Claude settings file. smoke.test.ts
-// snapshots it (path/exists/bytes) into claude-settings.before at the start of stage 1.
+// Safety net: fails loudly if any test wrote to the real Claude settings file, its backup, or
+// its atomic-write temp file (see writeSettingsFile in src/lib/claude-hooks.ts). smoke.test.ts
+// snapshots the settings file itself (path/exists/bytes) into claude-settings.before at the
+// start of stage 1; the .bak/.tmp siblings never legitimately exist, so they're snapshotted
+// right here, before any test window launches.
+function statFile(p) {
+  const exists = fs.existsSync(p)
+  return { path: p, exists, base64: exists ? fs.readFileSync(p).toString("base64") : "" }
+}
+const realClaudeSettingsPath = path.join(os.homedir(), ".claude", "settings.json")
+const beforeSiblings = [statFile(`${realClaudeSettingsPath}.cli-code.bak`), statFile(`${realClaudeSettingsPath}.tmp`)]
+
 function checkClaudeSettingsUntouched() {
   const snapshotFile = path.join(dirs.out, "claude-settings.before")
-  if (!fs.existsSync(snapshotFile)) return // stage hasn't reached the snapshot test yet (e.g. an early crash)
-  const before = JSON.parse(fs.readFileSync(snapshotFile, "utf8"))
-  const existsNow = fs.existsSync(before.path)
-  const base64Now = existsNow ? fs.readFileSync(before.path).toString("base64") : ""
-  if (existsNow !== before.exists || base64Now !== before.base64) {
-    throw new Error(`integration tests modified the real Claude settings file at ${before.path} — this must never happen`)
+  if (fs.existsSync(snapshotFile)) {
+    const before = JSON.parse(fs.readFileSync(snapshotFile, "utf8"))
+    const existsNow = fs.existsSync(before.path)
+    const base64Now = existsNow ? fs.readFileSync(before.path).toString("base64") : ""
+    if (existsNow !== before.exists || base64Now !== before.base64) {
+      throw new Error(`integration tests modified the real Claude settings file at ${before.path} — this must never happen`)
+    }
+  } // else: stage hasn't reached the snapshot test yet (e.g. an early crash)
+  for (const before of beforeSiblings) {
+    const now = statFile(before.path)
+    if (now.exists !== before.exists || now.base64 !== before.base64) {
+      throw new Error(`integration tests modified ${before.path} — this must never happen`)
+    }
   }
 }
 
@@ -39,7 +56,9 @@ function checkClaudeSettingsUntouched() {
 // runTests() against a deadline, and if it fires, read the pass/fail count index.ts wrote
 // to result.json and kill every process under this run's unique --user-data-dir.
 // Best-effort/POSIX-only; on a platform without pkill this just falls through to the error.
-const STAGE_DEADLINE_MS = 3 * 60_000
+// 10 minutes: more suites are coming (hooks, commands, lifecycle, reload) and each stage
+// launches a real VS Code window on top of running its own tests.
+const STAGE_DEADLINE_MS = 10 * 60_000
 
 function forceKillTestWindow() {
   try {
