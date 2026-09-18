@@ -258,9 +258,16 @@
             "type": "object",
             "required": ["label", "text"],
             "properties": {
-              "label": { "type": "string" },
-              "text": { "type": "string" },
-              "submit": { "type": "boolean", "default": true }
+              "label": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "submit": {
+                "type": "boolean",
+                "default": true
+              }
             }
           },
           "description": "Lệnh hoặc prompt dùng lại. Đặt trong User settings = Global, trong Workspace settings = Project."
@@ -280,20 +287,26 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "bun test",
+    "build:tests": "bun esbuild.js --tests",
+    "check-types:integration": "tsc --noEmit --project test/integration/tsconfig.json",
+    "test:integration": "bun run compile && bun run build:tests && bun run check-types:integration && node test/integration/run.mjs",
     "package:target": "bun run package && CLI_CODE_SKIP_PREPUBLISH=1 node scripts/package-target.mjs",
     "package:all": "bun run package && for t in darwin-arm64 darwin-x64 win32-x64 win32-arm64 linux-x64 linux-arm64; do CLI_CODE_SKIP_PREPUBLISH=1 node scripts/package-target.mjs $t || exit 1; done",
     "verify:vsix": "node scripts/verify-vsix.mjs",
     "vsix": "echo 'use package:target <target>' && exit 1"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.9",
     "@types/node": "20.x",
     "@types/vscode": "^1.94.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
+    "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.0.0",
     "esbuild": "^0.25.3",
     "eslint": "^9.25.1",
     "eslint-config-prettier": "^10.1.8",
+    "mocha": "^10.7.3",
     "prettier": "^3.8.4",
     "typescript": "^5.8.3"
   },

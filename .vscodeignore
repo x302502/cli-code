@@ -20,6 +20,9 @@ images/icon.svg
 bun.lock
 package-lock.json
 
+.vscode-test/**
+dist-test/**
+
 # node_modules: opt-in only. Everything the extension needs at runtime is bundled by esbuild
 # except node-pty (native) and xterm's stylesheet, which the webview loads as a file.
 node_modules/**

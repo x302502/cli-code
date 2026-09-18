@@ -1,2 +1,5 @@
 [test]
 preload = ["./test/vscode-mock.ts"]
+# The integration suite runs inside a real VS Code Extension Host (test:integration), not
+# under bun test's `vscode` mock — keep bun test's file discovery out of test/integration.
+pathIgnorePatterns = ["test/integration/**"]

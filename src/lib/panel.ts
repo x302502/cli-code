@@ -139,6 +139,11 @@ export function activeTerminalPanel(): vscode.WebviewPanel | undefined {
   return undefined
 }
 
+/** Snapshot of the open, connected CLI panels (gone panels are excluded). */
+export function listActivePanels(): vscode.WebviewPanel[] {
+  return [...activePanels]
+}
+
 /** First open panel for a given tool, if any. */
 export function findExistingPanel(tool: CliTool): vscode.WebviewPanel | undefined {
   for (const panel of activePanels) {

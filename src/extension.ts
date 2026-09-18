@@ -1,20 +1,43 @@
 import * as vscode from "vscode"
-import { installHooksToDisk, uninstallHooksFromDisk } from "./lib/claude-hooks.js"
+import { CLAUDE_SETTINGS_PATH, hooksInstalledOnDisk, installHooksToDisk, uninstallHooksFromDisk } from "./lib/claude-hooks.js"
 import { addFilepathToTerminal, addQuickCommand, openCli, resumeSession, runQuickCommand } from "./lib/commands.js"
 import {
   activeTerminalPanel,
   applyFontZoom,
   baseTitle,
+  currentFontSize,
   holdDaemonAlive,
+  listActivePanels,
+  openTerminalPanel,
+  pasteToActivePanel,
   restartPanel,
   restoreTerminalPanel,
   sendToActivePanel,
   setCustomTitle,
   VIEW_TYPE,
+  writeToActivePanel,
   type PanelState,
 } from "./lib/panel.js"
 
-export function activate(context: vscode.ExtensionContext) {
+/** Handed to integration tests via `extension.exports`. Re-exports only; no test-only behaviour. */
+export type TestApi = {
+  context: vscode.ExtensionContext
+  openTerminalPanel: typeof openTerminalPanel
+  restoreTerminalPanel: typeof restoreTerminalPanel
+  restartPanel: typeof restartPanel
+  setCustomTitle: typeof setCustomTitle
+  applyFontZoom: typeof applyFontZoom
+  currentFontSize: typeof currentFontSize
+  pasteToActivePanel: typeof pasteToActivePanel
+  writeToActivePanel: typeof writeToActivePanel
+  activePanels(): vscode.WebviewPanel[]
+  installHooksToDisk: typeof installHooksToDisk
+  uninstallHooksFromDisk: typeof uninstallHooksFromDisk
+  hooksInstalledOnDisk: typeof hooksInstalledOnDisk
+  claudeSettingsPath: string
+}
+
+export function activate(context: vscode.ExtensionContext): TestApi {
   // Restored CLI tabs only connect once they become visible; hold the daemon open in the
   // meantime so its idle-exit does not kill their sessions. Must not block activation.
   void holdDaemonAlive(context).then((d) => context.subscriptions.push(d))
@@ -82,6 +105,22 @@ export function activate(context: vscode.ExtensionContext) {
       },
     }),
   )
+  return {
+    context,
+    openTerminalPanel,
+    restoreTerminalPanel,
+    restartPanel,
+    setCustomTitle,
+    applyFontZoom,
+    currentFontSize,
+    pasteToActivePanel,
+    writeToActivePanel,
+    activePanels: listActivePanels,
+    installHooksToDisk,
+    uninstallHooksFromDisk,
+    hooksInstalledOnDisk,
+    claudeSettingsPath: CLAUDE_SETTINGS_PATH,
+  }
 }
 
 export function deactivate() {}

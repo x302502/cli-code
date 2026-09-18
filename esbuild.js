@@ -2,6 +2,10 @@ const esbuild = require("esbuild")
 
 const production = process.argv.includes("--production")
 const watch = process.argv.includes("--watch")
+// `--tests` builds only the integration-test bundle: it must stay out of the
+// production build (and the VSIX) and needs `mocha` left external so the
+// extension host resolves it from node_modules.
+const tests = process.argv.includes("--tests")
 
 /**
  * @type {import('esbuild').Plugin}
@@ -24,12 +28,14 @@ const esbuildProblemMatcherPlugin = {
 }
 
 // Each entry may override platform/format; the shared defaults below apply otherwise.
-const entries = [
-  { entryPoints: ["src/extension.ts"], outfile: "dist/extension.js", external: ["vscode", "node-pty"] },
-  { entryPoints: ["src/daemon/entry.ts"], outfile: "dist/daemon.js", external: ["node-pty"] },
-  { entryPoints: ["src/hook/entry.ts"], outfile: "dist/hook.js", external: [] },
-  { entryPoints: ["src/webview/main.ts"], outfile: "dist/webview.js", platform: "browser", format: "iife" },
-]
+const entries = tests
+  ? [{ entryPoints: ["test/integration/suite/index.ts"], outfile: "dist-test/suite/index.js", external: ["vscode", "mocha"] }]
+  : [
+      { entryPoints: ["src/extension.ts"], outfile: "dist/extension.js", external: ["vscode", "node-pty"] },
+      { entryPoints: ["src/daemon/entry.ts"], outfile: "dist/daemon.js", external: ["node-pty"] },
+      { entryPoints: ["src/hook/entry.ts"], outfile: "dist/hook.js", external: [] },
+      { entryPoints: ["src/webview/main.ts"], outfile: "dist/webview.js", platform: "browser", format: "iife" },
+    ]
 
 async function main() {
   const contexts = await Promise.all(
