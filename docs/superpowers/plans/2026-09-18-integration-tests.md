@@ -110,16 +110,7 @@ const entries = tests
 
 - [ ] **Step 4: Return a test API from activate()**
 
-In `src/extension.ts`, add the imports and the type, and make `activate` return it. Keep every existing registration unchanged.
-
-```ts
-import {
-  activePanels as activePanelSet, // add this export in Task 2; for now see Step 5
-  ...
-} from "./lib/panel.js"
-```
-
-Concretely: replace the `activate` signature/end and add the type:
+In `src/extension.ts`, add the imports and the type, and make `activate` return it. Keep every existing registration unchanged (the existing imports from `./lib/panel.js` and `./lib/commands.js` stay; merge the new names into them). `listActivePanels` is added in Step 5.
 
 ```ts
 import * as vscode from "vscode"
