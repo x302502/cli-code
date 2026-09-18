@@ -2,6 +2,7 @@
 // the workbench restores stage 1's tabs) and runs dist-test/suite/index.js inside it.
 import { runTests } from "@vscode/test-electron"
 import { execFileSync } from "node:child_process"
+import { createHash } from "node:crypto"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
@@ -12,9 +13,9 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-itest-"))
 // No HOME override: overriding HOME for the Electron process breaks Chromium's
 // sandbox/helper path resolution on macOS, which silently kills webview script execution
 // and console/stdout forwarding from the extension host — see task-2-report.md ("Fix round
-// 1"). Tests run against the real HOME instead; smoke.test.ts snapshots the real Claude
-// settings file and checkClaudeSettingsUntouched() below is the safety net that fails
-// loudly if anything ever touches it.
+// 1"). Tests run against the real HOME instead; smoke.test.ts hashes the real Claude
+// settings file before any test runs and checkClaudeSettingsUntouched() below is the safety
+// net that fails loudly if anything ever touches it.
 const dirs = { udd: path.join(tmp, "udd"), ws: path.join(tmp, "ws"), out: path.join(tmp, "out") }
 for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true })
 fs.writeFileSync(path.join(dirs.ws, "README.md"), "# itest workspace\n")
@@ -23,30 +24,25 @@ const launchArgs = [dirs.ws, "--user-data-dir", dirs.udd, "--disable-extensions"
 
 // Safety net: fails loudly if any test wrote to the real Claude settings file, its backup, or
 // its atomic-write temp file (see writeSettingsFile in src/lib/claude-hooks.ts). smoke.test.ts
-// snapshots the settings file itself (path/exists/bytes) into claude-settings.before at the
-// start of stage 1; the .bak/.tmp siblings never legitimately exist, so they're snapshotted
-// right here, before any test window launches.
+// snapshots the settings file itself (path/exists/sha256 — never its bytes) into
+// claude-settings.before at the start of stage 1; the .bak/.tmp siblings never legitimately
+// exist, so they're snapshotted right here, before any test window launches.
 function statFile(p) {
   const exists = fs.existsSync(p)
-  return { path: p, exists, base64: exists ? fs.readFileSync(p).toString("base64") : "" }
+  return { path: p, exists, sha256: exists ? createHash("sha256").update(fs.readFileSync(p)).digest("hex") : "" }
 }
 const realClaudeSettingsPath = path.join(os.homedir(), ".claude", "settings.json")
 const beforeSiblings = [statFile(`${realClaudeSettingsPath}.cli-code.bak`), statFile(`${realClaudeSettingsPath}.tmp`)]
 
 function checkClaudeSettingsUntouched() {
   const snapshotFile = path.join(dirs.out, "claude-settings.before")
-  if (fs.existsSync(snapshotFile)) {
-    const before = JSON.parse(fs.readFileSync(snapshotFile, "utf8"))
-    const existsNow = fs.existsSync(before.path)
-    const base64Now = existsNow ? fs.readFileSync(before.path).toString("base64") : ""
-    if (existsNow !== before.exists || base64Now !== before.base64) {
-      throw new Error(`integration tests modified the real Claude settings file at ${before.path} — this must never happen`)
-    }
-  } // else: stage hasn't reached the snapshot test yet (e.g. an early crash)
-  for (const before of beforeSiblings) {
+  const befores = [...beforeSiblings]
+  if (fs.existsSync(snapshotFile)) befores.push(JSON.parse(fs.readFileSync(snapshotFile, "utf8")))
+  // else: stage hasn't reached the snapshot hook yet (e.g. an early crash)
+  for (const before of befores) {
     const now = statFile(before.path)
-    if (now.exists !== before.exists || now.base64 !== before.base64) {
-      throw new Error(`integration tests modified ${before.path} — this must never happen`)
+    if (now.exists !== before.exists || now.sha256 !== before.sha256) {
+      throw new Error(`${before.path} changed during the run (a test must never write it; if you edited it yourself, rerun)`)
     }
   }
 }
@@ -110,7 +106,23 @@ function killDaemon() {
   } catch {
     // already gone
   }
+  // The killed daemon can't remove its own socket; only the one path stage 1 recorded.
+  const sock = fs.existsSync(path.join(dirs.out, "reload.env"))
+    ? fs.readFileSync(path.join(dirs.out, "reload.env"), "utf8").match(/^CLI_CODE_DAEMON_SOCK=(.+)$/m)?.[1]
+    : undefined
+  if (sock) fs.rmSync(sock, { force: true })
 }
+
+function cleanup() {
+  killDaemon()
+  if (process.env.CLI_CODE_ITEST_KEEP) console.log(`kept ${tmp}`)
+  else fs.rmSync(tmp, { recursive: true, force: true })
+}
+
+process.on("SIGINT", () => {
+  cleanup()
+  process.exit(130)
+})
 
 let code = 0
 try {
@@ -120,8 +132,6 @@ try {
   console.error(err)
   code = 1
 } finally {
-  killDaemon()
-  if (process.env.CLI_CODE_ITEST_KEEP) console.log(`kept ${tmp}`)
-  else fs.rmSync(tmp, { recursive: true, force: true })
+  cleanup()
 }
 process.exit(code)

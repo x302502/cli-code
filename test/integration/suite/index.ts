@@ -3,7 +3,8 @@
 const Mocha = require("mocha") as typeof import("mocha")
 
 export function run(): Promise<void> {
-  const mocha = new Mocha({ ui: "bdd", timeout: 60_000, color: true })
+  // 120 s: the lifecycle suite's cumulative waits (spawn, exit, restart, gone, respawn) exceed 60 s.
+  const mocha = new Mocha({ ui: "bdd", timeout: 120_000, color: true })
   mocha.suite.emit("pre-require", globalThis, "bundle", mocha)
 
   const stage = process.env.CLI_CODE_ITEST_STAGE === "2" ? "2" : "1"
