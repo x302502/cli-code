@@ -9,20 +9,36 @@ import { fileURLToPath } from "node:url"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-itest-"))
-const dirs = { home: path.join(tmp, "home"), udd: path.join(tmp, "udd"), ws: path.join(tmp, "ws"), out: path.join(tmp, "out") }
+// No HOME override: overriding HOME for the Electron process breaks Chromium's
+// sandbox/helper path resolution on macOS, which silently kills webview script execution
+// and console/stdout forwarding from the extension host — see task-2-report.md ("Fix round
+// 1"). Tests run against the real HOME instead; smoke.test.ts snapshots the real Claude
+// settings file and checkClaudeSettingsUntouched() below is the safety net that fails
+// loudly if anything ever touches it.
+const dirs = { udd: path.join(tmp, "udd"), ws: path.join(tmp, "ws"), out: path.join(tmp, "out") }
 for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true })
 fs.writeFileSync(path.join(dirs.ws, "README.md"), "# itest workspace\n")
 
 const launchArgs = [dirs.ws, "--user-data-dir", dirs.udd, "--disable-extensions", "--disable-workspace-trust", "--skip-welcome", "--skip-release-notes"]
 
-// On some machines the test window's Code process does not quit on its own once
-// dist-test/suite/index.js's run() promise settles (its own process.exit() only reaches
-// the extension host, not the Electron main process), so runTests() would hang forever.
-// Race it against a deadline: if it fires, read the pass/fail count index.ts wrote to
-// result.json (real result, even though the process itself had to be force-killed) and
-// kill every process launched under this run's unique --user-data-dir. Best-effort on
-// POSIX only; on a platform where pkill is unavailable this just falls through to the
-// timeout error below.
+// Safety net: fails loudly if any test wrote to the real Claude settings file. smoke.test.ts
+// snapshots it (path/exists/bytes) into claude-settings.before at the start of stage 1.
+function checkClaudeSettingsUntouched() {
+  const snapshotFile = path.join(dirs.out, "claude-settings.before")
+  if (!fs.existsSync(snapshotFile)) return // stage hasn't reached the snapshot test yet (e.g. an early crash)
+  const before = JSON.parse(fs.readFileSync(snapshotFile, "utf8"))
+  const existsNow = fs.existsSync(before.path)
+  const base64Now = existsNow ? fs.readFileSync(before.path).toString("base64") : ""
+  if (existsNow !== before.exists || base64Now !== before.base64) {
+    throw new Error(`integration tests modified the real Claude settings file at ${before.path} — this must never happen`)
+  }
+}
+
+// Safety net, not the normal path: with HOME left alone (above) the window exits on its
+// own within seconds. This only matters if something else ever makes it hang again — race
+// runTests() against a deadline, and if it fires, read the pass/fail count index.ts wrote
+// to result.json and kill every process under this run's unique --user-data-dir.
+// Best-effort/POSIX-only; on a platform without pkill this just falls through to the error.
 const STAGE_DEADLINE_MS = 3 * 60_000
 
 function forceKillTestWindow() {
@@ -42,20 +58,25 @@ async function runStage(stage) {
       extensionDevelopmentPath: root,
       extensionTestsPath: path.join(root, "dist-test", "suite", "index.js"),
       launchArgs,
-      extensionTestsEnv: { HOME: dirs.home, CLI_CODE_ITEST_OUT: dirs.out, CLI_CODE_ITEST_STAGE: String(stage) },
+      extensionTestsEnv: { CLI_CODE_ITEST_OUT: dirs.out, CLI_CODE_ITEST_STAGE: String(stage) },
     }).then(
       () => ({ kind: "exited" }),
       (err) => ({ kind: "exited", err }),
     ),
     new Promise((resolve) => setTimeout(() => resolve({ kind: "timeout" }), STAGE_DEADLINE_MS)),
   ])
+  if (outcome.kind === "timeout") {
+    // Still alive even though the tests inside it are done (or hung past mocha's own
+    // 60s per-test timeout, in which case result.json is absent).
+    forceKillTestWindow()
+  }
+  // Runs regardless of pass/fail/timeout: a real-settings write is a bigger problem than
+  // any test failure, so it must never be masked by one.
+  checkClaudeSettingsUntouched()
   if (outcome.kind === "exited") {
     if (outcome.err) throw outcome.err
     return
   }
-  // Timed out: the process is still alive even though the tests inside it are done
-  // (or hung past mocha's own 60s per-test timeout, in which case result.json is absent).
-  forceKillTestWindow()
   const raw = fs.existsSync(resultFile) ? JSON.parse(fs.readFileSync(resultFile, "utf8")) : undefined
   if (!raw) throw new Error(`stage ${stage} did not finish within ${STAGE_DEADLINE_MS}ms and produced no result`)
   if (raw.failures > 0) throw new Error(`${raw.failures} integration test(s) failed (stage ${stage}, window force-killed after it would not exit)`)

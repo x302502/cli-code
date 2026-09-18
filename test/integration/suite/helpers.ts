@@ -44,6 +44,9 @@ export function readFileOr(p: string): string | undefined {
 
 export function makeTool(tag: string, extraEnv: Record<string, string> = {}): CliTool {
   return {
+    // Must not start with "claude": openTerminalPanel() calls maybeOfferClaudeHooks() for
+    // any tool.id that does, which reads/writes the real ~/.claude/settings.json now that
+    // tests run against the real HOME (see run.mjs). `itest-*` keeps that path untouched.
     id: `itest-${tag}`,
     label: `itest ${tag}`,
     icon: "claude.svg",
