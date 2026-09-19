@@ -1,7 +1,15 @@
+/* The overlays below toggle the `hidden` attribute; their own `display: flex` would
+   otherwise beat the UA stylesheet's `[hidden] { display: none }` and keep them on screen. */
+[hidden] {
+  display: none !important;
+}
 html,
 body {
   height: 100%;
   margin: 0;
+  /* Overlays are positioned inside the viewport; a stray scrollbar would shrink the
+     terminal and trigger a resize loop. */
+  overflow: hidden;
 }
 body {
   position: relative;
