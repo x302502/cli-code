@@ -11,6 +11,7 @@ import { createLinkPopover } from "./link-popover.js"
 import { createPathLinkProvider } from "./path-links.js"
 import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
+import { classifyOscLink } from "../lib/osc-link.js"
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void
@@ -61,6 +62,7 @@ function readTheme(): Record<string, string> {
 }
 
 const { fontFamily, fontSize } = readFont()
+const popover = createLinkPopover()
 
 const term = new Terminal({
   fontFamily,
@@ -69,6 +71,26 @@ const term = new Terminal({
   allowProposedApi: true,
   scrollback: 5000,
   theme: readTheme(),
+  // OSC 8 hyperlinks (Claude Code and other Ink-based CLIs print links this way) are handled
+  // by xterm's built-in provider, which takes precedence over the addons below. Without a
+  // handler xterm falls back to confirm() + window.open(), both dead inside a VS Code webview,
+  // so clicks would silently do nothing. Same click semantics as the addons: plain click shows
+  // the popover, meta/ctrl+click opens directly.
+  linkHandler: {
+    allowNonHttpProtocols: true,
+    activate: (event, uri) => {
+      const target = classifyOscLink(uri)
+      const copy = () => vscode.postMessage({ type: "clipboard", text: uri })
+      const open =
+        target.kind === "link"
+          ? () => vscode.postMessage({ type: "openLink", uri: target.uri })
+          : target.kind === "path"
+            ? () => vscode.postMessage({ type: "openFile", path: target.path, line: target.line })
+            : copy
+      if (event.metaKey || event.ctrlKey) open()
+      else popover.show(event.clientX, event.clientY, uri, { open, copy })
+    },
+  },
 })
 
 const fit = new FitAddon()
@@ -79,7 +101,6 @@ term.unicode.activeVersion = "11"
 
 const searchAddon = new SearchAddon()
 term.loadAddon(searchAddon)
-const popover = createLinkPopover()
 // Plain click shows a popover (Orca-style) so a stray click never yanks the user out of the
 // terminal; meta/ctrl+click opens immediately, like VS Code's own terminal.
 term.loadAddon(

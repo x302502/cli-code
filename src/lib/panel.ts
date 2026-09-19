@@ -569,6 +569,10 @@ function attachConnection(
       void vscode.env.clipboard.writeText(message.text)
       void vscode.window.showInformationMessage(`Đã chép ${message.lines} dòng ngữ cảnh.`)
     } else if (message.type === "openPath" && typeof message.text === "string") void openPathFromPanel(panel, message.text)
+    else if (message.type === "openFile" && typeof message.path === "string") {
+      // From an OSC 8 file:// link: the path is exact (may contain spaces), no regex parsing.
+      void openParsedPath(panel, { path: message.path, line: typeof message.line === "number" ? message.line : undefined })
+    }
     else if (message.type === "pasteConfirm" && typeof message.size === "number") {
       void vscode.window
         .showWarningMessage(`Dán ${Math.round(message.size / 1024)} KB vào terminal?`, { modal: true }, "Dán")
@@ -589,7 +593,10 @@ function attachConnection(
  * workspace folder) and opens it, jumping to the parsed line/column if any. */
 async function openPathFromPanel(panel: vscode.WebviewPanel, text: string): Promise<void> {
   const parsed = parsePathLink(text)
-  if (!parsed) return
+  if (parsed) await openParsedPath(panel, parsed)
+}
+
+async function openParsedPath(panel: vscode.WebviewPanel, parsed: { path: string; line?: number; col?: number }): Promise<void> {
   const folders = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath)
   for (const candidate of pathCandidates(parsed.path, panelCwds.get(panel), folders, os.homedir())) {
     if (!fs.existsSync(candidate) || fs.statSync(candidate).isDirectory()) continue
