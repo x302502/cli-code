@@ -164,7 +164,7 @@ CLI Code 可以在 Claude Code 中安装一个小钩子，让标签显示准确�
 
 ### 路径链接
 
-CLI 输出的任何绝对路径或 `~/` 路径（可带 `:行:列`）都会变成链接。`Cmd/Ctrl + 点击` 打开文件。
+CLI 输出的路径（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`file://…`）仅在磁盘上存在时才变成链接。`Cmd/Ctrl + 点击` 在编辑器中打开文件（Markdown 为预览，HTML 为浏览器），**文件夹在 Finder / 资源管理器中打开**；`Shift + Cmd/Ctrl + 点击` 用默认应用打开。
 
 ### 终端右键菜单
 

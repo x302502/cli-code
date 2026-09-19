@@ -168,7 +168,7 @@ Example `cliCode.quickCommands`:
 
 ### Path links
 
-Any absolute or `~/` path the CLI prints becomes a link (with an optional `:line:col`). `Cmd/Ctrl + click` to open the file straight away.
+Paths the CLI prints (`src/x.ts:12:3`, `./dir`, `~/notes.md`, `README`, `file://…`) become links once they exist on disk — a truncated or missing path is never underlined. `Cmd/Ctrl + click` opens a file in the editor (Markdown in the preview, HTML in the browser) and a **folder in Finder / Explorer**; `Shift + Cmd/Ctrl + click` opens a file with its default app.
 
 ### Terminal right-click menu
 

@@ -1,6 +1,6 @@
 import * as path from "node:path"
 
-export { PATH_LINK_SOURCE, parsePathLink } from "./path-link.js"
+export { findPathTokens, parsePathLink } from "./path-link.js"
 
 /** Absolute paths to try, most specific first. The caller checks existence. */
 export function pathCandidates(p: string, cwd: string | undefined, folders: string[], home: string): string[] {
@@ -16,4 +16,25 @@ export function openMode(p: string): "markdown" | "browser" | "editor" {
   if (ext === ".md" || ext === ".markdown") return "markdown"
   if (ext === ".html" || ext === ".htm") return "browser"
   return "editor"
+}
+
+export type LinkTarget = { path: string; kind: "file" | "dir"; line?: number; col?: number }
+
+/** First candidate that exists on disk (file or directory), keeping the parsed line/col. */
+export function resolveLinkTarget(
+  parsed: { path: string; line?: number; col?: number },
+  cwd: string | undefined,
+  folders: string[],
+  home: string,
+  stat: (p: string) => "file" | "dir" | undefined,
+): LinkTarget | undefined {
+  for (const candidate of pathCandidates(parsed.path, cwd, folders, home)) {
+    const kind = stat(candidate)
+    if (!kind) continue
+    const out: LinkTarget = { path: candidate, kind }
+    if (parsed.line !== undefined) out.line = parsed.line
+    if (parsed.col !== undefined) out.col = parsed.col
+    return out
+  }
+  return undefined
 }

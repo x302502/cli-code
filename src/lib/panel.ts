@@ -7,7 +7,7 @@ import * as vscode from "vscode"
 import { hooksInstalledOnDisk, installHooksToDisk } from "./claude-hooks.js"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
-import { openMode, parsePathLink, pathCandidates } from "./path-resolve.js"
+import { type LinkTarget, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
 import { createPromptTracker } from "./prompt-tracker.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
@@ -568,10 +568,23 @@ function attachConnection(
     else if (message.type === "context" && typeof message.text === "string" && typeof message.lines === "number") {
       void vscode.env.clipboard.writeText(message.text)
       void vscode.window.showInformationMessage(`Đã chép ${message.lines} dòng ngữ cảnh.`)
-    } else if (message.type === "openPath" && typeof message.text === "string") void openPathFromPanel(panel, message.text)
-    else if (message.type === "openFile" && typeof message.path === "string") {
+    } else if (message.type === "openPath" && typeof message.text === "string") {
+      const parsed = parsePathLink(message.text)
+      if (parsed) void openLinkTarget(panel, parsed, message.alt === true)
+    } else if (message.type === "openFile" && typeof message.path === "string") {
       // From an OSC 8 file:// link: the path is exact (may contain spaces), no regex parsing.
-      void openParsedPath(panel, { path: message.path, line: typeof message.line === "number" ? message.line : undefined })
+      const num = (v: unknown) => (typeof v === "number" ? v : undefined)
+      void openLinkTarget(panel, { path: message.path, line: num(message.line), col: num(message.col) }, message.alt === true)
+    } else if (message.type === "probePaths" && typeof message.id === "number" && Array.isArray(message.texts)) {
+      // The webview only underlines paths that exist; answer with what each token resolves to.
+      const results: Record<string, { kind: "file" | "dir" } | null> = {}
+      for (const text of message.texts as unknown[]) {
+        if (typeof text !== "string") continue
+        const parsed = parsePathLink(text)
+        const target = parsed && resolveTarget(panel, parsed)
+        results[text] = target ? { kind: target.kind } : null
+      }
+      sendTo(panel, { type: "probeResult", id: message.id, results })
     }
     else if (message.type === "pasteConfirm" && typeof message.size === "number") {
       void vscode.window
@@ -589,34 +602,47 @@ function attachConnection(
   if (wiring.ready) postState(panel)
 }
 
-/** Resolves a file-path link from the terminal (relative to the panel's cwd, then each
- * workspace folder) and opens it, jumping to the parsed line/column if any. */
-async function openPathFromPanel(panel: vscode.WebviewPanel, text: string): Promise<void> {
-  const parsed = parsePathLink(text)
-  if (parsed) await openParsedPath(panel, parsed)
+function statKind(p: string): "file" | "dir" | undefined {
+  try {
+    return fs.statSync(p).isDirectory() ? "dir" : "file"
+  } catch {
+    return undefined
+  }
 }
 
-async function openParsedPath(panel: vscode.WebviewPanel, parsed: { path: string; line?: number; col?: number }): Promise<void> {
+function resolveTarget(panel: vscode.WebviewPanel, parsed: { path: string; line?: number; col?: number }): LinkTarget | undefined {
   const folders = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath)
-  for (const candidate of pathCandidates(parsed.path, panelCwds.get(panel), folders, os.homedir())) {
-    if (!fs.existsSync(candidate) || fs.statSync(candidate).isDirectory()) continue
-    const line = Math.max(0, (parsed.line ?? 1) - 1)
-    const col = Math.max(0, (parsed.col ?? 1) - 1)
-    try {
-      const mode = openMode(candidate)
-      // Markdown and HTML are meant to be read rendered, not as source.
-      if (mode === "markdown") await vscode.commands.executeCommand("markdown.showPreview", vscode.Uri.file(candidate))
-      else if (mode === "browser") await vscode.env.openExternal(vscode.Uri.file(candidate))
-      else {
-        const doc = await vscode.workspace.openTextDocument(candidate)
-        await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, col, line, col), preview: true })
-      }
-    } catch {
-      void vscode.window.showWarningMessage(`Không mở được tệp: ${candidate}`)
-    }
+  return resolveLinkTarget(parsed, panelCwds.get(panel), folders, os.homedir(), statKind)
+}
+
+/** Opens a path link from the terminal (resolved against the panel's cwd, then each workspace
+ * folder, then ~). Directories open in Finder/Explorer; files open in an editor at line/col,
+ * markdown in the preview, HTML in the browser; `alt` (shift) opens a file with its default app. */
+async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string; line?: number; col?: number }, alt: boolean): Promise<void> {
+  const target = resolveTarget(panel, parsed)
+  if (!target) {
+    void vscode.window.showInformationMessage(`Không tìm thấy: ${parsed.path}`)
     return
   }
-  void vscode.window.showInformationMessage(`Không tìm thấy tệp: ${parsed.path}`)
+  const uri = vscode.Uri.file(target.path)
+  try {
+    if (target.kind === "dir" || alt) {
+      await vscode.env.openExternal(uri)
+      return
+    }
+    const mode = openMode(target.path)
+    // Markdown and HTML are meant to be read rendered, not as source.
+    if (mode === "markdown") await vscode.commands.executeCommand("markdown.showPreview", uri)
+    else if (mode === "browser") await vscode.env.openExternal(uri)
+    else {
+      const line = Math.max(0, (target.line ?? 1) - 1)
+      const col = Math.max(0, (target.col ?? 1) - 1)
+      const doc = await vscode.workspace.openTextDocument(uri)
+      await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, col, line, col), preview: true })
+    }
+  } catch {
+    void vscode.window.showWarningMessage(`Không mở được: ${target.path}`)
+  }
 }
 
 // Guards against a second restart request (e.g. a doubled click, or the palette command

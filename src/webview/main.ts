@@ -7,7 +7,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from "@xterm/addon-clipboard"
 import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createExitOverlay } from "./exit-overlay.js"
-import { createPathLinkProvider } from "./path-links.js"
+import { createPathLinkProvider, type ProbeResult } from "./path-links.js"
 import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
 import { classifyOscLink } from "../lib/osc-link.js"
@@ -33,6 +33,7 @@ type HostMessage =
   | { type: "pasteRejected" }
   | { type: "pasteText"; text: string; submit?: boolean }
   | { type: "copySelection" }
+  | { type: "probeResult"; id: number; results: ProbeResult }
 
 const vscode = acquireVsCodeApi()
 
@@ -84,7 +85,9 @@ const term = new Terminal({
       if (!isOpenClick(event)) return
       const target = classifyOscLink(uri)
       if (target.kind === "link") vscode.postMessage({ type: "openLink", uri: target.uri })
-      else if (target.kind === "path") vscode.postMessage({ type: "openFile", path: target.path, line: target.line })
+      else if (target.kind === "path") {
+        vscode.postMessage({ type: "openFile", path: target.path, line: target.line, col: target.col, alt: event.shiftKey })
+      }
     },
   },
 })
@@ -147,10 +150,22 @@ termElement.addEventListener(
   true,
 )
 
-// Same click semantics as the WebLinksAddon above.
+// Path tokens are only underlined once the host confirms they exist; the probe is a
+// request/response pair over postMessage keyed by an id.
+const probes = new Map<number, (r: ProbeResult) => void>()
+let nextProbe = 1
+function probePaths(texts: string[]): Promise<ProbeResult> {
+  return new Promise((resolve) => {
+    const id = nextProbe++
+    probes.set(id, resolve)
+    vscode.postMessage({ type: "probePaths", id, texts })
+  })
+}
+// Same click semantics as the WebLinksAddon above; shift = "alternate" action (default app
+// for a file — a directory always opens in Finder/Explorer).
 term.registerLinkProvider(
-  createPathLinkProvider(term, (event, text) => {
-    if (isOpenClick(event)) vscode.postMessage({ type: "openPath", text })
+  createPathLinkProvider(term, probePaths, (event, text) => {
+    if (isOpenClick(event)) vscode.postMessage({ type: "openPath", text, alt: event.shiftKey })
   }),
 )
 
@@ -229,6 +244,9 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   } else if (message.type === "copySelection") {
     const selection = term.getSelection()
     if (selection) vscode.postMessage({ type: "clipboard", text: selection })
+  } else if (message.type === "probeResult") {
+    probes.get(message.id)?.(message.results)
+    probes.delete(message.id)
   }
 })
 

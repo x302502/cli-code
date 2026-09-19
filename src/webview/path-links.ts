@@ -1,31 +1,61 @@
 import type { ILink, ILinkProvider, Terminal } from "@xterm/xterm"
-import { PATH_LINK_SOURCE } from "../lib/path-link.js"
+import { findPathTokens } from "../lib/path-link.js"
 
-// PATH_LINK_SOURCE is anchored ("^...$"); strip both anchors so the token can be matched
-// anywhere within a line of terminal text (see the assertion in path-link.ts).
-const TOKEN_RE = new RegExp(`(?:^|[\\s"'(\\[])(${PATH_LINK_SOURCE.slice(1, -1)})`, "g")
+export type ProbeResult = Record<string, { kind: "file" | "dir" } | null>
 
-/** Recognises file paths (optionally :line:col) on one buffer row; activation is decided by the host. */
+/** Sends `{type:"probePaths", id, texts}` to the host; the host answers through `resolve`. */
+export type Prober = (texts: string[]) => Promise<ProbeResult>
+
+// Results are cached briefly so hovering along a row does not re-stat the same tokens; the
+// TTL keeps a file created after the first hover from staying a dead link for long.
+const CACHE_TTL_MS = 5_000
+
+/**
+ * Recognises file/directory paths (optionally :line:col) on one buffer row. Like Orca, a
+ * token only becomes a link once the host has confirmed it exists on disk — a truncated
+ * table cell or a random `foo.bar` word never gets underlined.
+ */
 export function createPathLinkProvider(
   term: Terminal,
-  onActivate: (event: MouseEvent, text: string) => void,
+  probe: Prober,
+  onActivate: (event: MouseEvent, text: string, kind: "file" | "dir") => void,
 ): ILinkProvider {
+  const cache = new Map<string, { at: number; result: { kind: "file" | "dir" } | null }>()
+
   return {
     provideLinks(y, callback) {
       const line = term.buffer.active.getLine(y - 1)
       if (!line) return callback(undefined)
-      const text = line.translateToString(true)
-      const links: ILink[] = []
-      for (const m of text.matchAll(TOKEN_RE)) {
-        const token = m[1]!
-        const start = m.index! + m[0].length - token.length
-        links.push({
-          text: token,
-          range: { start: { x: start + 1, y }, end: { x: start + token.length, y } },
-          activate: (e) => onActivate(e, token),
-        })
+      const tokens = findPathTokens(line.translateToString(true))
+      if (tokens.length === 0) return callback(undefined)
+
+      const now = Date.now()
+      const unknown = [...new Set(tokens.map((t) => t.text))].filter((text) => {
+        const hit = cache.get(text)
+        return !hit || now - hit.at > CACHE_TTL_MS
+      })
+      const build = () => {
+        const links: ILink[] = []
+        for (const t of tokens) {
+          const result = cache.get(t.text)?.result
+          if (!result) continue
+          links.push({
+            text: t.text,
+            range: { start: { x: t.start + 1, y }, end: { x: t.start + t.text.length, y } },
+            activate: (e) => onActivate(e, t.text, result.kind),
+          })
+        }
+        callback(links.length ? links : undefined)
       }
-      callback(links.length ? links : undefined)
+      if (unknown.length === 0) return build()
+      probe(unknown).then(
+        (results) => {
+          const at = Date.now()
+          for (const text of unknown) cache.set(text, { at, result: results[text] ?? null })
+          build()
+        },
+        () => callback(undefined),
+      )
     },
   }
 }

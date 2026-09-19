@@ -168,7 +168,7 @@ Ví dụ `cliCode.quickCommands`:
 
 ### Liên kết đường dẫn
 
-Mọi đường dẫn tuyệt đối hoặc `~/` mà CLI in ra (kèm `:dòng:cột` nếu có) đều thành liên kết. `Cmd/Ctrl + click` để mở tệp ngay.
+Đường dẫn CLI in ra (`src/x.ts:12:3`, `./thư-mục`, `~/ghi-chú.md`, `README`, `file://…`) thành liên kết khi tồn tại trên đĩa — path bị cắt hoặc không có thì không gạch chân. `Cmd/Ctrl + click` mở tệp trong editor (Markdown ở preview, HTML ở trình duyệt) và **thư mục trong Finder / Explorer**; `Shift + Cmd/Ctrl + click` mở tệp bằng app mặc định.
 
 ### Menu chuột phải trong terminal
 
