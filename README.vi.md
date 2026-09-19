@@ -168,7 +168,7 @@ Ví dụ `cliCode.quickCommands`:
 
 ### Liên kết đường dẫn
 
-Mọi đường dẫn tuyệt đối hoặc `~/` mà CLI in ra (kèm `:dòng:cột` nếu có) đều thành liên kết. Click để hiện popover Mở / Sao chép, hoặc `Cmd/Ctrl + click` để mở tệp ngay.
+Mọi đường dẫn tuyệt đối hoặc `~/` mà CLI in ra (kèm `:dòng:cột` nếu có) đều thành liên kết. `Cmd/Ctrl + click` để mở tệp ngay.
 
 ### Menu chuột phải trong terminal
 

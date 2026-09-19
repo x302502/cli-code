@@ -168,7 +168,7 @@ Example `cliCode.quickCommands`:
 
 ### Path links
 
-Any absolute or `~/` path the CLI prints becomes a link (with an optional `:line:col`). Click it for a popover with Open / Copy, or `Cmd/Ctrl + click` to open the file straight away.
+Any absolute or `~/` path the CLI prints becomes a link (with an optional `:line:col`). `Cmd/Ctrl + click` to open the file straight away.
 
 ### Terminal right-click menu
 

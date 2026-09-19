@@ -7,7 +7,6 @@ import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from "@xterm/addon-clipboard"
 import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createExitOverlay } from "./exit-overlay.js"
-import { createLinkPopover } from "./link-popover.js"
 import { createPathLinkProvider } from "./path-links.js"
 import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
@@ -57,12 +56,16 @@ function readFont(): { fontFamily: string; fontSize: number } {
   return { fontFamily, fontSize }
 }
 
+/** Links open only on meta (macOS) / ctrl click, matching VS Code's integrated terminal. */
+function isOpenClick(event: MouseEvent): boolean {
+  return event.metaKey || event.ctrlKey
+}
+
 function readTheme(): Record<string, string> {
   return buildXtermTheme((name) => getComputedStyle(document.documentElement).getPropertyValue(name))
 }
 
 const { fontFamily, fontSize } = readFont()
-const popover = createLinkPopover()
 
 const term = new Terminal({
   fontFamily,
@@ -74,21 +77,14 @@ const term = new Terminal({
   // OSC 8 hyperlinks (Claude Code and other Ink-based CLIs print links this way) are handled
   // by xterm's built-in provider, which takes precedence over the addons below. Without a
   // handler xterm falls back to confirm() + window.open(), both dead inside a VS Code webview,
-  // so clicks would silently do nothing. Same click semantics as the addons: plain click shows
-  // the popover, meta/ctrl+click opens directly.
+  // so clicks would silently do nothing. Same semantics as the addons: meta/ctrl+click opens.
   linkHandler: {
     allowNonHttpProtocols: true,
     activate: (event, uri) => {
+      if (!isOpenClick(event)) return
       const target = classifyOscLink(uri)
-      const copy = () => vscode.postMessage({ type: "clipboard", text: uri })
-      const open =
-        target.kind === "link"
-          ? () => vscode.postMessage({ type: "openLink", uri: target.uri })
-          : target.kind === "path"
-            ? () => vscode.postMessage({ type: "openFile", path: target.path, line: target.line })
-            : copy
-      if (event.metaKey || event.ctrlKey) open()
-      else popover.show(event.clientX, event.clientY, uri, { open, copy })
+      if (target.kind === "link") vscode.postMessage({ type: "openLink", uri: target.uri })
+      else if (target.kind === "path") vscode.postMessage({ type: "openFile", path: target.path, line: target.line })
     },
   },
 })
@@ -101,14 +97,11 @@ term.unicode.activeVersion = "11"
 
 const searchAddon = new SearchAddon()
 term.loadAddon(searchAddon)
-// Plain click shows a popover (Orca-style) so a stray click never yanks the user out of the
-// terminal; meta/ctrl+click opens immediately, like VS Code's own terminal.
+// meta/ctrl+click opens, like VS Code's own terminal; a plain click only positions the cursor
+// so a stray click never yanks the user out of the terminal.
 term.loadAddon(
   new WebLinksAddon((event, uri) => {
-    const open = () => vscode.postMessage({ type: "openLink", uri })
-    const copy = () => vscode.postMessage({ type: "clipboard", text: uri })
-    if (event.metaKey || event.ctrlKey) open()
-    else popover.show(event.clientX, event.clientY, uri, { open, copy })
+    if (isOpenClick(event)) vscode.postMessage({ type: "openLink", uri })
   }),
 )
 
@@ -154,14 +147,10 @@ termElement.addEventListener(
   true,
 )
 
-// Same click semantics as the WebLinksAddon above: plain click shows a popover, meta/ctrl-click
-// opens directly.
+// Same click semantics as the WebLinksAddon above.
 term.registerLinkProvider(
   createPathLinkProvider(term, (event, text) => {
-    const open = () => vscode.postMessage({ type: "openPath", text })
-    const copy = () => vscode.postMessage({ type: "clipboard", text })
-    if (event.metaKey || event.ctrlKey) open()
-    else popover.show(event.clientX, event.clientY, text, { open, copy })
+    if (isOpenClick(event)) vscode.postMessage({ type: "openPath", text })
   }),
 )
 

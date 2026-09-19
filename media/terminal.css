@@ -43,30 +43,6 @@ body {
   border-radius: 2px;
   cursor: pointer;
 }
-#link-popover {
-  position: absolute;
-  z-index: 11;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: var(--vscode-editorWidget-background);
-  color: var(--vscode-editorWidget-foreground);
-  border: 1px solid var(--vscode-widget-border);
-  font: 12px var(--vscode-font-family);
-}
-#link-popover span {
-  color: var(--vscode-textLink-foreground);
-}
-#link-popover button {
-  background: var(--vscode-button-background);
-  color: var(--vscode-button-foreground);
-  border: 0;
-  padding: 3px 8px;
-  border-radius: 2px;
-  cursor: pointer;
-}
 #search-bar {
   position: absolute;
   top: 8px;
