@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { parsePathLink, pathCandidates } from "../src/lib/path-resolve.js"
+import { openMode, parsePathLink, pathCandidates } from "../src/lib/path-resolve.js"
 
 describe("parsePathLink", () => {
   it("tách path, line, col", () => {
@@ -19,5 +19,16 @@ describe("pathCandidates", () => {
     expect(pathCandidates("~/f", "/cwd", ["/w1"], "/home/u")).toEqual(["/home/u/f"])
     expect(pathCandidates("src/x.ts", "/cwd", ["/w1", "/w2"], "/home/u")).toEqual(["/cwd/src/x.ts", "/w1/src/x.ts", "/w2/src/x.ts"])
     expect(pathCandidates("./x", undefined, ["/w1"], "/home/u")).toEqual(["/w1/x"])
+  })
+})
+
+describe("openMode", () => {
+  it("markdown → preview, html → browser, else editor", () => {
+    expect(openMode("/w/README.md")).toBe("markdown")
+    expect(openMode("/w/notes.MARKDOWN")).toBe("markdown")
+    expect(openMode("/w/index.html")).toBe("browser")
+    expect(openMode("/w/a.htm")).toBe("browser")
+    expect(openMode("/w/a.ts")).toBe("editor")
+    expect(openMode("/w/md")).toBe("editor")
   })
 })

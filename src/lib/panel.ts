@@ -7,7 +7,7 @@ import * as vscode from "vscode"
 import { hooksInstalledOnDisk, installHooksToDisk } from "./claude-hooks.js"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
-import { parsePathLink, pathCandidates } from "./path-resolve.js"
+import { openMode, parsePathLink, pathCandidates } from "./path-resolve.js"
 import { createPromptTracker } from "./prompt-tracker.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
@@ -603,8 +603,14 @@ async function openParsedPath(panel: vscode.WebviewPanel, parsed: { path: string
     const line = Math.max(0, (parsed.line ?? 1) - 1)
     const col = Math.max(0, (parsed.col ?? 1) - 1)
     try {
-      const doc = await vscode.workspace.openTextDocument(candidate)
-      await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, col, line, col), preview: true })
+      const mode = openMode(candidate)
+      // Markdown and HTML are meant to be read rendered, not as source.
+      if (mode === "markdown") await vscode.commands.executeCommand("markdown.showPreview", vscode.Uri.file(candidate))
+      else if (mode === "browser") await vscode.env.openExternal(vscode.Uri.file(candidate))
+      else {
+        const doc = await vscode.workspace.openTextDocument(candidate)
+        await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, col, line, col), preview: true })
+      }
     } catch {
       void vscode.window.showWarningMessage(`Không mở được tệp: ${candidate}`)
     }
