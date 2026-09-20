@@ -9,6 +9,7 @@ type Action = { id: string; label: string; svg: string }
 const NEW_SESSION =
   '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h7A2.5 2.5 0 0 1 16 5.5v5a2.5 2.5 0 0 1-2.5 2.5H8.8L5.5 16v-3A2.5 2.5 0 0 1 4 10.5z"/><path d="M10 6.2v4.6M7.7 8.5h4.6"/>'
 const HISTORY = '<circle cx="10" cy="10" r="7"/><path d="M10 6.2V10l2.4 1.6"/>'
+const RESTART = '<path d="M15.5 10a5.5 5.5 0 1 1-1.6-3.9"/><path d="M15.5 4.5v2.6h-2.6"/>'
 const FIND = '<circle cx="9" cy="9" r="5"/><path d="m12.7 12.7 3.6 3.6"/>'
 const MORE =
   '<circle cx="5" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="10" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/>'
@@ -42,6 +43,7 @@ export function createActionBar(handlers: {
   }
   icon({ id: "openNew", label: "Phiên mới — chọn CLI", svg: NEW_SESSION }, () => handlers.onCommand("openNew"))
   icon({ id: "resume", label: "Mở lại phiên cũ", svg: HISTORY }, () => handlers.onCommand("resume"))
+  icon({ id: "restart", label: "Khởi động lại phiên — về đúng hội thoại này", svg: RESTART }, () => handlers.onCommand("restart"))
   icon({ id: "find", label: "Tìm trong terminal (⌘F)", svg: FIND }, () => handlers.onFind())
 
   const menu = document.createElement("div")
@@ -49,7 +51,6 @@ export function createActionBar(handlers: {
   menu.hidden = true
   for (const item of [
     { id: "renameTab", label: "Đổi tên tab", key: "F2" },
-    { id: "restart", label: "Khởi động lại phiên", key: "" },
     { id: "copyContext", label: "Sao chép ngữ cảnh", key: "" },
     { id: "quickCommand", label: "Lệnh nhanh", key: "" },
   ]) {
