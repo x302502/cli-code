@@ -45,26 +45,19 @@ CLI Code 只负责**启动**助手 —— 它不会安装它们。请确保你�
 | [Cline](https://cline.bot)                                                                       | `cline`             |
 | [Command Code](https://github.com/just-every/code)                                               | `command-code`      |
 | [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                                  | `droid`             |
-| [OpenClaude](https://openclaude.gitlawb.com/)                                                    | `openclaude`        |
-| [Ante](https://github.com/AntigmaLabs/ante-preview)                                              | `ante`              |
-| [Trae](https://docs.trae.cn/cli_get-started-with-trae-cli)                                       | `traecli`           |
 | [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent)                                  | `prime-agent`       |
 | [Aider](https://aider.chat/docs/)                                                                | `aider`             |
 | [Goose](https://block.github.io/goose/docs/quickstart/)                                          | `goose`             |
 | [Kiro](https://kiro.dev)                                                                         | `kiro-cli`          |
 | [Charm / Crush](https://github.com/charmbracelet/crush)                                          | `crush`             |
 | [Auggie](https://docs.augmentcode.com/cli/overview)                                              | `auggie`            |
-| [Autohand Code](https://github.com/autohandai/code-cli)                                          | `autohand`          |
-| [Codebuff](https://www.codebuff.com/docs/help/quick-start)                                       | `codebuff`          |
 | [Continue](https://docs.continue.dev/guides/cli)                                                 | `cn`                |
 | [Cursor](https://cursor.com/cli)                                                                 | `cursor-agent`      |
 | [Kimi](https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html)                     | `kimi`              |
 | [Mistral Vibe](https://github.com/mistralai/mistral-vibe)                                        | `vibe`              |
 | [Qwen Code](https://github.com/QwenLM/qwen-code)                                                 | `qwen`              |
-| [Rovo Dev](https://support.atlassian.com/rovo/docs/install-and-run-rovo-dev-cli-on-your-device/) | `rovo`              |
 | [Hermes](https://hermes-agent.nousresearch.com/docs/)                                            | `hermes`            |
 | [Devin](https://devin.ai/cli)                                                                    | `devin`             |
-| [OpenClaw](https://github.com/openclaw/openclaw)                                                 | `openclaw`          |
 
 > ⚠️ **先安装*并*登录。** 大多数助手在运行前需要先完成身份验证 —— `claude`
 > （登录 Anthropic 账号）、`codex`（OpenAI 登录 / API key）等等。请在普通终端中先运行每个工具一次，完成其登录流程，并确认它能启动。

@@ -45,26 +45,19 @@ CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc
 | [Cline](https://cline.bot)                                                                       | `cline`             |
 | [Command Code](https://github.com/just-every/code)                                               | `command-code`      |
 | [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                                  | `droid`             |
-| [OpenClaude](https://openclaude.gitlawb.com/)                                                    | `openclaude`        |
-| [Ante](https://github.com/AntigmaLabs/ante-preview)                                              | `ante`              |
-| [Trae](https://docs.trae.cn/cli_get-started-with-trae-cli)                                       | `traecli`           |
 | [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent)                                  | `prime-agent`       |
 | [Aider](https://aider.chat/docs/)                                                                | `aider`             |
 | [Goose](https://block.github.io/goose/docs/quickstart/)                                          | `goose`             |
 | [Kiro](https://kiro.dev)                                                                         | `kiro-cli`          |
 | [Charm / Crush](https://github.com/charmbracelet/crush)                                          | `crush`             |
 | [Auggie](https://docs.augmentcode.com/cli/overview)                                              | `auggie`            |
-| [Autohand Code](https://github.com/autohandai/code-cli)                                          | `autohand`          |
-| [Codebuff](https://www.codebuff.com/docs/help/quick-start)                                       | `codebuff`          |
 | [Continue](https://docs.continue.dev/guides/cli)                                                 | `cn`                |
 | [Cursor](https://cursor.com/cli)                                                                 | `cursor-agent`      |
 | [Kimi](https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html)                     | `kimi`              |
 | [Mistral Vibe](https://github.com/mistralai/mistral-vibe)                                        | `vibe`              |
 | [Qwen Code](https://github.com/QwenLM/qwen-code)                                                 | `qwen`              |
-| [Rovo Dev](https://support.atlassian.com/rovo/docs/install-and-run-rovo-dev-cli-on-your-device/) | `rovo`              |
 | [Hermes](https://hermes-agent.nousresearch.com/docs/)                                            | `hermes`            |
 | [Devin](https://devin.ai/cli)                                                                    | `devin`             |
-| [OpenClaw](https://github.com/openclaw/openclaw)                                                 | `openclaw`          |
 
 > ⚠️ **Cài đặt _và_ đăng nhập trước.** Hầu hết trợ lý cần được xác thực trước
 > khi chạy — `claude` (đăng nhập tài khoản Anthropic), `codex` (đăng nhập
