@@ -1,4 +1,4 @@
-import type { ILink, ILinkProvider, Terminal } from "@xterm/xterm"
+import type { IBufferLine, ILink, ILinkProvider, Terminal } from "@xterm/xterm"
 import { findPathTokens } from "../lib/path-link.js"
 
 export type ProbeResult = Record<string, { kind: "file" | "dir" } | null>
@@ -26,7 +26,8 @@ export function createPathLinkProvider(
     provideLinks(y, callback) {
       const line = term.buffer.active.getLine(y - 1)
       if (!line) return callback(undefined)
-      const tokens = findPathTokens(line.translateToString(true))
+      const row = readRow(line)
+      const tokens = findPathTokens(row.text)
       if (tokens.length === 0) return callback(undefined)
 
       const now = Date.now()
@@ -39,9 +40,11 @@ export function createPathLinkProvider(
         for (const t of tokens) {
           const result = cache.get(t.text)?.result
           if (!result) continue
+          const last = t.start + t.text.length - 1
           links.push({
             text: t.text,
-            range: { start: { x: t.start + 1, y }, end: { x: t.start + t.text.length, y } },
+            // xterm ranges are 1-based, end-inclusive cell columns.
+            range: { start: { x: row.col[t.start]! + 1, y }, end: { x: row.col[last]! + row.width[last]!, y } },
             activate: (e) => onActivate(e, t.text, result.kind),
           })
         }
@@ -58,4 +61,29 @@ export function createPathLinkProvider(
       )
     },
   }
+}
+
+/**
+ * Row text plus, for every string index, the cell column it sits in and that cell's width.
+ * String indices and columns diverge with combining marks (macOS writes Vietnamese filenames
+ * in NFD, so "ế" is two code units in one cell) and with wide CJK glyphs (one code unit, two
+ * cells); using indices as columns would underline the wrong span.
+ */
+function readRow(line: IBufferLine): { text: string; col: number[]; width: number[] } {
+  let text = ""
+  const col: number[] = []
+  const width: number[] = []
+  for (let x = 0; x < line.length; x++) {
+    const cell = line.getCell(x)
+    if (!cell) break
+    const w = cell.getWidth()
+    if (w === 0) continue // right half of a wide glyph
+    const chars = cell.getChars() || " "
+    for (let i = 0; i < chars.length; i++) {
+      col.push(x)
+      width.push(w)
+    }
+    text += chars
+  }
+  return { text, col, width }
 }

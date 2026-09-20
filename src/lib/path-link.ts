@@ -5,8 +5,12 @@
 // else without a slash needs a `name.ext` shape. Existence is checked before a link is shown,
 // so a generous match here costs nothing but a stat.
 const BARE_NAMES = "README|Makefile|Dockerfile|Rakefile|Gemfile|Procfile|LICENSE|CHANGELOG|AUTHORS|NOTICE|CONTRIBUTING"
+// `\w` is ASCII-only: Vietnamese (and any other non-Latin) filenames need the Unicode
+// letter/number/mark classes, and \p{M} covers macOS's decomposed (NFD) diacritics.
+const C = "\\p{L}\\p{M}\\p{N}_"
 const PATH_RE = new RegExp(
-  `^((?:~|\\.{1,2})?/[\\w.\\-@+/]+|[\\w.\\-@+]+/[\\w.\\-@+/]*|(?:${BARE_NAMES})(?:\\.[\\w.\\-]+)?|[A-Za-z_][\\w\\-]*(?:\\.[\\w\\-]+)*\\.[A-Za-z][A-Za-z0-9]{1,7})(?::(\\d+))?(?::(\\d+))?$`,
+  `^((?:~|\\.{1,2})?/[${C}.\\-@+/]+|[${C}.\\-@+]+/[${C}.\\-@+/]*|(?:${BARE_NAMES})(?:\\.[${C}.\\-]+)?|[\\p{L}_][${C}\\-]*(?:\\.[${C}\\-]+)*\\.[A-Za-z][A-Za-z0-9]{1,7})(?::(\\d+))?(?::(\\d+))?$`,
+  "u",
 )
 
 export function parsePathLink(text: string): { path: string; line?: number; col?: number } | undefined {
@@ -21,7 +25,7 @@ export function parsePathLink(text: string): { path: string; line?: number; col?
 
 // A candidate token is a run of path-ish characters; the exact shape is then checked with
 // PATH_RE after trailing punctuation (sentence/quote/bracket endings) is trimmed away.
-const TOKEN_RE = /[\w.\-@+~/:]+/g
+const TOKEN_RE = new RegExp(`[${C}.\\-@+~/:]+`, "gu")
 const TRAILING = /[.,;:'"]+$/
 
 /** Path-like tokens on one row of terminal text, with their 0-based start column. URLs are

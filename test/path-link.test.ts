@@ -68,3 +68,13 @@ describe("resolveLinkTarget — first existing candidate, file or directory", ()
     expect(resolveLinkTarget({ path: "nope.ts" }, "/w", ["/w"], "/home/u", stat)).toBeUndefined()
   })
 })
+
+describe("Vietnamese / non-ASCII paths", () => {
+  it("letters with diacritics are path characters (NFC and NFD)", () => {
+    expect(parsePathLink("docs/hướng-dẫn.md:3")).toEqual({ path: "docs/hướng-dẫn.md", line: 3 })
+    expect(parsePathLink("ghi-chú.md")).toEqual({ path: "ghi-chú.md" })
+    const nfd = "tài liệu/báo-cáo.md".normalize("NFD")
+    expect(parsePathLink(nfd.replace(" ", "-"))).toEqual({ path: nfd.replace(" ", "-") })
+    expect(findPathTokens("xem docs/hướng-dẫn.md nhé").map((t) => [t.text, t.start])).toEqual([["docs/hướng-dẫn.md", 4]])
+  })
+})
