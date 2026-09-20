@@ -434,8 +434,6 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   })
 }
 
-const ACTION_COMMANDS = new Set(["newSession", "renameTab", "restart", "copyContext", "resume", "quickCommand"])
-
 /** Right-click on a link: open it (or, with `alt`, with the default app / in Finder). */
 export function openLinkTextInActivePanel(text: string, alt: boolean): void {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
@@ -644,17 +642,14 @@ function attachConnection(
       // From an OSC 8 file:// link: the path is exact (may contain spaces), no regex parsing.
       const num = (v: unknown) => (typeof v === "number" ? v : undefined)
       void openLinkTarget(panel, { path: message.path, line: num(message.line), col: num(message.col) }, message.alt === true)
-    } else if (message.type === "command" && typeof message.id === "string" && ACTION_COMMANDS.has(message.id)) {
-      // The floating action menu; only tab-level commands are reachable this way.
-      void vscode.commands.executeCommand(`cli-code.${message.id}`)
     } else if (message.type === "probePaths" && typeof message.id === "number" && Array.isArray(message.texts)) {
       // The webview only underlines paths that exist; answer with what each token resolves to.
-      const results: Record<string, { kind: "file" | "dir" } | null> = {}
+      const results: Record<string, { kind: "file" | "dir"; path: string } | null> = {}
       for (const text of message.texts as unknown[]) {
         if (typeof text !== "string") continue
         const parsed = parsePathLink(text)
         const target = parsed && resolveTarget(panel, parsed)
-        results[text] = target ? { kind: target.kind } : null
+        results[text] = target ? { kind: target.kind, path: target.path } : null
       }
       sendTo(panel, { type: "probeResult", id: message.id, results })
     }

@@ -1,12 +1,13 @@
 import type { IBufferLine, IBufferRange, ILink, ILinkProvider, Terminal } from "@xterm/xterm"
 import { findPathTokens, findUrlTokens } from "../lib/path-link.js"
 
-export type ProbeResult = Record<string, { kind: "file" | "dir" } | null>
+export type ProbeResult = Record<string, { kind: "file" | "dir"; path: string } | null>
 
 /** Sends `{type:"probePaths", id, texts}` to the host; the host answers through `resolve`. */
 export type Prober = (texts: string[]) => Promise<ProbeResult>
 
 export type LinkKind = "url" | "file" | "dir"
+export type HoveredLink = { text: string; kind: LinkKind; path?: string; event: MouseEvent }
 
 // Results are cached briefly so hovering along a row does not re-stat the same tokens; the
 // TTL keeps a file created after the first hover from staying a dead link for long.
@@ -21,9 +22,9 @@ export function createTerminalLinkProvider(
   term: Terminal,
   probe: Prober,
   onActivate: (event: MouseEvent, text: string, kind: LinkKind, range: IBufferRange) => void,
-  onHover: (link: { text: string; kind: LinkKind } | undefined) => void = () => {},
+  onHover: (link: HoveredLink | undefined) => void = () => {},
 ): ILinkProvider {
-  const cache = new Map<string, { at: number; result: { kind: "file" | "dir" } | null }>()
+  const cache = new Map<string, { at: number; result: { kind: "file" | "dir"; path: string } | null }>()
 
   return {
     provideLinks(y, callback) {
@@ -41,17 +42,17 @@ export function createTerminalLinkProvider(
       }
       const build = () => {
         const links: ILink[] = []
-        const link = (text: string, kind: LinkKind, range: IBufferRange): ILink => ({
+        const link = (text: string, kind: LinkKind, range: IBufferRange, path?: string): ILink => ({
           text,
           range,
           activate: (e) => onActivate(e, text, kind, range),
-          hover: () => onHover({ text, kind }),
+          hover: (event) => onHover({ text, kind, path, event }),
           leave: () => onHover(undefined),
         })
         for (const u of urls) links.push(link(u.text, "url", rangeOf(u.start, u.text.length)))
         for (const p of paths) {
           const result = cache.get(p.text)?.result
-          if (result) links.push(link(p.text, result.kind, rangeOf(p.start, p.text.length)))
+          if (result) links.push(link(p.text, result.kind, rangeOf(p.start, p.text.length), result.path))
         }
         callback(links.length ? links : undefined)
       }

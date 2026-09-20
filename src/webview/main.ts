@@ -5,9 +5,9 @@ import { SearchAddon } from "@xterm/addon-search"
 import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from "@xterm/addon-clipboard"
 import { buildXtermTheme } from "../lib/webview-theme.js"
-import { createActionMenu } from "./action-menu.js"
 import { createExitOverlay } from "./exit-overlay.js"
-import { createTerminalLinkProvider, selectRange, type LinkKind, type ProbeResult } from "./links.js"
+import { createTerminalLinkProvider, selectRange, type HoveredLink, type ProbeResult } from "./links.js"
+import { createLinkTooltip } from "./link-tooltip.js"
 import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
 import { classifyOscLink } from "../lib/osc-link.js"
@@ -67,8 +67,16 @@ function readTheme(): Record<string, string> {
 }
 
 const { fontFamily, fontSize } = readFont()
-// The link under the pointer, if any — feeds the right-click menu's context keys.
-let hoveredLink: { text: string; kind: LinkKind } | undefined
+// The link under the pointer, if any — feeds the right-click menu's context keys and the hint.
+let hoveredLink: HoveredLink | undefined
+const tooltip = createLinkTooltip()
+const OPEN_KEY = navigator.platform.startsWith("Mac") ? "⌘" : "Ctrl"
+const OPEN_LABEL = { url: "Mở liên kết", file: "Mở tệp", dir: "Mở thư mục" } as const
+function setHovered(link: HoveredLink | undefined) {
+  hoveredLink = link
+  if (!link) return tooltip.hide()
+  tooltip.show(link.event.clientX, link.event.clientY, `${OPEN_LABEL[link.kind]} (${OPEN_KEY} + click)`, link.path)
+}
 
 const term = new Terminal({
   fontFamily,
@@ -83,11 +91,13 @@ const term = new Terminal({
   // so clicks would silently do nothing. Same semantics as the addons: meta/ctrl+click opens.
   linkHandler: {
     allowNonHttpProtocols: true,
-    hover: (_e, uri) => {
+    hover: (event, uri) => {
       const t = classifyOscLink(uri)
-      hoveredLink = t.kind === "link" ? { text: t.uri, kind: "url" } : t.kind === "path" ? { text: t.path, kind: "file" } : undefined
+      setHovered(
+        t.kind === "link" ? { text: t.uri, kind: "url", path: t.uri, event } : t.kind === "path" ? { text: t.path, kind: "file", path: t.path, event } : undefined,
+      )
     },
-    leave: () => (hoveredLink = undefined),
+    leave: () => setHovered(undefined),
     activate: (event, uri, range) => {
       // A plain click selects the link so a normal Cmd/Ctrl+C copies all of it.
       if (!isOpenClick(event)) return selectRange(term, range)
@@ -173,7 +183,7 @@ term.registerLinkProvider(
       if (kind === "url") vscode.postMessage({ type: "openLink", uri: text })
       else vscode.postMessage({ type: "openPath", text, alt: event.shiftKey })
     },
-    (link) => (hoveredLink = link),
+    setHovered,
   ),
 )
 
@@ -192,19 +202,6 @@ termElement.addEventListener(
     })
   },
   true,
-)
-
-// Tab-level actions live behind the floating button; each is an existing command.
-createActionMenu(
-  [
-    { id: "newSession", label: "Phiên mới" },
-    { id: "renameTab", label: "Đổi tên tab" },
-    { id: "restart", label: "Khởi động lại phiên" },
-    { id: "copyContext", label: "Sao chép ngữ cảnh" },
-    { id: "resume", label: "Mở lại phiên cũ" },
-    { id: "quickCommand", label: "Lệnh nhanh" },
-  ],
-  (id) => vscode.postMessage({ type: "command", id }),
 )
 
 // Re-apply the theme whenever VS Code switches themes (reflected as a class change on <body>).

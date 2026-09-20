@@ -76,7 +76,8 @@
       {
         "command": "cli-code.newSession",
         "title": "Phiên mới",
-        "category": "CLI Code"
+        "category": "CLI Code",
+        "icon": "$(add)"
       },
       {
         "command": "cli-code.renameTab",
@@ -86,7 +87,8 @@
       {
         "command": "cli-code.restart",
         "title": "Khởi động lại phiên",
-        "category": "CLI Code"
+        "category": "CLI Code",
+        "icon": "$(debug-restart)"
       },
       {
         "command": "cli-code.fontZoomIn",
@@ -106,7 +108,8 @@
       {
         "command": "cli-code.find",
         "title": "Tìm trong terminal",
-        "category": "CLI Code"
+        "category": "CLI Code",
+        "icon": "$(search)"
       },
       {
         "command": "cli-code.copyContext",
@@ -179,53 +182,88 @@
         {
           "command": "cli-code.openNew",
           "group": "navigation"
+        },
+        {
+          "command": "cli-code.newSession",
+          "when": "activeWebviewPanelId == cliCode.terminal",
+          "group": "navigation@1"
+        },
+        {
+          "command": "cli-code.restart",
+          "when": "activeWebviewPanelId == cliCode.terminal",
+          "group": "navigation@2"
+        },
+        {
+          "command": "cli-code.find",
+          "when": "activeWebviewPanelId == cliCode.terminal",
+          "group": "navigation@3"
+        },
+        {
+          "command": "cli-code.renameTab",
+          "when": "activeWebviewPanelId == cliCode.terminal",
+          "group": "1_tab@1"
+        },
+        {
+          "command": "cli-code.copyContext",
+          "when": "activeWebviewPanelId == cliCode.terminal",
+          "group": "1_tab@2"
+        },
+        {
+          "command": "cli-code.resume",
+          "when": "activeWebviewPanelId == cliCode.terminal",
+          "group": "2_session@1"
+        },
+        {
+          "command": "cli-code.quickCommand",
+          "when": "activeWebviewPanelId == cliCode.terminal",
+          "group": "2_session@2"
         }
       ],
       "webview/context": [
         {
-          "command": "cli-code.copySelection",
-          "when": "webviewId == cliCode.terminal && cliCodeHasSelection",
-          "group": "1_clip@1"
-        },
-        {
-          "command": "cli-code.paste",
-          "when": "webviewId == cliCode.terminal",
-          "group": "1_clip@2"
-        },
-        {
-          "command": "cli-code.selectAll",
-          "when": "webviewId == cliCode.terminal",
-          "group": "1_clip@3"
-        },
-        {
           "command": "cli-code.openLinkAt",
           "when": "webviewId == cliCode.terminal && cliCodeLinkKind == url",
-          "group": "2_link@1"
+          "group": "1_link@1"
         },
         {
           "command": "cli-code.openFileAt",
           "when": "webviewId == cliCode.terminal && cliCodeLinkKind == file",
-          "group": "2_link@1"
+          "group": "1_link@1"
         },
         {
           "command": "cli-code.openDirAt",
           "when": "webviewId == cliCode.terminal && cliCodeLinkKind == dir",
-          "group": "2_link@1"
+          "group": "1_link@1"
         },
         {
           "command": "cli-code.openWithDefaultAppAt",
           "when": "webviewId == cliCode.terminal && cliCodeLinkKind == file",
-          "group": "2_link@2"
+          "group": "1_link@2"
         },
         {
           "command": "cli-code.insertPathAt",
           "when": "webviewId == cliCode.terminal && cliCodeLinkKind == file",
-          "group": "2_link@3"
+          "group": "1_link@3"
         },
         {
           "command": "cli-code.copyLinkAt",
           "when": "webviewId == cliCode.terminal && cliCodeLinkKind != ''",
-          "group": "2_link@4"
+          "group": "1_link@4"
+        },
+        {
+          "command": "cli-code.copySelection",
+          "when": "webviewId == cliCode.terminal && cliCodeHasSelection",
+          "group": "2_clip@1"
+        },
+        {
+          "command": "cli-code.paste",
+          "when": "webviewId == cliCode.terminal",
+          "group": "2_clip@2"
+        },
+        {
+          "command": "cli-code.selectAll",
+          "when": "webviewId == cliCode.terminal",
+          "group": "2_clip@3"
         },
         {
           "command": "cli-code.findSelection",
@@ -332,6 +370,11 @@
         "mac": "cmd+f",
         "win": "ctrl+f",
         "linux": "ctrl+f",
+        "when": "activeWebviewPanelId == cliCode.terminal"
+      },
+      {
+        "command": "cli-code.renameTab",
+        "key": "f2",
         "when": "activeWebviewPanelId == cliCode.terminal"
       }
     ],
