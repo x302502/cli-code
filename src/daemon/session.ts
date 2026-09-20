@@ -39,7 +39,7 @@ export class Session {
   private readonly coalescer: { push(chunk: Uint8Array): void; flush(): void }
   cwd: string | undefined
   oscTitle: string | undefined
-  status: { state: AgentState; prompt?: string } | undefined
+  status: { state: AgentState; prompt?: string; cliSessionId?: string } | undefined
   private metaListener: ((e: MetaEvent) => void) | undefined
   private readonly scan = createOscScanner()
 
@@ -85,9 +85,10 @@ export class Session {
   }
 
   /** Status pushed from outside the PTY stream (a CLI hook talking to the daemon). */
-  reportStatus(state: AgentState, prompt?: string): void {
-    this.status = { state, prompt }
-    this.metaListener?.({ kind: "status", state, prompt })
+  reportStatus(state: AgentState, prompt?: string, cliSessionId?: string): void {
+    // The CLI's own session id (from its hook) is kept across later reports that omit it.
+    this.status = { state, prompt, cliSessionId: cliSessionId ?? this.status?.cliSessionId }
+    this.metaListener?.({ kind: "status", ...this.status })
   }
 
   private applyOsc(osc: { kind: "title"; title: string } | { kind: "cwd"; cwd: string } | { kind: "status"; payload: string }): void {

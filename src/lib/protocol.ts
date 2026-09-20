@@ -22,7 +22,7 @@ export const AGENT_STATES: readonly AgentState[] = ["working", "waiting", "block
 export type MetaEvent =
   | { kind: "cwd"; cwd: string }
   | { kind: "title"; title: string }
-  | { kind: "status"; state: AgentState; prompt?: string }
+  | { kind: "status"; state: AgentState; prompt?: string; cliSessionId?: string }
 
 const HEADER_LEN = 5
 

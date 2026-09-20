@@ -2,7 +2,7 @@ import * as assert from "node:assert/strict"
 import * as fs from "node:fs"
 import * as path from "node:path"
 import { spawnSync } from "node:child_process"
-import { api, openReady, outDir, waitFor } from "./helpers.js"
+import { api, fixture, openReady, outDir, readEnvFile, waitFor } from "./helpers.js"
 
 const HOOK = path.resolve(__dirname, "..", "..", "dist", "hook.js")
 
@@ -61,5 +61,21 @@ describe("claude hooks (checklist D)", () => {
     assert.equal(a.uninstallHooksFromDisk(settingsPath), true)
     assert.equal(a.hooksInstalledOnDisk(settingsPath), false)
     assert.equal(JSON.parse(fs.readFileSync(settingsPath, "utf8")).foo, 1)
+  })
+
+  it("Khởi động lại phiên resumes the session id the hook reported", async () => {
+    const { a, panel, env, tool } = await openReady("hook-resume")
+    // Give the fixture tool a resume form so the restart can address the session by id.
+    tool.resumeCommand = `sh "${fixture("echo-tool.sh")}" --resume {sessionId}`
+    fireHook(env, { hook_event_name: "UserPromptSubmit", prompt: "xin chào", session_id: "sess-abc-123" })
+    await waitFor(() => panel.title.startsWith("⟳ "), 10_000, "hook delivered")
+
+    await a.restartPanel(a.context, panel)
+    const again = await waitFor(() => {
+      const e = readEnvFile("hook-resume")
+      return e && e.pid !== env.pid ? e : undefined
+    }, 15_000, "restarted tool env")
+    assert.equal(again.argv, "--resume sess-abc-123")
+    panel.dispose()
   })
 })

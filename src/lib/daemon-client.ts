@@ -160,7 +160,12 @@ export function connectSession(
             } else if (frame.type === MSG.Title) {
               if (typeof body.title === "string") e = { kind: "title", title: body.title }
             } else if (typeof body.state === "string" && (AGENT_STATES as readonly string[]).includes(body.state)) {
-              e = { kind: "status", state: body.state as AgentState, prompt: typeof body.prompt === "string" ? body.prompt : undefined }
+              e = {
+                kind: "status",
+                state: body.state as AgentState,
+                prompt: typeof body.prompt === "string" ? body.prompt : undefined,
+                cliSessionId: typeof body.cliSessionId === "string" ? body.cliSessionId : undefined,
+              }
             }
             if (e) {
               if (onMeta) onMeta(e)

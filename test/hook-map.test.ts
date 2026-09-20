@@ -20,3 +20,10 @@ describe("mapHookEvent", () => {
     expect(mapHookEvent("x")).toBeUndefined()
   })
 })
+
+describe("mapHookEvent — Claude session id", () => {
+  it("carries session_id so a restart can resume the same conversation", () => {
+    expect(mapHookEvent({ hook_event_name: "UserPromptSubmit", prompt: "x", session_id: "abc" })).toEqual({ state: "working", prompt: "x", cliSessionId: "abc" })
+    expect(mapHookEvent({ hook_event_name: "Stop", session_id: 42 })).toEqual({ state: "done", prompt: undefined })
+  })
+})

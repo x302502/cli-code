@@ -56,9 +56,10 @@ export async function startDaemon(args: {
           if (frame.type === MSG.StatusReport) {
             // Sent by a CLI hook over its own short-lived connection: it names the
             // session explicitly because it never did a Hello.
-            const report = decodeJsonPayload<{ sessionId: string; state: AgentState; prompt?: string }>(frame.payload)
+            const report = decodeJsonPayload<{ sessionId: string; state: AgentState; prompt?: string; cliSessionId?: unknown }>(frame.payload)
             if ((AGENT_STATES as readonly string[]).includes(report.state)) {
-              sessions.get(report.sessionId)?.reportStatus(report.state, report.prompt)
+              const cliSessionId = typeof report.cliSessionId === "string" ? report.cliSessionId : undefined
+              sessions.get(report.sessionId)?.reportStatus(report.state, report.prompt, cliSessionId)
             }
             continue
           }
@@ -205,7 +206,7 @@ function wire(session: Session, socket: net.Socket): void {
 function metaFrame(e: MetaEvent): Uint8Array {
   if (e.kind === "cwd") return encodeJsonFrame(MSG.Cwd, { cwd: e.cwd })
   if (e.kind === "title") return encodeJsonFrame(MSG.Title, { title: e.title })
-  return encodeJsonFrame(MSG.Status, { state: e.state, prompt: e.prompt })
+  return encodeJsonFrame(MSG.Status, { state: e.state, prompt: e.prompt, cliSessionId: e.cliSessionId })
 }
 
 /** Current meta of a session, for a client that just attached. */

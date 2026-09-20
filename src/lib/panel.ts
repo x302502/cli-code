@@ -8,7 +8,9 @@ import { hooksInstalledOnDisk, installHooksToDisk } from "./claude-hooks.js"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
+import { listSessionsForWorkspace } from "./history/scan.js"
 import { createPromptTracker } from "./prompt-tracker.js"
+import { restartCommand } from "./restart-command.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
 import { buildEnv, randomPort } from "./terminal.js"
@@ -30,6 +32,10 @@ const panelQuickLabels = new WeakMap<vscode.WebviewPanel, string>()
 const panelInitialInputs = new WeakMap<vscode.WebviewPanel, { text: string; submit: boolean }>()
 // The command the panel was spawned with (e.g. `claude --resume <id>`), so a restart re-runs it.
 const panelCommands = new WeakMap<vscode.WebviewPanel, string>()
+// When the tab's CLI was spawned, and the CLI's own session id (Claude reports it through its
+// hook) — together they let a restart resume the same conversation instead of starting over.
+const panelSpawnedAt = new WeakMap<vscode.WebviewPanel, number>()
+const panelCliSessionIds = new WeakMap<vscode.WebviewPanel, string>()
 // The last panel to have editor focus, so addFilepathToTerminal (invoked from a text
 // editor, where no panel is `active`) still knows which session to write into.
 let lastFocusedPanel: vscode.WebviewPanel | undefined
@@ -360,6 +366,7 @@ export async function openTerminalPanel(
     localResourceRoots: [vscode.Uri.file(context.extensionPath)],
   })
   panelCommands.set(panel, baseCommand)
+  panelSpawnedAt.set(panel, Date.now())
   if (options.title) customTitles.set(panel, options.title)
   if (options.quickCommandLabel) panelQuickLabels.set(panel, options.quickCommandLabel)
   if (options.initialInput) panelInitialInputs.set(panel, options.initialInput)
@@ -417,13 +424,32 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   })
 }
 
-/** Reopens a gone panel's tool in a fresh tab with the same cwd, title and command. */
+/**
+ * The command a restart of this tab should run: back into the same conversation when the
+ * CLI can resume one (hook-reported id, or the newest transcript it wrote since the tab was
+ * spawned), otherwise the CLI's continue command, otherwise what the tab was opened with.
+ */
+async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Promise<string> {
+  const baseCommand = panelCommands.get(panel) ?? tool.command
+  const cwd = usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  let sessions: Awaited<ReturnType<typeof listSessionsForWorkspace>> = []
+  if (tool.resumeCommand && cwd) {
+    try {
+      sessions = await listSessionsForWorkspace(cwd)
+    } catch {
+      // History is best effort; a scan failure just means a fresh session.
+    }
+  }
+  return restartCommand({ tool, baseCommand, cliSessionId: panelCliSessionIds.get(panel), sessions, spawnedAt: panelSpawnedAt.get(panel) ?? 0 })
+}
+
+/** Reopens a gone panel's tool in a fresh tab with the same cwd and title, resuming its conversation. */
 export async function restartFromGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
   const tool = panelTools.get(panel)
   if (!tool) return
   const cwd = panelCwds.get(panel)
   const title = customTitles.get(panel)
-  const command = panelCommands.get(panel)
+  const command = await commandForRestart(panel, tool)
   panel.dispose()
   try {
     await openTerminalPanel(context, tool, { cwd, title, command })
@@ -528,6 +554,7 @@ function attachConnection(
     } else if (e.kind === "status") {
       const previous = panelStatus.get(panel)?.state
       panelStatus.set(panel, { state: e.state, prompt: e.prompt })
+      if (e.cliSessionId) panelCliSessionIds.set(panel, e.cliSessionId)
       if (e.state === "done" || e.state === "waiting" || e.state === "blocked") {
         if (!panel.visible) {
           panelUnread.add(panel)
@@ -674,7 +701,10 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     panelConnections.delete(panel)
     const socketPath = await ensureDaemon(context)
     const port = tool.hasHttpApi ? randomPort() : undefined
-    const baseCommand = panelCommands.get(panel) ?? tool.command
+    const baseCommand = await commandForRestart(panel, tool)
+    // From now on the tab is a resume tab: later restarts keep landing in the same conversation.
+    panelCommands.set(panel, baseCommand)
+    panelSpawnedAt.set(panel, Date.now())
     const connection = await connectSession(socketPath, {
       op: "spawn",
       toolId: tool.id,

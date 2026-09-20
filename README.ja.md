@@ -171,6 +171,8 @@ CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`�
 
 ### ターミナルの右クリックメニュー
 
+**Khởi động lại phiên**（再起動）はタブを*同じ会話*に戻します：Claude Code はフックが報告するセッション ID、Codex/Grok はタブが書いた最新のトランスクリプト、`--continue` しかない CLI（Copilot、opencode など）は continue 形式で。何も分からない場合のみ新規セッションになります。
+
 メニュー項目はコマンドのベトナム語タイトルで表示されます：**Sao chép**（コピー）、**Dán**（貼り付け）、**Chọn tất cả**（すべて選択）、**Sao chép ngữ cảnh**（コンテキストをコピー）、**Đổi tên tab**（タブ名を変更）、**Khởi động lại phiên**（セッションを再起動）、**Tìm trong terminal**（ターミナル内検索）、**Mở lại phiên cũ**（過去のセッションを再開）、**Lệnh nhanh**（クイックコマンド）。
 
 ### コマンドパレットのコマンド

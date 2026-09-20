@@ -1,9 +1,17 @@
 import type { AgentState } from "./protocol.js"
 
 /** Claude Code hook payload → agent state. Unknown events are ignored, never guessed. */
-export function mapHookEvent(payload: unknown): { state: AgentState; prompt?: string } | undefined {
+export function mapHookEvent(payload: unknown): { state: AgentState; prompt?: string; cliSessionId?: string } | undefined {
   if (!payload || typeof payload !== "object") return undefined
-  const p = payload as { hook_event_name?: unknown; prompt?: unknown; notification_type?: unknown }
+  const p = payload as { hook_event_name?: unknown; prompt?: unknown; notification_type?: unknown; session_id?: unknown }
+  const prompt = typeof p.prompt === "string" ? p.prompt : undefined
+  const mapped = mapState(p)
+  if (!mapped) return undefined
+  // Claude's own session id lets a restarted tab resume the same conversation.
+  return typeof p.session_id === "string" ? { ...mapped, cliSessionId: p.session_id } : mapped
+}
+
+function mapState(p: { hook_event_name?: unknown; notification_type?: unknown; prompt?: unknown }): { state: AgentState; prompt?: string } | undefined {
   const prompt = typeof p.prompt === "string" ? p.prompt : undefined
   switch (p.hook_event_name) {
     case "UserPromptSubmit":
