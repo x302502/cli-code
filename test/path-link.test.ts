@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { findPathTokens, parsePathLink } from "../src/lib/path-link.js"
+import { findPathTokens, findUrlTokens, parsePathLink } from "../src/lib/path-link.js"
 import { classifyOscLink } from "../src/lib/osc-link.js"
 import { resolveLinkTarget } from "../src/lib/path-resolve.js"
 
@@ -76,5 +76,18 @@ describe("Vietnamese / non-ASCII paths", () => {
     const nfd = "tài liệu/báo-cáo.md".normalize("NFD")
     expect(parsePathLink(nfd.replace(" ", "-"))).toEqual({ path: nfd.replace(" ", "-") })
     expect(findPathTokens("xem docs/hướng-dẫn.md nhé").map((t) => [t.text, t.start])).toEqual([["docs/hướng-dẫn.md", 4]])
+  })
+})
+
+describe("findUrlTokens", () => {
+  const tokens = (s: string) => findUrlTokens(s).map((t) => [t.text, t.start])
+  it("http(s) and mailto, trailing punctuation trimmed, brackets balanced", () => {
+    expect(tokens("see https://example.com/a?b=1, ok")).toEqual([["https://example.com/a?b=1", 4]])
+    expect(tokens("(https://en.wikipedia.org/wiki/Foo_(bar))")).toEqual([["https://en.wikipedia.org/wiki/Foo_(bar)", 1]])
+    expect(tokens("mail mailto:a@b.c.")).toEqual([["mailto:a@b.c", 5]])
+    expect(tokens('"https://x.test/y".')).toEqual([["https://x.test/y", 1]])
+  })
+  it("ignores bare domains and other schemes", () => {
+    expect(tokens("example.com ftp://x javascript:alert(1)")).toEqual([])
   })
 })

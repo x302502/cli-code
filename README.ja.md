@@ -167,7 +167,7 @@ CLI Code は Claude Code に小さなフックをインストールし、タイ�
 
 ### パスリンク
 
-CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`file://…`）は、ディスク上に存在する場合のみリンクになります。`Cmd/Ctrl + クリック` でファイルはエディタ（Markdown はプレビュー、HTML はブラウザ）、**フォルダは Finder / Explorer** で開き、`Shift + Cmd/Ctrl + クリック` は既定のアプリで開きます。
+CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`file://…`）は、ディスク上に存在する場合のみリンクになります。`Cmd/Ctrl + クリック` でファイルはエディタ（Markdown はプレビュー、HTML はブラウザ）、**フォルダは Finder / Explorer** で開き、`Shift + Cmd/Ctrl + クリック` は既定のアプリで開きます。通常のクリックはリンク全体を選択するので、そのまま `Cmd/Ctrl + C` でコピーできます。
 
 ### ターミナルの右クリックメニュー
 

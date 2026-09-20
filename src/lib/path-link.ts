@@ -39,3 +39,28 @@ export function findPathTokens(row: string): { text: string; start: number }[] {
   }
   return out
 }
+
+const URL_RE = /(?:https?|mailto):[^\s"'<>]+/gi
+
+/** Web/mail URLs on one row, with their 0-based start column. */
+export function findUrlTokens(row: string): { text: string; start: number }[] {
+  const out: { text: string; start: number }[] = []
+  for (const m of row.matchAll(URL_RE)) {
+    let text = m[0].replace(/[.,;:!?'"]+$/, "")
+    // A closing bracket only belongs to the URL if it closes one opened inside it.
+    while (/[)\]]$/.test(text)) {
+      const close = text[text.length - 1]!
+      const open = close === ")" ? "(" : "["
+      if (count(text, open) >= count(text, close)) break
+      text = text.slice(0, -1)
+    }
+    if (text.length > "https://".length) out.push({ text, start: m.index! })
+  }
+  return out
+}
+
+function count(text: string, ch: string): number {
+  let n = 0
+  for (const c of text) if (c === ch) n++
+  return n
+}

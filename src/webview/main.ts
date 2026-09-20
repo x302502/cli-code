@@ -2,12 +2,11 @@ import { Terminal } from "@xterm/xterm"
 import { FitAddon } from "@xterm/addon-fit"
 import { WebglAddon } from "@xterm/addon-webgl"
 import { SearchAddon } from "@xterm/addon-search"
-import { WebLinksAddon } from "@xterm/addon-web-links"
 import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from "@xterm/addon-clipboard"
 import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createExitOverlay } from "./exit-overlay.js"
-import { createPathLinkProvider, type ProbeResult } from "./path-links.js"
+import { createTerminalLinkProvider, selectRange, type ProbeResult } from "./links.js"
 import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
 import { classifyOscLink } from "../lib/osc-link.js"
@@ -82,8 +81,9 @@ const term = new Terminal({
   // so clicks would silently do nothing. Same semantics as the addons: meta/ctrl+click opens.
   linkHandler: {
     allowNonHttpProtocols: true,
-    activate: (event, uri) => {
-      if (!isOpenClick(event)) return
+    activate: (event, uri, range) => {
+      // A plain click selects the link so a normal Cmd/Ctrl+C copies all of it.
+      if (!isOpenClick(event)) return selectRange(term, range)
       const target = classifyOscLink(uri)
       if (target.kind === "link") vscode.postMessage({ type: "openLink", uri: target.uri })
       else if (target.kind === "path") {
@@ -101,14 +101,6 @@ term.unicode.activeVersion = "11"
 
 const searchAddon = new SearchAddon()
 term.loadAddon(searchAddon)
-// meta/ctrl+click opens, like VS Code's own terminal; a plain click only positions the cursor
-// so a stray click never yanks the user out of the terminal.
-term.loadAddon(
-  new WebLinksAddon((event, uri) => {
-    if (isOpenClick(event)) vscode.postMessage({ type: "openLink", uri })
-  }),
-)
-
 // OSC 52 write goes through the extension host (vscode.env.clipboard): reliable in a
 // sandboxed webview, and it keeps reads closed — a program in the terminal must not be
 // able to pull the user's clipboard contents.
@@ -151,8 +143,10 @@ termElement.addEventListener(
   true,
 )
 
-// Path tokens are only underlined once the host confirms they exist; the probe is a
-// request/response pair over postMessage keyed by an id.
+// URLs and file/directory paths. meta/ctrl+click opens, like VS Code's own terminal; a plain
+// click selects the link so a normal Cmd/Ctrl+C copies all of it (and a stray click never
+// yanks the user out of the terminal). Path tokens are only underlined once the host confirms
+// they exist; the probe is a request/response pair over postMessage keyed by an id.
 const probes = new Map<number, (r: ProbeResult) => void>()
 let nextProbe = 1
 function probePaths(texts: string[]): Promise<ProbeResult> {
@@ -162,11 +156,12 @@ function probePaths(texts: string[]): Promise<ProbeResult> {
     vscode.postMessage({ type: "probePaths", id, texts })
   })
 }
-// Same click semantics as the WebLinksAddon above; shift = "alternate" action (default app
-// for a file — a directory always opens in Finder/Explorer).
+// shift = "alternate" action (default app for a file — a directory always opens in Finder/Explorer).
 term.registerLinkProvider(
-  createPathLinkProvider(term, probePaths, (event, text) => {
-    if (isOpenClick(event)) vscode.postMessage({ type: "openPath", text, alt: event.shiftKey })
+  createTerminalLinkProvider(term, probePaths, (event, text, kind, range) => {
+    if (!isOpenClick(event)) return selectRange(term, range)
+    if (kind === "url") vscode.postMessage({ type: "openLink", uri: text })
+    else vscode.postMessage({ type: "openPath", text, alt: event.shiftKey })
   }),
 )
 
