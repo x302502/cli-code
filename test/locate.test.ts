@@ -37,6 +37,16 @@ describe("locateLatestSession", () => {
     write(".pi/agent/sessions/x/a.jsonl", '{"type":"session","id":"pi-old","cwd":"/w/proj"}\n', T0 - 10_000)
     expect(locateLatestSession("pi", cwd, T0, home)).toBeUndefined()
   })
+  it("antigravity: last_conversations.json maps cwd → id; the conversation db must postdate the spawn", () => {
+    write(".gemini/antigravity-cli/cache/last_conversations.json", JSON.stringify({ "/w/proj": "conv-1", "/w/other": "conv-2" }), T0)
+    write(".gemini/antigravity-cli/conversations/conv-1.db", "", T0 + 5_000)
+    write(".gemini/antigravity-cli/conversations/conv-2.db", "", T0 + 5_000)
+    expect(locateLatestSession("antigravity", cwd, T0, home)).toBe("conv-1")
+    expect(locateLatestSession("antigravity", "/w/nowhere", T0, home)).toBeUndefined()
+    // a conversation from before this tab is not this tab's
+    fs.utimesSync(path.join(home, ".gemini/antigravity-cli/conversations/conv-1.db"), (T0 - 9_000) / 1000, (T0 - 9_000) / 1000)
+    expect(locateLatestSession("antigravity", cwd, T0, home)).toBeUndefined()
+  })
   it("copilot: workspace.yaml id/cwd", () => {
     write(".copilot/session-state/s1/workspace.yaml", "id: s1\ncwd: /w/proj\nbranch: main\n", T0 + 1)
     write(".copilot/session-state/s2/workspace.yaml", "id: s2\ncwd: /w/other\n", T0 + 2)

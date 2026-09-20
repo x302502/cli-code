@@ -41,14 +41,14 @@ describe("resume commands", () => {
     }
   })
   it("các CLI có kho phiên riêng: cả continueCommand lẫn resumeCommand theo id", () => {
-    for (const id of ["copilot", "opencode", "omp", "amp", "droid", "pi", "cline", "kimi", "cursor", "goose"]) {
+    for (const id of ["copilot", "opencode", "omp", "amp", "droid", "pi", "cline", "kimi", "cursor", "goose", "antigravity"]) {
       const t = CLI_TOOLS.find((x) => x.id === id)!
       expect(t.continueCommand || id === "cline").toBeTruthy()
       expect(t.resumeCommand).toContain("{sessionId}")
     }
   })
   it("các CLI chỉ có --continue", () => {
-    for (const id of ["antigravity", "aider", "continue", "crush", "hermes", "devin"]) {
+    for (const id of ["aider", "continue", "crush", "hermes", "devin"]) {
       const t = CLI_TOOLS.find((x) => x.id === id)!
       expect(t.continueCommand).toBeTruthy()
       expect(t.resumeCommand).toBeUndefined()

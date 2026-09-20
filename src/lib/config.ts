@@ -139,6 +139,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "agy --dangerously-skip-permissions",
     hasHttpApi: false,
     continueCommand: "agy --dangerously-skip-permissions --continue",
+    resumeCommand: "agy --dangerously-skip-permissions --conversation {sessionId}",
   },
   {
     id: "amp",

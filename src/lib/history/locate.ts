@@ -64,6 +64,8 @@ const LOCATORS: Record<string, Locator> = {
   // Threads carry no cwd; the newest thread started after this tab is the best available guess.
   amp: (_cwd, since, home) => amp(path.join(home, ".local", "share", "amp", "threads"), since),
 
+  antigravity: (cwd, since, home) => antigravity(path.join(home, ".gemini", "antigravity-cli"), cwd, since),
+
   opencode: (cwd, since, home) => opencodeDb(path.join(home, ".local", "share", "opencode", "opencode.db"), cwd, since),
   mimo: (cwd, since, home) => opencodeDb(path.join(home, ".local", "share", "mimocode", "mimocode.db"), cwd, since),
   kilo: (cwd, since, home) => opencodeDb(path.join(home, ".local", "share", "kilo", "kilo.db"), cwd, since),
@@ -93,6 +95,19 @@ function mtime(p: string): number | undefined {
 
 function sameDir(a: string, b: string): boolean {
   return path.resolve(a) === path.resolve(b)
+}
+
+/** Antigravity (`agy`) keeps `cache/last_conversations.json` (cwd → newest conversation id)
+ * next to one SQLite file per conversation; that file's mtime says whether it is this tab's.
+ * (`cache/conversation_metadata.json` exists too but lags and often lacks the workspace.) */
+function antigravity(root: string, cwd: string, since: number): string | undefined {
+  const index = path.join(root, "cache", "last_conversations.json")
+  if (!fs.existsSync(index)) return undefined
+  const map = JSON.parse(fs.readFileSync(index, "utf8")) as Record<string, string>
+  const id = Object.entries(map).find(([dir]) => sameDir(dir, cwd))?.[1]
+  if (!id) return undefined
+  const m = mtime(path.join(root, "conversations", `${id}.db`))
+  return m !== undefined && m >= since ? id : undefined
 }
 
 /** Files under `root` (up to two levels deep) modified at/after `since`, newest first. */
