@@ -183,41 +183,6 @@
           "command": "cli-code.openNew",
           "when": "activeWebviewPanelId != cliCode.terminal",
           "group": "navigation"
-        },
-        {
-          "command": "cli-code.newSession",
-          "when": "activeWebviewPanelId == cliCode.terminal",
-          "group": "navigation@1"
-        },
-        {
-          "command": "cli-code.restart",
-          "when": "activeWebviewPanelId == cliCode.terminal",
-          "group": "navigation@2"
-        },
-        {
-          "command": "cli-code.find",
-          "when": "activeWebviewPanelId == cliCode.terminal",
-          "group": "navigation@3"
-        },
-        {
-          "command": "cli-code.renameTab",
-          "when": "activeWebviewPanelId == cliCode.terminal",
-          "group": "1_tab@1"
-        },
-        {
-          "command": "cli-code.copyContext",
-          "when": "activeWebviewPanelId == cliCode.terminal",
-          "group": "1_tab@2"
-        },
-        {
-          "command": "cli-code.resume",
-          "when": "activeWebviewPanelId == cliCode.terminal",
-          "group": "2_session@1"
-        },
-        {
-          "command": "cli-code.quickCommand",
-          "when": "activeWebviewPanelId == cliCode.terminal",
-          "group": "2_session@2"
         }
       ],
       "webview/context": [

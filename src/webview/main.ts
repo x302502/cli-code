@@ -5,6 +5,7 @@ import { SearchAddon } from "@xterm/addon-search"
 import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from "@xterm/addon-clipboard"
 import { buildXtermTheme } from "../lib/webview-theme.js"
+import { createActionBar } from "./action-bar.js"
 import { createExitOverlay } from "./exit-overlay.js"
 import { createTerminalLinkProvider, selectRange, type HoveredLink, type ProbeResult } from "./links.js"
 import { createLinkTooltip } from "./link-tooltip.js"
@@ -34,6 +35,7 @@ type HostMessage =
   | { type: "copySelection" }
   | { type: "selectAll" }
   | { type: "probeResult"; id: number; results: ProbeResult }
+  | { type: "agentStatus"; state: "working" | "waiting" | "blocked" | "done" | "none" }
 
 const vscode = acquireVsCodeApi()
 
@@ -223,6 +225,12 @@ term.onBinary((data) => vscode.postMessage({ type: "input", data }))
 
 const overlay = createExitOverlay(() => vscode.postMessage({ type: "restart" }))
 const searchBar = createSearchBar(term, searchAddon)
+const actionBar = createActionBar({
+  onCommand: (id) => vscode.postMessage({ type: "command", id }),
+  onFind: () => searchBar.show(),
+})
+// The bar takes its height from the same column as the terminal; re-fit once it is in.
+fit.fit()
 
 // Claude Code's /terminal-setup teaches terminals to send ESC CR for Shift+Enter; do the
 // same here so multi-line prompts work without any per-user setup. Returning false only on
@@ -286,6 +294,9 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     if (selection) vscode.postMessage({ type: "clipboard", text: selection })
   } else if (message.type === "selectAll") {
     term.selectAll()
+  } else if (message.type === "agentStatus") {
+    // Only states that need the user get a word; working/done stay quiet.
+    actionBar.setStatus(message.state === "waiting" ? "● Đang chờ bạn xác nhận" : message.state === "blocked" ? "● Đang bị chặn, cần bạn xem" : "")
   } else if (message.type === "probeResult") {
     probes.get(message.id)?.(message.results)
     probes.delete(message.id)

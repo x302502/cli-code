@@ -434,6 +434,8 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   })
 }
 
+const BAR_COMMANDS = new Set(["newSession", "resume", "renameTab", "restart", "copyContext", "quickCommand"])
+
 /** Right-click on a link: open it (or, with `alt`, with the default app / in Finder). */
 export function openLinkTextInActivePanel(text: string, alt: boolean): void {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
@@ -595,6 +597,7 @@ function attachConnection(
       const previous = panelStatus.get(panel)?.state
       panelStatus.set(panel, { state: e.state, prompt: e.prompt })
       if (e.cliSessionId) panelCliSessionIds.set(panel, e.cliSessionId)
+      sendTo(panel, { type: "agentStatus", state: e.state })
       if (e.state === "done" || e.state === "waiting" || e.state === "blocked") {
         if (!panel.visible) {
           panelUnread.add(panel)
@@ -642,6 +645,9 @@ function attachConnection(
       // From an OSC 8 file:// link: the path is exact (may contain spaces), no regex parsing.
       const num = (v: unknown) => (typeof v === "number" ? v : undefined)
       void openLinkTarget(panel, { path: message.path, line: num(message.line), col: num(message.col) }, message.alt === true)
+    } else if (message.type === "command" && typeof message.id === "string" && BAR_COMMANDS.has(message.id)) {
+      // The in-frame action bar; only tab-level commands are reachable this way.
+      void vscode.commands.executeCommand(`cli-code.${message.id}`)
     } else if (message.type === "probePaths" && typeof message.id === "number" && Array.isArray(message.texts)) {
       // The webview only underlines paths that exist; answer with what each token resolves to.
       const results: Record<string, { kind: "file" | "dir"; path: string } | null> = {}

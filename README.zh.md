@@ -170,7 +170,7 @@ CLI 输出的路径（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`fil
 
 **Khởi động lại phiên**（重启）会把标签带回*同一个会话*：Claude Code 使用其钩子上报的会话 ID；Codex、Grok、Pi、OMP、Command Code、Droid、Prime Agent、Copilot、Cline、Kimi、Cursor、Amp、opencode、MiMo、Kilo、goose 使用各自会话存储中该目录自标签打开以来的最新会话；其余 CLI 使用 `--continue` 形式。只有在一无所知时才会新开会话。
 
-右键作用于指针下的内容或选区：**Sao chép**（复制，有选区时）、**Dán**（粘贴）、**Chọn tất cả**（全选）、指向 URL 时 **Mở liên kết**（打开链接）／指向文件时 **Mở tệp**（打开文件）、**Mở bằng app mặc định**（用默认应用打开）、**Chèn @đường-dẫn vào CLI**（把 @路径插入 CLI）／指向文件夹时 **Mở thư mục**（打开文件夹）、**Sao chép liên kết / đường dẫn**（复制链接/路径）、**Tìm vùng đã bôi**（查找选区）、**Tìm trong terminal**（在终端中查找）。标签级操作位于编辑器标题栏（标签右上角）：图标 **Phiên mới**（新会话）、**Khởi động lại phiên**（重启会话）、**Tìm**（查找），以及 **…** 菜单中的 **Đổi tên tab**（重命名标签，`F2`）、**Sao chép ngữ cảnh**（复制上下文）、**Mở lại phiên cũ**（恢复历史会话）、**Lệnh nhanh**（快捷命令）。悬停链接会提示 `Cmd/Ctrl + 点击` 将打开什么及解析后的路径。
+右键作用于指针下的内容或选区：**Sao chép**（复制，有选区时）、**Dán**（粘贴）、**Chọn tất cả**（全选）、指向 URL 时 **Mở liên kết**（打开链接）／指向文件时 **Mở tệp**（打开文件）、**Mở bằng app mặc định**（用默认应用打开）、**Chèn @đường-dẫn vào CLI**（把 @路径插入 CLI）／指向文件夹时 **Mở thư mục**（打开文件夹）、**Sao chép liên kết / đường dẫn**（复制链接/路径）、**Tìm vùng đã bôi**（查找选区）、**Tìm trong terminal**（在终端中查找）。标签级操作位于终端顶部的安静工具条（同色背景，图标靠右）：**Phiên mới**（新会话）、**Mở lại phiên cũ**（历史）、**Tìm**（查找），以及 **…** 中的 **Đổi tên tab**（重命名标签，`F2`）、**Khởi động lại phiên**（重启会话）、**Sao chép ngữ cảnh**（复制上下文）、**Lệnh nhanh**（快捷命令）。工具条左侧仅在代理需要你确认时显示文字。悬停链接会提示 `Cmd/Ctrl + 点击` 将打开什么及解析后的路径。
 
 ### 命令面板命令
 
