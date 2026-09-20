@@ -63,7 +63,14 @@ function isOpenClick(event: MouseEvent): boolean {
 }
 
 function readTheme(): Record<string, string> {
-  return buildXtermTheme((name) => getComputedStyle(document.documentElement).getPropertyValue(name))
+  const read = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name)
+  const theme = buildXtermTheme(read)
+  // Themes without terminal.background would leave xterm on its own default; use the editor
+  // colour instead, and paint the page the same so the strip right of the last column (cell
+  // rounding + scrollbar) is invisible.
+  theme.background ??= read("--vscode-editor-background").trim() || "#1e1e1e"
+  document.body.style.background = theme.background
+  return theme
 }
 
 const { fontFamily, fontSize } = readFont()
