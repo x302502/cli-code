@@ -20,6 +20,8 @@ import {
   VIEW_TYPE,
   writeToActivePanel,
   openNewSessionLikeActive,
+  openLinkTextInActivePanel,
+  insertPathInActivePanel,
   type PanelState,
 } from "./lib/panel.js"
 
@@ -42,6 +44,12 @@ export type TestApi = {
   daemonPid: typeof daemonPid
   inspectPanel: typeof inspectPanel
   restartFromGone: typeof restartFromGone
+}
+
+/** Shape of the `data-vscode-context` object the terminal webview sets before a right-click. */
+type MenuContext = { cliCodeLinkKind?: string; cliCodeLinkText?: string; cliCodeHasSelection?: boolean; cliCodeSelection?: string }
+function linkText(ctx?: MenuContext): string | undefined {
+  return typeof ctx?.cliCodeLinkText === "string" && ctx.cliCodeLinkText ? ctx.cliCodeLinkText : undefined
 }
 
 export function activate(context: vscode.ExtensionContext): TestApi {
@@ -80,6 +88,16 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     }),
     vscode.commands.registerCommand("cli-code.copySelection", () => sendToActivePanel({ type: "copySelection" })),
     vscode.commands.registerCommand("cli-code.selectAll", () => sendToActivePanel({ type: "selectAll" })),
+    // Content-aware right-click entries: VS Code passes the webview's data-vscode-context as the argument.
+    vscode.commands.registerCommand("cli-code.openLinkAt", (ctx?: MenuContext) => linkText(ctx) && openLinkTextInActivePanel(linkText(ctx)!, false)),
+    vscode.commands.registerCommand("cli-code.openFileAt", (ctx?: MenuContext) => linkText(ctx) && openLinkTextInActivePanel(linkText(ctx)!, false)),
+    vscode.commands.registerCommand("cli-code.openDirAt", (ctx?: MenuContext) => linkText(ctx) && openLinkTextInActivePanel(linkText(ctx)!, false)),
+    vscode.commands.registerCommand("cli-code.openWithDefaultAppAt", (ctx?: MenuContext) => linkText(ctx) && openLinkTextInActivePanel(linkText(ctx)!, true)),
+    vscode.commands.registerCommand("cli-code.copyLinkAt", (ctx?: MenuContext) => linkText(ctx) && vscode.env.clipboard.writeText(linkText(ctx)!)),
+    vscode.commands.registerCommand("cli-code.insertPathAt", (ctx?: MenuContext) => linkText(ctx) && insertPathInActivePanel(linkText(ctx)!)),
+    vscode.commands.registerCommand("cli-code.findSelection", (ctx?: MenuContext) =>
+      sendToActivePanel({ type: "find", query: typeof ctx?.cliCodeSelection === "string" ? ctx.cliCodeSelection.split("\n")[0] : undefined }),
+    ),
     vscode.commands.registerCommand("cli-code.installClaudeHooks", async () => {
       try {
         const choice = await vscode.window.showWarningMessage(

@@ -1,5 +1,6 @@
 import * as assert from "node:assert/strict"
 import * as fs from "node:fs"
+import * as path from "node:path"
 import * as vscode from "vscode"
 import { inputFile, openReady, readEnvFile, readFileOr, waitFor } from "./helpers.js"
 
@@ -70,5 +71,25 @@ describe("context-menu commands (checklist C-5)", () => {
     } finally {
       fresh.dispose()
     }
+  })
+
+  it("content-aware entries: copy link, insert @path, find selection (args as VS Code passes them)", async () => {
+    const { a, panel, env } = await openReady("menu-ctx")
+    openPanel = panel
+    await waitFor(() => fs.existsSync(inputFile("menu-ctx")), 10_000, "tee ready")
+
+    await vscode.env.clipboard.writeText("")
+    await vscode.commands.executeCommand("cli-code.copyLinkAt", { cliCodeLinkKind: "url", cliCodeLinkText: "https://example.com/x" })
+    await waitFor(async () => (await vscode.env.clipboard.readText()) === "https://example.com/x", 5_000, "link copied")
+
+    // A path the fixture can resolve: its own env file lives in the itest out dir (absolute).
+    const abs = env.CLI_CODE_HOOK ? path.join(process.env.CLI_CODE_ITEST_OUT!, "menu-ctx.env") : ""
+    await vscode.commands.executeCommand("cli-code.insertPathAt", { cliCodeLinkKind: "file", cliCodeLinkText: abs })
+    await waitFor(() => (readFileOr(inputFile("menu-ctx")) ?? "").startsWith("@"), 10_000, `@path typed, got ${JSON.stringify(readFileOr(inputFile("menu-ctx")))}`)
+    assert.ok((readFileOr(inputFile("menu-ctx")) ?? "").endsWith("menu-ctx.env "), "relative path inserted with trailing space")
+
+    // find with the selection as the query only posts to the webview; it must not throw.
+    await vscode.commands.executeCommand("cli-code.findSelection", { cliCodeHasSelection: true, cliCodeSelection: "hello\nworld" })
+    assert.ok(a.activePanels().includes(panel))
   })
 })

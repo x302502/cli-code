@@ -5,8 +5,9 @@ import { SearchAddon } from "@xterm/addon-search"
 import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from "@xterm/addon-clipboard"
 import { buildXtermTheme } from "../lib/webview-theme.js"
+import { createActionMenu } from "./action-menu.js"
 import { createExitOverlay } from "./exit-overlay.js"
-import { createTerminalLinkProvider, selectRange, type ProbeResult } from "./links.js"
+import { createTerminalLinkProvider, selectRange, type LinkKind, type ProbeResult } from "./links.js"
 import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
 import { classifyOscLink } from "../lib/osc-link.js"
@@ -25,7 +26,7 @@ type HostMessage =
   | { type: "state"; state: unknown }
   | { type: "font"; size: number }
   | { type: "reset" }
-  | { type: "find" }
+  | { type: "find"; query?: string }
   | { type: "copyContext"; maxLines: number }
   | { type: "pasteApproved" }
   | { type: "pasteRejected" }
@@ -66,6 +67,8 @@ function readTheme(): Record<string, string> {
 }
 
 const { fontFamily, fontSize } = readFont()
+// The link under the pointer, if any — feeds the right-click menu's context keys.
+let hoveredLink: { text: string; kind: LinkKind } | undefined
 
 const term = new Terminal({
   fontFamily,
@@ -80,6 +83,11 @@ const term = new Terminal({
   // so clicks would silently do nothing. Same semantics as the addons: meta/ctrl+click opens.
   linkHandler: {
     allowNonHttpProtocols: true,
+    hover: (_e, uri) => {
+      const t = classifyOscLink(uri)
+      hoveredLink = t.kind === "link" ? { text: t.uri, kind: "url" } : t.kind === "path" ? { text: t.path, kind: "file" } : undefined
+    },
+    leave: () => (hoveredLink = undefined),
     activate: (event, uri, range) => {
       // A plain click selects the link so a normal Cmd/Ctrl+C copies all of it.
       if (!isOpenClick(event)) return selectRange(term, range)
@@ -157,11 +165,46 @@ function probePaths(texts: string[]): Promise<ProbeResult> {
 }
 // shift = "alternate" action (default app for a file — a directory always opens in Finder/Explorer).
 term.registerLinkProvider(
-  createTerminalLinkProvider(term, probePaths, (event, text, kind, range) => {
-    if (!isOpenClick(event)) return selectRange(term, range)
-    if (kind === "url") vscode.postMessage({ type: "openLink", uri: text })
-    else vscode.postMessage({ type: "openPath", text, alt: event.shiftKey })
-  }),
+  createTerminalLinkProvider(
+    term,
+    probePaths,
+    (event, text, kind, range) => {
+      if (!isOpenClick(event)) return selectRange(term, range)
+      if (kind === "url") vscode.postMessage({ type: "openLink", uri: text })
+      else vscode.postMessage({ type: "openPath", text, alt: event.shiftKey })
+    },
+    (link) => (hoveredLink = link),
+  ),
+)
+
+// VS Code reads data-vscode-context when the context menu opens; refresh it on every
+// mousedown so the menu's `when` clauses see the link under the pointer and the selection.
+termElement.addEventListener(
+  "mousedown",
+  () => {
+    const selection = term.getSelection()
+    termElement.dataset.vscodeContext = JSON.stringify({
+      preventDefaultContextMenuItems: true,
+      cliCodeLinkKind: hoveredLink?.kind ?? "",
+      cliCodeLinkText: hoveredLink?.text ?? "",
+      cliCodeHasSelection: selection.length > 0,
+      cliCodeSelection: selection.slice(0, 500),
+    })
+  },
+  true,
+)
+
+// Tab-level actions live behind the floating button; each is an existing command.
+createActionMenu(
+  [
+    { id: "newSession", label: "Phiên mới" },
+    { id: "renameTab", label: "Đổi tên tab" },
+    { id: "restart", label: "Khởi động lại phiên" },
+    { id: "copyContext", label: "Sao chép ngữ cảnh" },
+    { id: "resume", label: "Mở lại phiên cũ" },
+    { id: "quickCommand", label: "Lệnh nhanh" },
+  ],
+  (id) => vscode.postMessage({ type: "command", id }),
 )
 
 // Re-apply the theme whenever VS Code switches themes (reflected as a class change on <body>).
@@ -216,7 +259,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
     term.focus()
   } else if (message.type === "find") {
-    searchBar.show()
+    searchBar.show(message.query)
   } else if (message.type === "copyContext") {
     const r = tailText(term.buffer.active, message.maxLines)
     vscode.postMessage({ type: "context", ...r })

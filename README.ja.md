@@ -173,7 +173,7 @@ CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`�
 
 **Khởi động lại phiên**（再起動）はタブを*同じ会話*に戻します：Claude Code はフックが報告するセッション ID、Codex・Grok・Pi・OMP・Command Code・Droid・Prime Agent・Copilot・Cline・Kimi・Cursor・Amp・opencode・MiMo・Kilo・goose は各 CLI 自身のセッションストアにあるこのディレクトリの最新セッション、残りの CLI は `--continue` 形式で。何も分からない場合のみ新規セッションになります。
 
-メニュー項目はコマンドのベトナム語タイトルで表示されます：**Sao chép**（コピー）、**Dán**（貼り付け）、**Chọn tất cả**（すべて選択）、**Sao chép ngữ cảnh**（コンテキストをコピー）、**Phiên mới**（新しいセッション — 同じ CLI を同じディレクトリで別タブに）、**Đổi tên tab**（タブ名を変更）、**Khởi động lại phiên**（セッションを再起動）、**Tìm trong terminal**（ターミナル内検索）、**Mở lại phiên cũ**（過去のセッションを再開）、**Lệnh nhanh**（クイックコマンド）。
+右クリックはポインタ下の内容や選択範囲に対して働きます：**Sao chép**（コピー、選択時）・**Dán**（貼り付け）・**Chọn tất cả**（すべて選択）・URL 上では **Mở liên kết**（リンクを開く）／ファイル上では **Mở tệp**（ファイルを開く）、**Mở bằng app mặc định**（既定アプリで開く）、**Chèn @đường-dẫn vào CLI**（@パスを CLI に挿入）／フォルダ上では **Mở thư mục**（フォルダを開く）・**Sao chép liên kết / đường dẫn**（リンク/パスをコピー）・**Tìm vùng đã bôi**（選択範囲を検索）・**Tìm trong terminal**（ターミナル内検索）。タブ操作はターミナル右下の **⋯ ボタン**にまとまっています：**Phiên mới**（新しいセッション）、**Đổi tên tab**（タブ名変更）、**Khởi động lại phiên**（再起動）、**Sao chép ngữ cảnh**（コンテキストをコピー）、**Mở lại phiên cũ**（過去のセッションを再開）、**Lệnh nhanh**（クイックコマンド）。
 
 ### コマンドパレットのコマンド
 

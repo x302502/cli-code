@@ -137,6 +137,41 @@
         "command": "cli-code.uninstallClaudeHooks",
         "title": "Gỡ hook trạng thái Claude",
         "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.openLinkAt",
+        "title": "Mở liên kết",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.copyLinkAt",
+        "title": "Sao chép liên kết / đường dẫn",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.openFileAt",
+        "title": "Mở tệp",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.openDirAt",
+        "title": "Mở thư mục",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.openWithDefaultAppAt",
+        "title": "Mở bằng app mặc định",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.insertPathAt",
+        "title": "Chèn @đường-dẫn vào CLI",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.findSelection",
+        "title": "Tìm vùng đã bôi",
+        "category": "CLI Code"
       }
     ],
     "menus": {
@@ -149,7 +184,7 @@
       "webview/context": [
         {
           "command": "cli-code.copySelection",
-          "when": "webviewId == cliCode.terminal",
+          "when": "webviewId == cliCode.terminal && cliCodeHasSelection",
           "group": "1_clip@1"
         },
         {
@@ -160,42 +195,77 @@
         {
           "command": "cli-code.selectAll",
           "when": "webviewId == cliCode.terminal",
-          "group": "1_clip@4"
-        },
-        {
-          "command": "cli-code.copyContext",
-          "when": "webviewId == cliCode.terminal",
           "group": "1_clip@3"
         },
         {
-          "command": "cli-code.newSession",
-          "when": "webviewId == cliCode.terminal",
-          "group": "2_term@1"
+          "command": "cli-code.openLinkAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind == url",
+          "group": "2_link@1"
         },
         {
-          "command": "cli-code.renameTab",
-          "when": "webviewId == cliCode.terminal",
-          "group": "2_term@2"
+          "command": "cli-code.openFileAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind == file",
+          "group": "2_link@1"
         },
         {
-          "command": "cli-code.restart",
-          "when": "webviewId == cliCode.terminal",
-          "group": "2_term@3"
+          "command": "cli-code.openDirAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind == dir",
+          "group": "2_link@1"
+        },
+        {
+          "command": "cli-code.openWithDefaultAppAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind == file",
+          "group": "2_link@2"
+        },
+        {
+          "command": "cli-code.insertPathAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind == file",
+          "group": "2_link@3"
+        },
+        {
+          "command": "cli-code.copyLinkAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind != ''",
+          "group": "2_link@4"
+        },
+        {
+          "command": "cli-code.findSelection",
+          "when": "webviewId == cliCode.terminal && cliCodeHasSelection",
+          "group": "3_find@1"
         },
         {
           "command": "cli-code.find",
           "when": "webviewId == cliCode.terminal",
-          "group": "2_term@4"
+          "group": "3_find@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "cli-code.openLinkAt",
+          "when": "false"
         },
         {
-          "command": "cli-code.resume",
-          "when": "webviewId == cliCode.terminal",
-          "group": "3_more@1"
+          "command": "cli-code.copyLinkAt",
+          "when": "false"
         },
         {
-          "command": "cli-code.quickCommand",
-          "when": "webviewId == cliCode.terminal",
-          "group": "3_more@2"
+          "command": "cli-code.openFileAt",
+          "when": "false"
+        },
+        {
+          "command": "cli-code.openDirAt",
+          "when": "false"
+        },
+        {
+          "command": "cli-code.openWithDefaultAppAt",
+          "when": "false"
+        },
+        {
+          "command": "cli-code.insertPathAt",
+          "when": "false"
+        },
+        {
+          "command": "cli-code.findSelection",
+          "when": "false"
         }
       ]
     },

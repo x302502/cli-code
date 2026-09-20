@@ -2,7 +2,7 @@ import type { Terminal } from "@xterm/xterm"
 import type { SearchAddon } from "@xterm/addon-search"
 
 /** In-terminal search bar: highlights matches in the scrollback via SearchAddon's decorations. */
-export function createSearchBar(term: Terminal, search: SearchAddon): { show(): void; hide(): void } {
+export function createSearchBar(term: Terminal, search: SearchAddon): { show(query?: string): void; hide(): void } {
   const bar = document.createElement("div")
   bar.id = "search-bar"
   bar.hidden = true
@@ -57,8 +57,12 @@ export function createSearchBar(term: Terminal, search: SearchAddon): { show(): 
     e.preventDefault()
   })
 
-  function show() {
+  function show(query?: string) {
     bar.hidden = false
+    if (query) {
+      input.value = query
+      input.dispatchEvent(new Event("input"))
+    }
     input.focus()
     input.select()
   }

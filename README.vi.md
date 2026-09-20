@@ -174,7 +174,7 @@ Ví dụ `cliCode.quickCommands`:
 
 **Khởi động lại phiên** đưa tab về *đúng hội thoại cũ*: Claude Code theo session id mà hook báo; Codex, Grok, Pi, OMP, Command Code, Droid, Prime Agent, Copilot, Cline, Kimi, Cursor, Amp, opencode, MiMo, Kilo, goose theo phiên mới nhất trong kho phiên của chính CLI cho thư mục này kể từ lúc mở tab; các CLI còn lại theo dạng `--continue`. Chỉ khi không biết gì mới mở phiên mới.
 
-Sao chép, Dán, Chọn tất cả, Sao chép ngữ cảnh, Phiên mới (thêm tab cùng CLI, cùng thư mục), Đổi tên tab, Khởi động lại phiên, Tìm trong terminal, Mở lại phiên cũ, Lệnh nhanh.
+Chuột phải làm việc với nội dung dưới con trỏ / vùng bôi: Sao chép (khi có vùng bôi) · Dán · Chọn tất cả · trỏ vào URL: Mở liên kết / vào tệp: Mở tệp, Mở bằng app mặc định, Chèn @đường-dẫn vào CLI / vào thư mục: Mở thư mục · Sao chép liên kết / đường dẫn · Tìm vùng đã bôi · Tìm trong terminal. Các thao tác với tab nằm sau **nút ⋯** ở góc phải dưới terminal: Phiên mới, Đổi tên tab, Khởi động lại phiên, Sao chép ngữ cảnh, Mở lại phiên cũ, Lệnh nhanh.
 
 ### Lệnh Command Palette
 

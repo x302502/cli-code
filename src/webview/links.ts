@@ -21,6 +21,7 @@ export function createTerminalLinkProvider(
   term: Terminal,
   probe: Prober,
   onActivate: (event: MouseEvent, text: string, kind: LinkKind, range: IBufferRange) => void,
+  onHover: (link: { text: string; kind: LinkKind } | undefined) => void = () => {},
 ): ILinkProvider {
   const cache = new Map<string, { at: number; result: { kind: "file" | "dir" } | null }>()
 
@@ -40,15 +41,17 @@ export function createTerminalLinkProvider(
       }
       const build = () => {
         const links: ILink[] = []
-        for (const u of urls) {
-          const range = rangeOf(u.start, u.text.length)
-          links.push({ text: u.text, range, activate: (e) => onActivate(e, u.text, "url", range) })
-        }
+        const link = (text: string, kind: LinkKind, range: IBufferRange): ILink => ({
+          text,
+          range,
+          activate: (e) => onActivate(e, text, kind, range),
+          hover: () => onHover({ text, kind }),
+          leave: () => onHover(undefined),
+        })
+        for (const u of urls) links.push(link(u.text, "url", rangeOf(u.start, u.text.length)))
         for (const p of paths) {
           const result = cache.get(p.text)?.result
-          if (!result) continue
-          const range = rangeOf(p.start, p.text.length)
-          links.push({ text: p.text, range, activate: (e) => onActivate(e, p.text, result.kind, range) })
+          if (result) links.push(link(p.text, result.kind, rangeOf(p.start, p.text.length)))
         }
         callback(links.length ? links : undefined)
       }
