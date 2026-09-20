@@ -168,7 +168,7 @@ Ví dụ `cliCode.quickCommands`:
 
 ### Liên kết đường dẫn
 
-Đường dẫn CLI in ra (`src/x.ts:12:3`, `./thư-mục`, `~/ghi-chú.md`, `README`, `file://…`) thành liên kết khi tồn tại trên đĩa — path bị cắt hoặc không có thì không gạch chân. `Cmd/Ctrl + click` mở tệp trong editor (Markdown ở preview, HTML ở trình duyệt) và **thư mục** trong cây Explorer của VS Code (nếu thuộc workspace) hoặc Finder / Explorer (nếu ngoài); `Shift + Cmd/Ctrl + click` mở tệp bằng app mặc định. Click thường vào link (URL hoặc path) sẽ bôi đen trọn link để `Cmd/Ctrl + C` sao chép đủ.
+Đường dẫn CLI in ra (`src/x.ts:12:3`, `./thư-mục`, `~/ghi-chú.md`, `README`, `file://…`) thành liên kết khi tồn tại trên đĩa — path bị cắt hoặc không có thì không gạch chân. `Cmd/Ctrl + click` mở tệp trong editor (Markdown ở preview, HTML ở trình duyệt) và **thư mục** trong cây Explorer của VS Code (nếu thuộc workspace) hoặc Finder / Explorer (nếu ngoài); `Shift + Cmd/Ctrl + click` mở tệp bằng app mặc định. Click thường vào link (URL hoặc path) sẽ bôi đen trọn link để `Cmd/Ctrl + C` sao chép đủ. Kéo chuột luôn bôi đen văn bản, kể cả khi CLI đang bắt chuột (Claude Code và các TUI khác); giữ `Option` (macOS) / `Shift` (nơi khác) khi kéo nếu muốn gửi chuột cho CLI.
 
 ### Menu chuột phải trong terminal
 

@@ -167,7 +167,7 @@ CLI Code は Claude Code に小さなフックをインストールし、タイ�
 
 ### パスリンク
 
-CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`file://…`）は、ディスク上に存在する場合のみリンクになります。`Cmd/Ctrl + クリック` でファイルはエディタ（Markdown はプレビュー、HTML はブラウザ）、**フォルダ**はワークスペース内なら VS Code のエクスプローラーで、外なら Finder / Explorer で開き、`Shift + Cmd/Ctrl + クリック` は既定のアプリで開きます。通常のクリックはリンク全体を選択するので、そのまま `Cmd/Ctrl + C` でコピーできます。
+CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`file://…`）は、ディスク上に存在する場合のみリンクになります。`Cmd/Ctrl + クリック` でファイルはエディタ（Markdown はプレビュー、HTML はブラウザ）、**フォルダ**はワークスペース内なら VS Code のエクスプローラーで、外なら Finder / Explorer で開き、`Shift + Cmd/Ctrl + クリック` は既定のアプリで開きます。通常のクリックはリンク全体を選択するので、そのまま `Cmd/Ctrl + C` でコピーできます。 ドラッグは CLI がマウスを捕捉していても常にテキストを選択します（Claude Code などの TUI）。CLI にマウスを渡したい場合は `Option`（macOS）／`Shift`（その他）を押しながらドラッグします。
 
 ### ターミナルの右クリックメニュー
 

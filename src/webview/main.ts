@@ -95,6 +95,9 @@ const term = new Terminal({
   cursorBlink: true,
   allowProposedApi: true,
   scrollback: 5000,
+  // Together with the mousedown swap below this makes a plain drag select even while the
+  // CLI tracks the mouse (see selectsDespiteMouseTracking).
+  macOptionClickForcesSelection: true,
   theme: readTheme(),
   // OSC 8 hyperlinks (Claude Code and other Ink-based CLIs print links this way) are handled
   // by xterm's built-in provider, which takes precedence over the addons below. Without a
@@ -196,6 +199,43 @@ term.registerLinkProvider(
     },
     setHovered,
   ),
+)
+
+// TUIs such as Claude Code enable mouse tracking, and stock xterm then hands every drag to the
+// program — selection needs Option (macOS) / Shift (elsewhere). Like Orca, invert that: a plain
+// drag selects; holding the modifier sends the drag to the program. Done by re-dispatching the
+// mousedown with the modifier flipped, only while tracking is on and only for the left button.
+const SELECT_MODIFIER = navigator.platform.startsWith("Mac") ? "altKey" : "shiftKey"
+function mouseTrackingActive(): boolean {
+  const core = (term as unknown as { _core?: { coreMouseService?: { areMouseEventsActive?: boolean } } })._core
+  return core?.coreMouseService?.areMouseEventsActive === true
+}
+termElement.addEventListener(
+  "mousedown",
+  (e) => {
+    if (e.button !== 0 || (e as MouseEvent & { swapped?: boolean }).swapped || !mouseTrackingActive()) return
+    e.stopImmediatePropagation()
+    e.preventDefault()
+    const clone = new MouseEvent("mousedown", {
+      bubbles: true,
+      cancelable: true,
+      // xterm reads detail to tell single/double/triple clicks apart; a clone defaults to 0.
+      detail: e.detail,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      screenX: e.screenX,
+      screenY: e.screenY,
+      button: e.button,
+      buttons: e.buttons,
+      ctrlKey: e.ctrlKey,
+      metaKey: e.metaKey,
+      altKey: SELECT_MODIFIER === "altKey" ? !e.altKey : e.altKey,
+      shiftKey: SELECT_MODIFIER === "shiftKey" ? !e.shiftKey : e.shiftKey,
+    }) as MouseEvent & { swapped?: boolean }
+    clone.swapped = true
+    e.target?.dispatchEvent(clone)
+  },
+  true,
 )
 
 // VS Code reads data-vscode-context when the context menu opens; refresh it on every

@@ -164,7 +164,7 @@ CLI Code 可以在 Claude Code 中安装一个小钩子，让标签显示准确�
 
 ### 路径链接
 
-CLI 输出的路径（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`file://…`）仅在磁盘上存在时才变成链接。`Cmd/Ctrl + 点击` 在编辑器中打开文件（Markdown 为预览，HTML 为浏览器），**文件夹**在工作区内时定位到 VS Code 资源管理器，否则在 Finder / 资源管理器中打开；`Shift + Cmd/Ctrl + 点击` 用默认应用打开。普通点击会选中整个链接，随后 `Cmd/Ctrl + C` 即可完整复制。
+CLI 输出的路径（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`file://…`）仅在磁盘上存在时才变成链接。`Cmd/Ctrl + 点击` 在编辑器中打开文件（Markdown 为预览，HTML 为浏览器），**文件夹**在工作区内时定位到 VS Code 资源管理器，否则在 Finder / 资源管理器中打开；`Shift + Cmd/Ctrl + 点击` 用默认应用打开。普通点击会选中整个链接，随后 `Cmd/Ctrl + C` 即可完整复制。 拖动始终选中文本，即使 CLI 正在捕获鼠标（Claude Code 等 TUI）；按住 `Option`（macOS）/`Shift`（其他平台）拖动则把鼠标交给 CLI。
 
 ### 终端右键菜单
 
