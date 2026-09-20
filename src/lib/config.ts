@@ -19,6 +19,8 @@ export type CliTool = {
   resumeCommand?: string
   /** Reopens the most recent session when the CLI cannot address one by id. */
   continueCommand?: string
+  /** Tool id the session-history parsers stamp on this CLI's transcripts, when it differs (variants sharing a CLI). */
+  historyToolId?: string
 }
 
 // Ordered roughly by popularity. Every entry is offered to the user; nothing
@@ -47,6 +49,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --dangerously-skip-permissions",
     hasHttpApi: false,
     resumeCommand: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --resume {sessionId} --dangerously-skip-permissions",
+    historyToolId: "claude",
   },
   {
     id: "codex",

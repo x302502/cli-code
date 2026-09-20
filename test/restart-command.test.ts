@@ -30,4 +30,9 @@ describe("restartCommand", () => {
   it("rejects session ids that are not safe to splice into a shell command", () => {
     expect(restartCommand({ tool: claude, baseCommand: "claude --x", cliSessionId: "a b; rm", sessions: [], spawnedAt: 1000 })).toBe("claude --x")
   })
+
+  it("a variant sharing another CLI's transcripts (Claude Agent Teams) resumes through historyToolId", () => {
+    const teams: CliTool = { ...claude, id: "claude-agent-teams", historyToolId: "claude", resumeCommand: "X=1 claude --resume {sessionId}" }
+    expect(restartCommand({ tool: teams, baseCommand: "X=1 claude", sessions: [s("claude", "t1", 5000)], spawnedAt: 1000 })).toBe("X=1 claude --resume t1")
+  })
 })

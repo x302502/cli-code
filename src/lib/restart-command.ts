@@ -25,7 +25,7 @@ export function restartCommand(args: {
     const id =
       (args.cliSessionId && SAFE_ID.test(args.cliSessionId) ? args.cliSessionId : undefined) ??
       args.sessions
-        .filter((s) => s.toolId === tool.id && s.updatedAt >= spawnedAt && SAFE_ID.test(s.sessionId))
+        .filter((s) => s.toolId === (tool.historyToolId ?? tool.id) && s.updatedAt >= spawnedAt && SAFE_ID.test(s.sessionId))
         .sort((a, b) => b.updatedAt - a.updatedAt)[0]?.sessionId
     if (id) return tool.resumeCommand.replace("{sessionId}", id)
   }
