@@ -9,6 +9,7 @@ import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
 import { locateLatestSession } from "./history/locate.js"
+import { detectModel } from "./history/model.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
 import { createPromptTracker } from "./prompt-tracker.js"
 import { restartCommand } from "./restart-command.js"
@@ -37,6 +38,21 @@ const panelCommands = new WeakMap<vscode.WebviewPanel, string>()
 // hook) — together they let a restart resume the same conversation instead of starting over.
 const panelSpawnedAt = new WeakMap<vscode.WebviewPanel, number>()
 const panelCliSessionIds = new WeakMap<vscode.WebviewPanel, string>()
+// Last model id shown in the tab's action bar, so unchanged detections post nothing.
+const panelModels = new WeakMap<vscode.WebviewPanel, string>()
+const MODEL_REFRESH_MS = 30_000
+
+/** Reads the CLI's current model from its session store and tells the webview when it changed. */
+function refreshModel(panel: vscode.WebviewPanel): void {
+  const tool = panelTools.get(panel)
+  const cwd = usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  if (!tool || !cwd || !activePanels.has(panel)) return
+  const model = detectModel(tool.historyToolId ?? tool.id, cwd, panelSpawnedAt.get(panel) ?? 0, os.homedir(), panelCliSessionIds.get(panel))
+  if (model === panelModels.get(panel)) return
+  if (model) panelModels.set(panel, model)
+  else panelModels.delete(panel)
+  sendTo(panel, { type: "model", model: model ?? "" })
+}
 // The last panel to have editor focus, so addFilepathToTerminal (invoked from a text
 // editor, where no panel is `active`) still knows which session to write into.
 let lastFocusedPanel: vscode.WebviewPanel | undefined
@@ -598,6 +614,7 @@ function attachConnection(
       panelStatus.set(panel, { state: e.state, prompt: e.prompt })
       if (e.cliSessionId) panelCliSessionIds.set(panel, e.cliSessionId)
       sendTo(panel, { type: "agentStatus", state: e.state })
+      refreshModel(panel)
       if (e.state === "done" || e.state === "waiting" || e.state === "blocked") {
         if (!panel.visible) {
           panelUnread.add(panel)
@@ -624,6 +641,11 @@ function attachConnection(
       for (const msg of wiring.pending) void panel.webview.postMessage(msg)
       wiring.pending.length = 0
       postState(panel)
+      // The model pill: a first read once the CLI has had a moment to write its session,
+      // then a slow poll (CLIs log /model changes into the same store).
+      setTimeout(() => refreshModel(panel), 3_000)
+      const modelTimer = setInterval(() => refreshModel(panel), MODEL_REFRESH_MS)
+      panel.onDidDispose(() => clearInterval(modelTimer))
       if (panelInitialInputs.has(panel)) capTimer = setTimeout(flushInitialInput, 5000)
     } else if (message.type === "restart") void restartPanel(context, panel)
     else if (message.type === "clipboard" && typeof message.text === "string" && message.text.length <= 1024 * 1024) {

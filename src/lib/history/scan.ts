@@ -76,7 +76,7 @@ export function claudeSessionsInDir(dir: string, limit: number): SessionSummary[
   })
 }
 
-function codexSessions(cwd: string, limit: number): SessionSummary[] {
+export function codexSessions(cwd: string, limit: number): SessionSummary[] {
   const dir = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "sessions")
   return newestFiles(dir, (n) => n.startsWith("rollout-") && n.endsWith(".jsonl"), limit, true).flatMap((f) => {
     const m = safeMtimeMs(f)
@@ -92,7 +92,7 @@ function codexSessions(cwd: string, limit: number): SessionSummary[] {
   })
 }
 
-function grokSessions(cwd: string, limit: number): SessionSummary[] {
+export function grokSessions(cwd: string, limit: number): SessionSummary[] {
   const dir = path.join(process.env.GROK_HOME ?? path.join(os.homedir(), ".grok"), "sessions", encodeURIComponent(cwd))
   if (!fs.existsSync(dir)) return []
   let entries: fs.Dirent[]

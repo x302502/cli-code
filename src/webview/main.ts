@@ -37,6 +37,7 @@ type HostMessage =
   | { type: "selectAll" }
   | { type: "probeResult"; id: number; results: ProbeResult }
   | { type: "agentStatus"; state: "working" | "waiting" | "blocked" | "done" | "none" }
+  | { type: "model"; model: string }
 
 const vscode = acquireVsCodeApi()
 
@@ -297,6 +298,8 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     if (selection) vscode.postMessage({ type: "clipboard", text: selection })
   } else if (message.type === "selectAll") {
     term.selectAll()
+  } else if (message.type === "model") {
+    actionBar.setModel(message.model)
   } else if (message.type === "agentStatus") {
     // Only states that need the user get a word; working/done stay quiet.
     actionBar.setStatus(message.state === "waiting" ? "● Đang chờ bạn xác nhận" : message.state === "blocked" ? "● Đang bị chặn, cần bạn xem" : "")

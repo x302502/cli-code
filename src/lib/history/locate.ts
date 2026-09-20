@@ -21,6 +21,31 @@ export function locateLatestSession(toolId: string, cwd: string, sinceMs: number
 
 type Locator = (cwd: string, sinceMs: number, home: string) => string | undefined
 
+/**
+ * Like locateLatestSession, but the path of the session's own file — for CLIs that keep one
+ * jsonl/json per session; used to read the model in play. Undefined for SQLite/dir stores.
+ */
+export function locateLatestSessionFile(toolId: string, cwd: string, sinceMs: number, home: string): string | undefined {
+  const root = FILE_ROOTS[toolId]
+  if (!root) return undefined
+  try {
+    const dir = root(home)
+    const c = path.resolve(cwd)
+    return toolId === "cline" ? clineHit(dir, c, sinceMs)?.file : jsonlHit(dir, c, sinceMs)?.file
+  } catch {
+    return undefined
+  }
+}
+
+const FILE_ROOTS: Record<string, (home: string) => string> = {
+  pi: (h) => path.join(h, ".pi", "agent", "sessions"),
+  omp: (h) => path.join(h, ".omp", "agent", "sessions"),
+  "command-code": (h) => path.join(h, ".commandcode", "projects"),
+  "prime-agent": (h) => path.join(h, ".prime", "agent", "sessions"),
+  droid: (h) => path.join(h, ".factory", "sessions"),
+  cline: (h) => path.join(h, ".cline", "data", "sessions"),
+}
+
 const LOCATORS: Record<string, Locator> = {
   // `{"type":"session","id":…,"cwd":…}` header line (pi, omp, command-code); omp may put a
   // title line first, so the first few lines are scanned.
@@ -96,6 +121,10 @@ function recentFiles(root: string, since: number, keep: (name: string) => boolea
 }
 
 function jsonlHeader(root: string, cwd: string, since: number): string | undefined {
+  return jsonlHit(root, cwd, since)?.id
+}
+
+function jsonlHit(root: string, cwd: string, since: number): { id: string; file: string } | undefined {
   for (const file of recentFiles(root, since, (n) => n.endsWith(".jsonl") && !n.endsWith(".checkpoints.jsonl"))) {
     for (const line of head(file).split("\n").slice(0, 5)) {
       let rec: { type?: unknown; id?: unknown; cwd?: unknown }
@@ -105,7 +134,7 @@ function jsonlHeader(root: string, cwd: string, since: number): string | undefin
         continue
       }
       if ((rec.type === "session" || rec.type === "session_start") && typeof rec.id === "string") {
-        if (typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) return rec.id
+        if (typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) return { id: rec.id, file }
         break
       }
     }
@@ -126,10 +155,14 @@ function copilot(root: string, cwd: string, since: number): string | undefined {
 
 /** `~/.cline/data/sessions/<id>/<id>.json` with `session_id` and `cwd`. */
 function cline(root: string, cwd: string, since: number): string | undefined {
+  return clineHit(root, cwd, since)?.id
+}
+
+function clineHit(root: string, cwd: string, since: number): { id: string; file: string } | undefined {
   for (const file of recentFiles(root, since, (n) => n.endsWith(".json") && !n.endsWith(".messages.json"))) {
     try {
       const rec = JSON.parse(fs.readFileSync(file, "utf8")) as { session_id?: unknown; cwd?: unknown }
-      if (typeof rec.session_id === "string" && typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) return rec.session_id
+      if (typeof rec.session_id === "string" && typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) return { id: rec.session_id, file }
     } catch {
       continue
     }
@@ -165,8 +198,8 @@ function md5(text: string): string {
 // SQLite stores are read through node:sqlite (Node ≥ 22.13, present in VS Code's extension
 // host); under bun (unit tests) the equivalent bun:sqlite is used. Required lazily and
 // untyped so the bundle and older hosts do not break on it.
-type SqliteDb = { prepare(sql: string): { get(...args: unknown[]): Record<string, unknown> | undefined }; close(): void }
-function openDb(file: string): SqliteDb | undefined {
+export type SqliteDb = { prepare(sql: string): { get(...args: unknown[]): Record<string, unknown> | undefined }; close(): void }
+export function openDb(file: string): SqliteDb | undefined {
   if (!fs.existsSync(file)) return undefined
   try {
     const { DatabaseSync } = require("node:sqlite") as { DatabaseSync: new (p: string, o: { readOnly: boolean }) => SqliteDb }

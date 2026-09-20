@@ -16,14 +16,20 @@ const MORE =
 export function createActionBar(handlers: {
   onCommand(id: string): void
   onFind(): void
-}): { setStatus(text: string): void } {
+}): { setStatus(text: string): void; setModel(model: string): void } {
   const bar = document.createElement("div")
   bar.id = "action-bar"
+  const left = document.createElement("div")
+  left.id = "action-left"
+  const model = document.createElement("span")
+  model.id = "action-model"
+  model.hidden = true
   const status = document.createElement("div")
   status.id = "action-status"
+  left.append(model, status)
   const right = document.createElement("div")
   right.id = "action-icons"
-  bar.append(status, right)
+  bar.append(left, right)
 
   const icon = (a: Action, onClick: (e: MouseEvent) => void) => {
     const b = document.createElement("button")
@@ -89,6 +95,11 @@ export function createActionBar(handlers: {
     setStatus(text) {
       status.textContent = text
       status.hidden = !text
+    },
+    setModel(id) {
+      model.textContent = id
+      model.title = id ? `Model đang dùng: ${id}` : ""
+      model.hidden = !id
     },
   }
 }

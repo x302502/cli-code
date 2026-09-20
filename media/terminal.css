@@ -33,6 +33,36 @@ body {
   height: 36px;
   padding: 0 4px 0 14px;
 }
+#action-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+/* Model pill: tinted with the theme's accent so it reads at a glance. */
+#action-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--vscode-focusBorder, #d97757) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vscode-focusBorder, #d97757) 35%, transparent);
+  color: var(--vscode-textLink-foreground, var(--vscode-focusBorder, #f0b39c));
+  font: 500 11.5px var(--vscode-editor-font-family, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40vw;
+}
+#action-model::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vscode-focusBorder, #d97757);
+  flex: none;
+}
 #action-status {
   font: 12px var(--vscode-font-family);
   color: var(--vscode-editorWarning-foreground, var(--vscode-descriptionForeground));
