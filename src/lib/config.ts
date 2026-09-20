@@ -80,6 +80,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "copilot --yolo",
     hasHttpApi: false,
     continueCommand: "copilot --yolo --continue",
+    resumeCommand: "copilot --yolo --resume {sessionId}",
   },
   {
     id: "opencode",
@@ -94,6 +95,7 @@ export const CLI_TOOLS: CliTool[] = [
     readyCheckPath: "/app",
     extraEnv: { OPENCODE_CALLER: "vscode" },
     continueCommand: "opencode --port {port} --auto --continue",
+    resumeCommand: "opencode --port {port} --auto --session {sessionId}",
   },
   {
     id: "mimo",
@@ -104,6 +106,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "mimo",
     hasHttpApi: false,
     continueCommand: "mimo --continue",
+    resumeCommand: "mimo --session {sessionId}",
   },
   {
     id: "pi",
@@ -114,6 +117,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "pi",
     hasHttpApi: false,
     continueCommand: "pi --continue",
+    resumeCommand: "pi --session-id {sessionId}",
   },
   {
     id: "omp",
@@ -124,6 +128,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "omp",
     hasHttpApi: false,
     continueCommand: "omp --continue",
+    resumeCommand: "omp --resume {sessionId}",
   },
   {
     id: "antigravity",
@@ -144,6 +149,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "amp --dangerously-allow-all",
     hasHttpApi: false,
     continueCommand: "amp --dangerously-allow-all threads continue --last",
+    resumeCommand: "amp --dangerously-allow-all threads continue {sessionId}",
   },
   {
     id: "kilo",
@@ -154,6 +160,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "kilo",
     hasHttpApi: false,
     continueCommand: "kilo --continue",
+    resumeCommand: "kilo --session {sessionId}",
   },
   {
     id: "cline",
@@ -163,6 +170,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Cline open-source coding agent CLI",
     command: "cline --auto-approve true",
     hasHttpApi: false,
+    resumeCommand: "cline --auto-approve true --id {sessionId}",
   },
   {
     id: "command-code",
@@ -173,6 +181,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "command-code --yolo",
     hasHttpApi: false,
     continueCommand: "command-code --yolo --continue",
+    resumeCommand: "command-code --yolo --resume {sessionId}",
   },
   {
     id: "droid",
@@ -183,6 +192,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "droid",
     hasHttpApi: false,
     continueCommand: "droid --resume",
+    resumeCommand: "droid --resume {sessionId}",
   },
   {
     id: "openclaude",
@@ -220,6 +230,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "prime-agent",
     hasHttpApi: false,
     continueCommand: "prime-agent --continue",
+    resumeCommand: "prime-agent -r {sessionId}",
   },
   {
     id: "aider",
@@ -240,6 +251,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "GOOSE_MODE=auto goose",
     hasHttpApi: false,
     continueCommand: "GOOSE_MODE=auto goose session --resume",
+    resumeCommand: "GOOSE_MODE=auto goose session --resume --session-id {sessionId}",
   },
   {
     id: "kiro",
@@ -308,6 +320,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "cursor-agent --yolo",
     hasHttpApi: false,
     continueCommand: "cursor-agent --yolo --continue",
+    resumeCommand: "cursor-agent --yolo --resume {sessionId}",
   },
   {
     id: "kimi",
@@ -318,6 +331,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "kimi --yolo",
     hasHttpApi: false,
     continueCommand: "kimi --yolo --continue",
+    resumeCommand: "kimi --yolo --session {sessionId}",
   },
   {
     id: "mistral-vibe",

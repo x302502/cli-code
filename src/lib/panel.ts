@@ -8,6 +8,7 @@ import { hooksInstalledOnDisk, installHooksToDisk } from "./claude-hooks.js"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
+import { locateLatestSession } from "./history/locate.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
 import { createPromptTracker } from "./prompt-tracker.js"
 import { restartCommand } from "./restart-command.js"
@@ -433,6 +434,9 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   })
 }
 
+// CLIs whose transcripts the history parsers (scan.ts) can list; the rest use locate.ts.
+const HISTORY_TOOLS = new Set(["claude", "codex", "grok"])
+
 /**
  * The command a restart of this tab should run: back into the same conversation when the
  * CLI can resume one (hook-reported id, or the newest transcript it wrote since the tab was
@@ -442,14 +446,17 @@ async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Pro
   const baseCommand = panelCommands.get(panel) ?? tool.command
   const cwd = usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
   let sessions: Awaited<ReturnType<typeof listSessionsForWorkspace>> = []
-  if (tool.resumeCommand && cwd) {
+  if (cwd && HISTORY_TOOLS.has(tool.historyToolId ?? tool.id)) {
     try {
       sessions = await listSessionsForWorkspace(cwd)
     } catch {
       // History is best effort; a scan failure just means a fresh session.
     }
   }
-  return restartCommand({ tool, baseCommand, cliSessionId: panelCliSessionIds.get(panel), sessions, spawnedAt: panelSpawnedAt.get(panel) ?? 0 })
+  const spawnedAt = panelSpawnedAt.get(panel) ?? 0
+  // Claude reports its id through its hook; every other CLI is asked via its own session store.
+  const cliSessionId = panelCliSessionIds.get(panel) ?? (cwd ? locateLatestSession(tool.id, cwd, spawnedAt, os.homedir()) : undefined)
+  return restartCommand({ tool, baseCommand, cliSessionId, sessions, spawnedAt })
 }
 
 /** Reopens a gone panel's tool in a fresh tab with the same cwd and title, resuming its conversation. */

@@ -172,7 +172,7 @@ Paths the CLI prints (`src/x.ts:12:3`, `./dir`, `~/notes.md`, `README`, `file://
 
 ### Terminal right-click menu
 
-**Khởi động lại phiên** (Restart) brings the tab back into the *same conversation*: Claude Code via the session id its hook reports, Codex/Grok via the newest transcript the tab wrote, continue-only CLIs (Copilot, opencode, …) via their `--continue` form. Only when nothing is known does it start fresh.
+**Khởi động lại phiên** (Restart) brings the tab back into the *same conversation*: Claude Code via the session id its hook reports; Codex, Grok, Pi, OMP, Command Code, Droid, Prime Agent, Copilot, Cline, Kimi, Cursor, Amp, opencode, MiMo, Kilo and goose via the newest session their own store shows for this directory since the tab was opened; the remaining CLIs via their `--continue` form. Only when nothing is known does it start fresh.
 
 The menu entries use the commands' Vietnamese titles: **Sao chép** (Copy), **Dán** (Paste), **Chọn tất cả** (Select all), **Sao chép ngữ cảnh** (Copy context), **Phiên mới** (New session — another tab of the same CLI in the same directory), **Đổi tên tab** (Rename tab), **Khởi động lại phiên** (Restart session), **Tìm trong terminal** (Find in terminal), **Mở lại phiên cũ** (Resume past session), **Lệnh nhanh** (Quick command).
 

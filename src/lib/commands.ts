@@ -39,7 +39,8 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
     return
   }
   const sessions = await listSessionsForWorkspace(cwd)
-  const continueOnlyTools = CLI_TOOLS.filter((t) => t.continueCommand && !t.resumeCommand)
+  // Tools whose sessions cannot be listed (no history parser) still get a "continue latest" entry.
+  const continueOnlyTools = CLI_TOOLS.filter((t) => t.continueCommand && !sessions.some((s) => s.toolId === t.id))
   if (sessions.length === 0 && continueOnlyTools.length === 0) {
     void vscode.window.showInformationMessage("Không tìm thấy phiên nào cho thư mục này.")
     return
