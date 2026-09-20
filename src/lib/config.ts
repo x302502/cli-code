@@ -19,6 +19,8 @@ export type CliTool = {
   resumeCommand?: string
   /** Reopens the most recent session when the CLI cannot address one by id. */
   continueCommand?: string
+  /** Slash command that starts a fresh conversation without leaving the CLI (`/clear`, `/new`). */
+  clearCommand?: string
 }
 
 // Ordered roughly by popularity. Every entry is offered to the user; nothing
@@ -37,6 +39,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "claude --dangerously-skip-permissions",
     hasHttpApi: false,
     resumeCommand: "claude --resume {sessionId} --dangerously-skip-permissions",
+    clearCommand: "/clear",
   },
   {
     id: "claude-agent-teams",
@@ -47,6 +50,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --dangerously-skip-permissions",
     hasHttpApi: false,
     resumeCommand: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --resume {sessionId} --dangerously-skip-permissions",
+    clearCommand: "/clear",
   },
   {
     id: "codex",
@@ -57,6 +61,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "codex --dangerously-bypass-approvals-and-sandbox",
     hasHttpApi: false,
     resumeCommand: "codex resume {sessionId} --dangerously-bypass-approvals-and-sandbox",
+    clearCommand: "/new",
   },
   {
     id: "grok",
@@ -67,6 +72,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "grok --permission-mode bypassPermissions",
     hasHttpApi: false,
     resumeCommand: "grok --permission-mode bypassPermissions --resume {sessionId}",
+    clearCommand: "/clear",
   },
   {
     id: "copilot",
@@ -77,6 +83,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "copilot --yolo",
     hasHttpApi: false,
     continueCommand: "copilot --yolo --continue",
+    clearCommand: "/clear",
   },
   {
     id: "opencode",
@@ -91,6 +98,7 @@ export const CLI_TOOLS: CliTool[] = [
     readyCheckPath: "/app",
     extraEnv: { OPENCODE_CALLER: "vscode" },
     continueCommand: "opencode --port {port} --auto --continue",
+    clearCommand: "/new",
   },
   {
     id: "mimo",
@@ -150,6 +158,7 @@ export const CLI_TOOLS: CliTool[] = [
     command: "kilo",
     hasHttpApi: false,
     continueCommand: "kilo --continue",
+    clearCommand: "/new",
   },
   {
     id: "cline",

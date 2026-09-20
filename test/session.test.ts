@@ -236,3 +236,16 @@ describe("Session", () => {
     expect(session.oscTitle).toBe("x")
   })
 })
+
+describe("Session.clearMirror", () => {
+  it("xoá màn hình + scrollback của mirror để snapshot sau reload không hồi nội dung cũ", async () => {
+    const { session, emit } = makeSession()
+    emit("cũ 1\r\ncũ 2\r\n")
+    expect(await session.snapshot()).toContain("cũ 1")
+    session.clearMirror()
+    emit("mới\r\n")
+    const snap = await session.snapshot()
+    expect(snap).not.toContain("cũ 1")
+    expect(snap).toContain("mới")
+  })
+})

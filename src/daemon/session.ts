@@ -180,6 +180,12 @@ export class Session {
     if (!this.exit) this.pty.kill()
   }
 
+  /** Drops the mirror's screen and scrollback, so the next attach snapshot starts empty
+   * (the client clears its own xterm at the same time). */
+  clearMirror(): void {
+    this.mirror.clear()
+  }
+
   /**
    * Serialize inside a marker write's callback so the snapshot reflects exactly
    * the writes queued before this call — xterm parses its whole queue in one

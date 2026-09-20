@@ -5,6 +5,7 @@ export const MSG = {
   Resize: 3,
   Ack: 4,
   Kill: 5,
+  Clear: 7,
   StatusReport: 6,
   HelloOk: 16,
   HelloFail: 17,
