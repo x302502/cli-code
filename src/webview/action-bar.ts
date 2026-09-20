@@ -34,7 +34,7 @@ export function createActionBar(handlers: {
     right.append(b)
     return b
   }
-  icon({ id: "newSession", label: "Phiên mới", svg: NEW_SESSION }, () => handlers.onCommand("newSession"))
+  icon({ id: "openNew", label: "Phiên mới — chọn CLI", svg: NEW_SESSION }, () => handlers.onCommand("openNew"))
   icon({ id: "resume", label: "Mở lại phiên cũ", svg: HISTORY }, () => handlers.onCommand("resume"))
   icon({ id: "find", label: "Tìm trong terminal (⌘F)", svg: FIND }, () => handlers.onFind())
 

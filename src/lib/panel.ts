@@ -434,7 +434,7 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   })
 }
 
-const BAR_COMMANDS = new Set(["newSession", "resume", "renameTab", "restart", "copyContext", "quickCommand"])
+const BAR_COMMANDS = new Set(["openNew", "newSession", "resume", "renameTab", "restart", "copyContext", "quickCommand"])
 
 /** Right-click on a link: open it (or, with `alt`, with the default app / in Finder). */
 export function openLinkTextInActivePanel(text: string, alt: boolean): void {
