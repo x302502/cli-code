@@ -172,13 +172,13 @@ Paths the CLI prints (`src/x.ts:12:3`, `./dir`, `~/notes.md`, `README`, `file://
 
 ### Terminal right-click menu
 
-The menu entries use the commands' Vietnamese titles: **Sao chép** (Copy), **Dán** (Paste), **Chọn tất cả** (Select all), **Sao chép ngữ cảnh** (Copy context), **Xoá phiên** (Clear session — types the CLI's own `/clear` or `/new` and clears the screen), **Đổi tên tab** (Rename tab), **Khởi động lại phiên** (Restart session), **Tìm trong terminal** (Find in terminal), **Mở lại phiên cũ** (Resume past session), **Lệnh nhanh** (Quick command).
+The menu entries use the commands' Vietnamese titles: **Sao chép** (Copy), **Dán** (Paste), **Chọn tất cả** (Select all), **Sao chép ngữ cảnh** (Copy context), **Xoá màn hình** (Clear), **Đổi tên tab** (Rename tab), **Khởi động lại phiên** (Restart session), **Tìm trong terminal** (Find in terminal), **Mở lại phiên cũ** (Resume past session), **Lệnh nhanh** (Quick command).
 
 ### Command Palette commands
 
 The 0.2.0 commands are listed under their Vietnamese titles (English in parentheses):
 
-`CLI Code:` **Mở lại phiên cũ** (Resume past session), **Lệnh nhanh** (Quick command), **Lưu thành lệnh nhanh** (Save as quick command), **Đổi tên tab** (Rename tab), **Khởi động lại phiên** (Restart session), **Xoá phiên** (Clear session — types the CLI's own `/clear` or `/new` and clears the screen), **Phóng to chữ** (Font zoom in), **Thu nhỏ chữ** (Font zoom out), **Cỡ chữ mặc định** (Reset font zoom), **Tìm trong terminal** (Find in terminal), **Sao chép ngữ cảnh** (Copy context), **Dán** (Paste), **Sao chép** (Copy), **Cài hook trạng thái Claude** (Install Claude status hook), **Gỡ hook trạng thái Claude** (Uninstall Claude status hook).
+`CLI Code:` **Mở lại phiên cũ** (Resume past session), **Lệnh nhanh** (Quick command), **Lưu thành lệnh nhanh** (Save as quick command), **Đổi tên tab** (Rename tab), **Khởi động lại phiên** (Restart session), **Xoá màn hình** (Clear), **Phóng to chữ** (Font zoom in), **Thu nhỏ chữ** (Font zoom out), **Cỡ chữ mặc định** (Reset font zoom), **Tìm trong terminal** (Find in terminal), **Sao chép ngữ cảnh** (Copy context), **Dán** (Paste), **Sao chép** (Copy), **Cài hook trạng thái Claude** (Install Claude status hook), **Gỡ hook trạng thái Claude** (Uninstall Claude status hook).
 
 ## Keyboard shortcuts
 

@@ -14,8 +14,6 @@ export type SessionConnection = {
   resize(cols: number, rows: number): void
   ack(bytes: number): void
   kill(): void
-  /** Clears the daemon-side mirror (screen + scrollback) — pair with a client-side clear. */
-  clear(): void
   dispose(): void
 }
 
@@ -132,7 +130,6 @@ export function connectSession(
                 socket.write(encodeFrame(MSG.Ack, payload))
               },
               kill: () => socket.write(encodeFrame(MSG.Kill, new Uint8Array(0))),
-              clear: () => socket.write(encodeFrame(MSG.Clear, new Uint8Array(0))),
               dispose: () => {
                 disposed = true
                 // end(), not destroy(): destroy() discards unflushed writes, and the

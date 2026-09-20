@@ -168,13 +168,13 @@ CLI 输出的路径（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`fil
 
 ### 终端右键菜单
 
-菜单项使用命令的越南语标题：**Sao chép**（复制）、**Dán**（粘贴）、**Chọn tất cả**（全选）、**Sao chép ngữ cảnh**（复制上下文）、**Xoá phiên**（清除会话 — 发送 CLI 的 `/clear` / `/new` 并清屏）、**Đổi tên tab**（重命名标签）、**Khởi động lại phiên**（重启会话）、**Tìm trong terminal**（在终端中查找）、**Mở lại phiên cũ**（恢复历史会话）、**Lệnh nhanh**（快捷命令）。
+菜单项使用命令的越南语标题：**Sao chép**（复制）、**Dán**（粘贴）、**Chọn tất cả**（全选）、**Sao chép ngữ cảnh**（复制上下文）、**Xoá màn hình**（清屏）、**Đổi tên tab**（重命名标签）、**Khởi động lại phiên**（重启会话）、**Tìm trong terminal**（在终端中查找）、**Mở lại phiên cũ**（恢复历史会话）、**Lệnh nhanh**（快捷命令）。
 
 ### 命令面板命令
 
 0.2.0 的命令以越南语标题注册（括号内为中文释义）：
 
-`CLI Code:` **Mở lại phiên cũ**（恢复历史会话）、**Lệnh nhanh**（快捷命令）、**Lưu thành lệnh nhanh**（保存为快捷命令）、**Đổi tên tab**（重命名标签）、**Khởi động lại phiên**（重启会话）、**Xoá phiên**（清除会话 — 发送 CLI 的 `/clear` / `/new` 并清屏）、**Phóng to chữ**（放大字体）、**Thu nhỏ chữ**（缩小字体）、**Cỡ chữ mặc định**（重置字体大小）、**Tìm trong terminal**（在终端中查找）、**Sao chép ngữ cảnh**（复制上下文）、**Dán**（粘贴）、**Sao chép**（复制）、**Cài hook trạng thái Claude**（安装 Claude 状态钩子）、**Gỡ hook trạng thái Claude**（卸载 Claude 状态钩子）。
+`CLI Code:` **Mở lại phiên cũ**（恢复历史会话）、**Lệnh nhanh**（快捷命令）、**Lưu thành lệnh nhanh**（保存为快捷命令）、**Đổi tên tab**（重命名标签）、**Khởi động lại phiên**（重启会话）、**Xoá màn hình**（清屏）、**Phóng to chữ**（放大字体）、**Thu nhỏ chữ**（缩小字体）、**Cỡ chữ mặc định**（重置字体大小）、**Tìm trong terminal**（在终端中查找）、**Sao chép ngữ cảnh**（复制上下文）、**Dán**（粘贴）、**Sao chép**（复制）、**Cài hook trạng thái Claude**（安装 Claude 状态钩子）、**Gỡ hook trạng thái Claude**（卸载 Claude 状态钩子）。
 
 ## 快捷键
 

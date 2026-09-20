@@ -180,25 +180,6 @@ export function pasteToActivePanel(text: string, submit: boolean): boolean {
   return true
 }
 
-/**
- * "Xoá phiên": starts a fresh conversation in the active tab without leaving the CLI. The
- * screen and the daemon's mirror are cleared (so a Reload does not resurrect the old
- * scrollback), then the CLI's own clear command (`/clear`, `/new`) is typed in — CLIs
- * without one just get the clean screen. Returns false if there is no panel.
- */
-export function clearActiveSession(): boolean {
-  const panel = activeTerminalPanel() ?? lastFocusedPanel
-  if (!panel) return false
-  const connection = panelConnections.get(panel)
-  const tool = panelTools.get(panel)
-  if (!connection || !tool) return false
-  sendTo(panel, { type: "clear" })
-  connection.clear()
-  if (tool.clearCommand) connection.write(`${tool.clearCommand}\r`)
-  else void vscode.window.showInformationMessage(`${tool.label} không có lệnh xoá phiên; đã xoá màn hình.`)
-  return true
-}
-
 /** Writes text into the active (or last-focused) panel's session. Returns false if there is none. */
 export function writeToActivePanel(text: string): boolean {
   const panel = activeTerminalPanel() ?? lastFocusedPanel

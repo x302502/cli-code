@@ -84,8 +84,8 @@
         "category": "CLI Code"
       },
       {
-        "command": "cli-code.clearSession",
-        "title": "Xoá phiên",
+        "command": "cli-code.clear",
+        "title": "Xoá màn hình",
         "category": "CLI Code"
       },
       {
@@ -168,7 +168,7 @@
           "group": "1_clip@3"
         },
         {
-          "command": "cli-code.clearSession",
+          "command": "cli-code.clear",
           "when": "webviewId == cliCode.terminal",
           "group": "2_term@1"
         },
