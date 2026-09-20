@@ -89,3 +89,12 @@ describe("resolveTabTitle", () => {
     expect(resolveTabTitle({ oscTitle: "  ", promptTitle: "", toolLabel })).toBe("Claude Code")
   })
 })
+
+describe("OSC title prompt prefixes", () => {
+  it("strips a leading prompt marker some CLIs (Cline) put in the title", () => {
+    expect(resolveTabTitle({ oscTitle: "> hello", toolLabel: "Cline" })).toBe("hello")
+    expect(resolveTabTitle({ oscTitle: "❯  sửa bug", toolLabel: "Cline" })).toBe("sửa bug")
+    expect(resolveTabTitle({ oscTitle: "$ ", toolLabel: "Cline" })).toBe("Cline")
+    expect(resolveTabTitle({ oscTitle: "Review PR", toolLabel: "Cline" })).toBe("Review PR")
+  })
+})

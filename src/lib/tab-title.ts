@@ -54,7 +54,8 @@ export function resolveTabTitle(parts: {
   const quick = parts.quickCommandLabel?.trim()
   if (quick) return quick
 
-  const osc = parts.oscTitle?.trim()
+  // Some CLIs (Cline) mirror their input line into the title, prompt marker included.
+  const osc = parts.oscTitle?.replace(/^[\s>❯›»$%#]+/u, "").trim()
   if (osc && isMeaningfulOscTitle(osc)) return osc
 
   const prompt = parts.promptTitle?.trim()
