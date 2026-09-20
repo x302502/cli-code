@@ -6,6 +6,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from "@xterm/addon-clipboard"
 import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createActionBar } from "./action-bar.js"
+import { createComposer } from "./composer.js"
 import { createExitOverlay } from "./exit-overlay.js"
 import { createTerminalLinkProvider, selectRange, type HoveredLink, type ProbeResult } from "./links.js"
 import { createLinkTooltip } from "./link-tooltip.js"
@@ -229,7 +230,9 @@ const actionBar = createActionBar({
   onCommand: (id) => vscode.postMessage({ type: "command", id }),
   onFind: () => searchBar.show(),
 })
-// The bar takes its height from the same column as the terminal; re-fit once it is in.
+// Opt-out via the cliCode.composer setting, which the host reflects on <body data-composer>.
+if (document.body.dataset.composer !== "off") createComposer(term)
+// The bar and composer take their height from the same column as the terminal; re-fit once they are in.
 fit.fit()
 
 // Claude Code's /terminal-setup teaches terminals to send ESC CR for Shift+Enter; do the

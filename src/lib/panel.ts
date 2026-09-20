@@ -827,11 +827,12 @@ function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview)
     terminalConfig.get<string>("fontFamily") || editorConfig.get<string>("fontFamily") || "monospace"
   const fontSize = currentFontSize(context)
   const escapedFamily = fontFamily.replace(/"/g, "&quot;")
+  const composer = vscode.workspace.getConfiguration("cliCode").get<boolean>("composer", true) ? "on" : "off"
 
   return `<!DOCTYPE html><html lang="vi"><head>
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="${xtermCss}"><link rel="stylesheet" href="${css}">
-</head><body style="--cli-code-font-family:${escapedFamily};--cli-code-font-size:${fontSize}">
+</head><body data-composer="${composer}" style="--cli-code-font-family:${escapedFamily};--cli-code-font-size:${fontSize}">
 <div id="term" data-vscode-context='{"preventDefaultContextMenuItems": true}'></div>
 <script src="${main}"></script>
 </body></html>`

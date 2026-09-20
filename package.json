@@ -352,6 +352,11 @@
           "default": "ask",
           "description": "Cài hook trạng thái vào ~/.claude/settings.json để tab Claude hiện đang chạy / chờ / xong."
         },
+        "cliCode.composer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hiện khung nhập chat dưới terminal (Enter gửi, Shift+Enter xuống dòng; dán nhiều dòng gửi nguyên khối). Áp dụng cho tab mở sau khi đổi."
+        },
         "cliCode.notifications": {
           "type": "boolean",
           "default": true,

@@ -18,6 +18,8 @@ describe("session (checklist A-a, A-d, B OSC 7)", () => {
     assert.ok(env.CLI_CODE_DAEMON_SOCK.endsWith(".sock"), env.CLI_CODE_DAEMON_SOCK)
     assert.match(env.CLI_CODE_HOOK, /dist\/hook\.js/)
     assert.equal(panel.title, "itest open", `expected panel.title "itest open", got ${JSON.stringify(panel.title)}`)
+    // The composer follows the cliCode.composer setting (default on) through a body attribute.
+    assert.ok(panel.webview.html.includes('data-composer="on"'), "composer enabled by default")
   })
 
   it("delivers typed bytes to the PTY verbatim", async () => {

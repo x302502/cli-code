@@ -200,3 +200,77 @@ body {
 .xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
   background: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
 }
+/* Composer under the terminal (Claude-extension style box). */
+#composer {
+  flex: none;
+  padding: 8px 12px 12px;
+}
+#composer-box {
+  border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, #5a5a5a));
+  border-radius: 10px;
+  background: var(--vscode-input-background, #1a1a1a);
+  padding: 10px 12px 8px;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+#composer-box:focus-within {
+  border-color: var(--vscode-focusBorder, #d97757);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-focusBorder, #d97757) 40%, transparent);
+}
+#composer-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--vscode-input-foreground, var(--vscode-foreground));
+  font: 13.5px/1.5 var(--vscode-font-family);
+  padding: 0;
+  overflow: hidden;
+}
+#composer-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #7a7a7a);
+}
+#composer-input.multiline {
+  font: 12.5px/1.5 var(--vscode-editor-font-family, monospace);
+}
+#composer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+#composer-hint {
+  font: 11.5px var(--vscode-font-family);
+  color: var(--vscode-descriptionForeground, #7a7a7a);
+}
+#composer-send {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+#composer-send:disabled {
+  background: var(--vscode-button-secondaryBackground, #3a3a3a);
+  color: var(--vscode-disabledForeground, #8a8a8a);
+  cursor: default;
+}
+#composer-send:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+#composer-send svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
