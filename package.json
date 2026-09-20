@@ -74,6 +74,11 @@
         "category": "CLI Code"
       },
       {
+        "command": "cli-code.newSession",
+        "title": "Phiên mới",
+        "category": "CLI Code"
+      },
+      {
         "command": "cli-code.renameTab",
         "title": "Đổi tên tab",
         "category": "CLI Code"
@@ -161,6 +166,11 @@
           "command": "cli-code.copyContext",
           "when": "webviewId == cliCode.terminal",
           "group": "1_clip@3"
+        },
+        {
+          "command": "cli-code.newSession",
+          "when": "webviewId == cliCode.terminal",
+          "group": "2_term@1"
         },
         {
           "command": "cli-code.renameTab",

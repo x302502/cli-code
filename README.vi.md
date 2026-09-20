@@ -174,7 +174,7 @@ Ví dụ `cliCode.quickCommands`:
 
 **Khởi động lại phiên** đưa tab về *đúng hội thoại cũ*: Claude Code theo session id mà hook báo, Codex/Grok theo transcript mới nhất tab đã ghi, các CLI chỉ có `--continue` (Copilot, opencode, …) theo dạng continue. Chỉ khi không biết gì mới mở phiên mới.
 
-Sao chép, Dán, Chọn tất cả, Sao chép ngữ cảnh, Đổi tên tab, Khởi động lại phiên, Tìm trong terminal, Mở lại phiên cũ, Lệnh nhanh.
+Sao chép, Dán, Chọn tất cả, Sao chép ngữ cảnh, Phiên mới (thêm tab cùng CLI, cùng thư mục), Đổi tên tab, Khởi động lại phiên, Tìm trong terminal, Mở lại phiên cũ, Lệnh nhanh.
 
 ### Lệnh Command Palette
 

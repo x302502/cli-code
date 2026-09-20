@@ -170,7 +170,7 @@ CLI 输出的路径（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`fil
 
 **Khởi động lại phiên**（重启）会把标签带回*同一个会话*：Claude Code 使用其钩子上报的会话 ID，Codex/Grok 使用该标签写入的最新记录，仅支持 `--continue` 的 CLI（Copilot、opencode 等）使用 continue 形式。只有在一无所知时才会新开会话。
 
-菜单项使用命令的越南语标题：**Sao chép**（复制）、**Dán**（粘贴）、**Chọn tất cả**（全选）、**Sao chép ngữ cảnh**（复制上下文）、**Đổi tên tab**（重命名标签）、**Khởi động lại phiên**（重启会话）、**Tìm trong terminal**（在终端中查找）、**Mở lại phiên cũ**（恢复历史会话）、**Lệnh nhanh**（快捷命令）。
+菜单项使用命令的越南语标题：**Sao chép**（复制）、**Dán**（粘贴）、**Chọn tất cả**（全选）、**Sao chép ngữ cảnh**（复制上下文）、**Phiên mới**（新会话 — 在同一目录再开一个同 CLI 标签）、**Đổi tên tab**（重命名标签）、**Khởi động lại phiên**（重启会话）、**Tìm trong terminal**（在终端中查找）、**Mở lại phiên cũ**（恢复历史会话）、**Lệnh nhanh**（快捷命令）。
 
 ### 命令面板命令
 

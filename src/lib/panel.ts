@@ -186,6 +186,15 @@ export function pasteToActivePanel(text: string, submit: boolean): boolean {
   return true
 }
 
+/** "Phiên mới": opens another tab of the same CLI as the active tab, in the same directory. */
+export async function openNewSessionLikeActive(context: vscode.ExtensionContext): Promise<boolean> {
+  const panel = activeTerminalPanel() ?? lastFocusedPanel
+  const tool = panel && panelTools.get(panel)
+  if (!panel || !tool) return false
+  await openTerminalPanel(context, tool, { cwd: panelCwds.get(panel) })
+  return true
+}
+
 /** Writes text into the active (or last-focused) panel's session. Returns false if there is none. */
 export function writeToActivePanel(text: string): boolean {
   const panel = activeTerminalPanel() ?? lastFocusedPanel

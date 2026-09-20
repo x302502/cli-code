@@ -1,7 +1,7 @@
 import * as assert from "node:assert/strict"
 import * as fs from "node:fs"
 import * as vscode from "vscode"
-import { inputFile, openReady, readFileOr, waitFor } from "./helpers.js"
+import { inputFile, openReady, readEnvFile, readFileOr, waitFor } from "./helpers.js"
 
 // The right-click menu items are plain commands; running them through the command service
 // exercises exactly what a click on the menu does (activeTerminalPanel → webview message).
@@ -47,5 +47,28 @@ describe("context-menu commands (checklist C-5)", () => {
     await vscode.env.clipboard.writeText("")
     await vscode.commands.executeCommand("cli-code.copyContext")
     await waitFor(async () => (await vscode.env.clipboard.readText()).includes("xin chào menu"), 10_000, "context copied")
+  })
+
+  it("Phiên mới: opens another tab of the same CLI in the same directory", async () => {
+    const { a, panel, env } = await openReady("menu-new")
+    openPanel = panel
+    const before = a.activePanels().length
+    await vscode.commands.executeCommand("cli-code.newSession")
+    const fresh = await waitFor(() => a.activePanels().find((p) => p !== panel), 15_000, "second tab")
+    try {
+      await waitFor(() => a.inspectPanel(fresh).ready, 15_000, "second webview ready")
+      assert.equal(a.activePanels().length, before + 1)
+      assert.equal(fresh.title, panel.title)
+      // Same tool → the fixture rewrote its env file for the new process, spawned in the
+      // directory the first tab currently reports (its OSC 7 cwd, /tmp for the fixture).
+      const again = await waitFor(() => {
+        const e = readEnvFile("menu-new")
+        return e && e.pid !== env.pid ? e : undefined
+      }, 15_000, "second tool env")
+      assert.equal(again.cwd, a.inspectPanel(panel).cwd)
+      assert.notEqual(a.inspectPanel(fresh).sessionId, a.inspectPanel(panel).sessionId)
+    } finally {
+      fresh.dispose()
+    }
   })
 })

@@ -19,6 +19,7 @@ import {
   setCustomTitle,
   VIEW_TYPE,
   writeToActivePanel,
+  openNewSessionLikeActive,
   type PanelState,
 } from "./lib/panel.js"
 
@@ -54,6 +55,10 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     vscode.commands.registerCommand("cli-code.resume", () => resumeSession(context)),
     vscode.commands.registerCommand("cli-code.quickCommand", () => runQuickCommand(context)),
     vscode.commands.registerCommand("cli-code.addQuickCommand", () => addQuickCommand()),
+    vscode.commands.registerCommand("cli-code.newSession", async () => {
+      // Outside a CLI tab there is nothing to copy the tool from: fall back to the picker.
+      if (!(await openNewSessionLikeActive(context))) await openCli(context, { reuseExisting: false })
+    }),
     vscode.commands.registerCommand("cli-code.renameTab", async () => {
       const panel = activeTerminalPanel()
       if (!panel) return
