@@ -40,8 +40,15 @@ describe("resume commands", () => {
       expect(t.resumeCommand).toContain("{sessionId}")
     }
   })
-  it("các CLI --continue có continueCommand, không có resumeCommand", () => {
-    for (const id of ["copilot", "opencode", "omp", "amp", "droid"]) {
+  it("các CLI có kho phiên riêng: cả continueCommand lẫn resumeCommand theo id", () => {
+    for (const id of ["copilot", "opencode", "omp", "amp", "droid", "pi", "cline", "kimi", "cursor", "goose"]) {
+      const t = CLI_TOOLS.find((x) => x.id === id)!
+      expect(t.continueCommand || id === "cline").toBeTruthy()
+      expect(t.resumeCommand).toContain("{sessionId}")
+    }
+  })
+  it("các CLI chỉ có --continue", () => {
+    for (const id of ["antigravity", "aider", "continue", "crush", "hermes", "devin"]) {
       const t = CLI_TOOLS.find((x) => x.id === id)!
       expect(t.continueCommand).toBeTruthy()
       expect(t.resumeCommand).toBeUndefined()
