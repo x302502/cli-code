@@ -181,6 +181,7 @@
       "editor/title": [
         {
           "command": "cli-code.openNew",
+          "when": "activeWebviewPanelId != cliCode.terminal",
           "group": "navigation"
         },
         {
