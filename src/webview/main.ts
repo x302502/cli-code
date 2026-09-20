@@ -12,6 +12,7 @@ import { createTerminalLinkProvider, selectRange, type HoveredLink, type ProbeRe
 import { createLinkTooltip } from "./link-tooltip.js"
 import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
+import { clickReachesProgram } from "../lib/mouse-gesture.js"
 import { classifyOscLink } from "../lib/osc-link.js"
 
 declare function acquireVsCodeApi(): {
@@ -230,10 +231,21 @@ function mouseTrackingActive(): boolean {
   const core = (term as unknown as { _core?: { coreMouseService?: { areMouseEventsActive?: boolean } } })._core
   return core?.coreMouseService?.areMouseEventsActive === true
 }
+type MouseCore = {
+  coreMouseService?: {
+    areMouseEventsActive?: boolean
+    triggerMouseEvent(e: { col: number; row: number; x: number; y: number; button: number; action: number; ctrl: boolean; alt: boolean; shift: boolean }): boolean
+  }
+  _mouseService?: { getMouseReportCoords(e: MouseEvent, el: HTMLElement): { col: number; row: number; x: number; y: number } | undefined }
+  screenElement?: HTMLElement
+}
+/** The press that was diverted into a selection; replayed to the program if it ends as a bare click. */
+let divertedPress: MouseEvent | undefined
 termElement.addEventListener(
   "mousedown",
   (e) => {
     if (e.button !== 0 || (e as MouseEvent & { swapped?: boolean }).swapped || !mouseTrackingActive()) return
+    divertedPress = e
     e.stopImmediatePropagation()
     e.preventDefault()
     const clone = new MouseEvent("mousedown", {
@@ -257,6 +269,24 @@ termElement.addEventListener(
   },
   true,
 )
+// A diverted press that ends without moving was a click, not a selection: replay it to the
+// program (press + release at that cell), so Claude's caret still lands where the user clicked.
+document.addEventListener(
+  "mouseup",
+  (e) => {
+    const press = divertedPress
+    divertedPress = undefined
+    if (!press || !clickReachesProgram({ ...pick(press), moved: wasDrag() }) || !mouseTrackingActive()) return
+    const core = (term as unknown as { _core?: MouseCore })._core
+    const coords = core?.screenElement && core._mouseService?.getMouseReportCoords(e, core.screenElement)
+    if (!coords || !core?.coreMouseService) return
+    for (const action of [1, 0]) core.coreMouseService.triggerMouseEvent({ ...coords, button: 0, action, ctrl: false, alt: false, shift: false })
+  },
+  true,
+)
+function pick(e: MouseEvent) {
+  return { button: e.button, detail: e.detail, altKey: e.altKey, shiftKey: e.shiftKey, metaKey: e.metaKey, ctrlKey: e.ctrlKey }
+}
 
 // VS Code reads data-vscode-context when the context menu opens; refresh it on every
 // mousedown so the menu's `when` clauses see the link under the pointer and the selection.
