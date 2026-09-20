@@ -168,7 +168,7 @@ Example `cliCode.quickCommands`:
 
 ### Path links
 
-Paths the CLI prints (`src/x.ts:12:3`, `./dir`, `~/notes.md`, `README`, `file://…`) become links once they exist on disk — a truncated or missing path is never underlined. `Cmd/Ctrl + click` opens a file in the editor (Markdown in the preview, HTML in the browser) and a **folder in Finder / Explorer**; `Shift + Cmd/Ctrl + click` opens a file with its default app. A plain click selects the whole link (URL or path) so a normal `Cmd/Ctrl + C` copies it.
+Paths the CLI prints (`src/x.ts:12:3`, `./dir`, `~/notes.md`, `README`, `file://…`) become links once they exist on disk — a truncated or missing path is never underlined. `Cmd/Ctrl + click` opens a file in the editor (Markdown in the preview, HTML in the browser) and a **folder** in VS Code's Explorer (inside the workspace) or in Finder / Explorer (outside it); `Shift + Cmd/Ctrl + click` opens a file with its default app. A plain click selects the whole link (URL or path) so a normal `Cmd/Ctrl + C` copies it.
 
 ### Terminal right-click menu
 

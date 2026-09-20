@@ -7,7 +7,7 @@ import * as vscode from "vscode"
 import { hooksInstalledOnDisk, installHooksToDisk } from "./claude-hooks.js"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
-import { type LinkTarget, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
+import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
 import { createPromptTracker } from "./prompt-tracker.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
@@ -626,7 +626,15 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
   }
   const uri = vscode.Uri.file(target.path)
   try {
-    if (target.kind === "dir" || alt) {
+    if (target.kind === "dir") {
+      // A folder inside the workspace is revealed in VS Code's own Explorer; anything else
+      // (or shift+click) goes to Finder/Explorer.
+      const folders = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath)
+      if (!alt && insideFolders(target.path, folders)) await vscode.commands.executeCommand("revealInExplorer", uri)
+      else await vscode.env.openExternal(uri)
+      return
+    }
+    if (alt) {
       await vscode.env.openExternal(uri)
       return
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { openMode, parsePathLink, pathCandidates } from "../src/lib/path-resolve.js"
+import { insideFolders, openMode, parsePathLink, pathCandidates } from "../src/lib/path-resolve.js"
 
 describe("parsePathLink", () => {
   it("tách path, line, col", () => {
@@ -30,5 +30,15 @@ describe("openMode", () => {
     expect(openMode("/w/a.htm")).toBe("browser")
     expect(openMode("/w/a.ts")).toBe("editor")
     expect(openMode("/w/md")).toBe("editor")
+  })
+})
+
+describe("insideFolders", () => {
+  it("true only for paths under one of the workspace folders", () => {
+    expect(insideFolders("/w/docs", ["/w"])).toBe(true)
+    expect(insideFolders("/w", ["/w"])).toBe(true)
+    expect(insideFolders("/w2/docs", ["/w"])).toBe(false)
+    expect(insideFolders("/other", ["/w", "/x"])).toBe(false)
+    expect(insideFolders("/w/../elsewhere", ["/w"])).toBe(false)
   })
 })

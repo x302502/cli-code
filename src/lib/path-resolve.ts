@@ -38,3 +38,12 @@ export function resolveLinkTarget(
   }
   return undefined
 }
+
+/** Whether `p` lies inside one of the workspace folders (a folder counts as inside itself). */
+export function insideFolders(p: string, folders: string[]): boolean {
+  const target = path.resolve(p)
+  return folders.some((f) => {
+    const rel = path.relative(path.resolve(f), target)
+    return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel))
+  })
+}
