@@ -54,8 +54,10 @@ export function resolveTabTitle(parts: {
   const quick = parts.quickCommandLabel?.trim()
   if (quick) return quick
 
-  // Some CLIs (Cline) mirror their input line into the title, prompt marker included.
-  const osc = parts.oscTitle?.replace(/^[\s>❯›»$%#]+/u, "").trim()
+  // Some CLIs (Cline) mirror their input line into the title, prompt marker included, and
+  // others (Claude, Gemini, Pi/OMP) prefix a status glyph or spinner — the tab shows its own
+  // status glyph already. Same prefix set Orca strips, plus prompt markers.
+  const osc = parts.oscTitle?.replace(/^(?:[\s✳✦⏲◇✋⠀-⣿◐-◓>❯›»$%#]+|[.*]\s)\s*/u, "").trim()
   if (osc && isMeaningfulOscTitle(osc)) return osc
 
   const prompt = parts.promptTitle?.trim()
