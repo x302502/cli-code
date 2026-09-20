@@ -84,11 +84,6 @@
         "category": "CLI Code"
       },
       {
-        "command": "cli-code.clear",
-        "title": "Xoá màn hình",
-        "category": "CLI Code"
-      },
-      {
         "command": "cli-code.fontZoomIn",
         "title": "Phóng to chữ",
         "category": "CLI Code"
@@ -166,11 +161,6 @@
           "command": "cli-code.copyContext",
           "when": "webviewId == cliCode.terminal",
           "group": "1_clip@3"
-        },
-        {
-          "command": "cli-code.clear",
-          "when": "webviewId == cliCode.terminal",
-          "group": "2_term@1"
         },
         {
           "command": "cli-code.renameTab",

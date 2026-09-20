@@ -171,13 +171,13 @@ CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`�
 
 ### ターミナルの右クリックメニュー
 
-メニュー項目はコマンドのベトナム語タイトルで表示されます：**Sao chép**（コピー）、**Dán**（貼り付け）、**Chọn tất cả**（すべて選択）、**Sao chép ngữ cảnh**（コンテキストをコピー）、**Xoá màn hình**（クリア）、**Đổi tên tab**（タブ名を変更）、**Khởi động lại phiên**（セッションを再起動）、**Tìm trong terminal**（ターミナル内検索）、**Mở lại phiên cũ**（過去のセッションを再開）、**Lệnh nhanh**（クイックコマンド）。
+メニュー項目はコマンドのベトナム語タイトルで表示されます：**Sao chép**（コピー）、**Dán**（貼り付け）、**Chọn tất cả**（すべて選択）、**Sao chép ngữ cảnh**（コンテキストをコピー）、**Đổi tên tab**（タブ名を変更）、**Khởi động lại phiên**（セッションを再起動）、**Tìm trong terminal**（ターミナル内検索）、**Mở lại phiên cũ**（過去のセッションを再開）、**Lệnh nhanh**（クイックコマンド）。
 
 ### コマンドパレットのコマンド
 
 0.2.0 のコマンドはベトナム語タイトルで登録されています（括弧内は日本語訳）：
 
-`CLI Code:` **Mở lại phiên cũ**（過去のセッションを再開）、**Lệnh nhanh**（クイックコマンド）、**Lưu thành lệnh nhanh**（クイックコマンドとして保存）、**Đổi tên tab**（タブ名を変更）、**Khởi động lại phiên**（セッションを再起動）、**Xoá màn hình**（クリア）、**Phóng to chữ**（文字を拡大）、**Thu nhỏ chữ**（文字を縮小）、**Cỡ chữ mặc định**（文字サイズをリセット）、**Tìm trong terminal**（ターミナル内検索）、**Sao chép ngữ cảnh**（コンテキストをコピー）、**Dán**（貼り付け）、**Sao chép**（コピー）、**Cài hook trạng thái Claude**（Claude 状態フックをインストール）、**Gỡ hook trạng thái Claude**（Claude 状態フックを削除）。
+`CLI Code:` **Mở lại phiên cũ**（過去のセッションを再開）、**Lệnh nhanh**（クイックコマンド）、**Lưu thành lệnh nhanh**（クイックコマンドとして保存）、**Đổi tên tab**（タブ名を変更）、**Khởi động lại phiên**（セッションを再起動）、**Phóng to chữ**（文字を拡大）、**Thu nhỏ chữ**（文字を縮小）、**Cỡ chữ mặc định**（文字サイズをリセット）、**Tìm trong terminal**（ターミナル内検索）、**Sao chép ngữ cảnh**（コンテキストをコピー）、**Dán**（貼り付け）、**Sao chép**（コピー）、**Cài hook trạng thái Claude**（Claude 状態フックをインストール）、**Gỡ hook trạng thái Claude**（Claude 状態フックを削除）。
 
 ## キーボードショートカット
 

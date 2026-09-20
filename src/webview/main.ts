@@ -25,7 +25,6 @@ type HostMessage =
   | { type: "state"; state: unknown }
   | { type: "font"; size: number }
   | { type: "reset" }
-  | { type: "clear" }
   | { type: "find" }
   | { type: "copyContext"; maxLines: number }
   | { type: "pasteApproved" }
@@ -216,8 +215,6 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     fit.fit()
     vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
     term.focus()
-  } else if (message.type === "clear") {
-    term.clear()
   } else if (message.type === "find") {
     searchBar.show()
   } else if (message.type === "copyContext") {

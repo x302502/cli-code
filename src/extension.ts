@@ -64,7 +64,6 @@ export function activate(context: vscode.ExtensionContext): TestApi {
       const panel = activeTerminalPanel()
       if (panel) void restartPanel(context, panel)
     }),
-    vscode.commands.registerCommand("cli-code.clear", () => sendToActivePanel({ type: "clear" })),
     vscode.commands.registerCommand("cli-code.fontZoomIn", () => void applyFontZoom(context, 1)),
     vscode.commands.registerCommand("cli-code.fontZoomOut", () => void applyFontZoom(context, -1)),
     vscode.commands.registerCommand("cli-code.fontZoomReset", () => void applyFontZoom(context, "reset")),
