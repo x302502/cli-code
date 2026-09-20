@@ -113,6 +113,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Pi coding agent",
     command: "pi",
     hasHttpApi: false,
+    continueCommand: "pi --continue",
   },
   {
     id: "omp",
@@ -142,7 +143,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Sourcegraph Amp coding agent",
     command: "amp --dangerously-allow-all",
     hasHttpApi: false,
-    continueCommand: "amp --dangerously-allow-all threads continue",
+    continueCommand: "amp --dangerously-allow-all threads continue --last",
   },
   {
     id: "kilo",
@@ -218,6 +219,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Prime Agent coding agent",
     command: "prime-agent",
     hasHttpApi: false,
+    continueCommand: "prime-agent --continue",
   },
   {
     id: "aider",
@@ -237,6 +239,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Block Goose coding agent",
     command: "GOOSE_MODE=auto goose",
     hasHttpApi: false,
+    continueCommand: "GOOSE_MODE=auto goose session --resume",
   },
   {
     id: "kiro",
@@ -246,6 +249,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "AWS Kiro CLI coding agent",
     command: "kiro-cli --trust-all-tools",
     hasHttpApi: false,
+    continueCommand: "kiro-cli --trust-all-tools chat --resume",
   },
   {
     id: "crush",
@@ -255,6 +259,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Charm Crush coding agent",
     command: "crush --yolo",
     hasHttpApi: false,
+    continueCommand: "crush --yolo --continue",
   },
   {
     id: "aug",
@@ -264,6 +269,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Augment Code CLI",
     command: "auggie",
     hasHttpApi: false,
+    continueCommand: "auggie --continue",
   },
   {
     id: "autohand",
@@ -291,6 +297,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Continue CLI",
     command: 'cn --allow "*"',
     hasHttpApi: false,
+    continueCommand: "cn --allow \"*\" --resume",
   },
   {
     id: "cursor",
@@ -300,6 +307,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Cursor Agent CLI",
     command: "cursor-agent --yolo",
     hasHttpApi: false,
+    continueCommand: "cursor-agent --yolo --continue",
   },
   {
     id: "kimi",
@@ -309,6 +317,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Kimi Code CLI",
     command: "kimi --yolo",
     hasHttpApi: false,
+    continueCommand: "kimi --yolo --continue",
   },
   {
     id: "mistral-vibe",
@@ -318,6 +327,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Mistral Vibe coding agent",
     command: "vibe --agent auto-approve",
     hasHttpApi: false,
+    continueCommand: "vibe --agent auto-approve --continue",
   },
   {
     id: "qwen-code",
@@ -327,6 +337,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Qwen Code CLI",
     command: "qwen --approval-mode yolo",
     hasHttpApi: false,
+    continueCommand: "qwen --approval-mode yolo --continue",
   },
   {
     id: "rovo",
@@ -345,6 +356,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Nous Research Hermes agent",
     command: "hermes --yolo",
     hasHttpApi: false,
+    continueCommand: "hermes --yolo --continue",
   },
   {
     id: "devin",
@@ -354,6 +366,7 @@ export const CLI_TOOLS: CliTool[] = [
     description: "Cognition Devin CLI",
     command: "devin --permission-mode bypass",
     hasHttpApi: false,
+    continueCommand: "devin --permission-mode bypass --continue",
   },
   {
     id: "openclaw",
