@@ -23,10 +23,14 @@ export function stage(): "1" | "2" {
 }
 
 /** Polls `pred` every 50 ms until it returns a truthy value or `ms` elapses. */
-export async function waitFor<T>(pred: () => T | undefined | false, ms = 15_000, label = "condition"): Promise<T> {
+export async function waitFor<T>(
+  pred: () => T | undefined | false | Promise<T | undefined | false>,
+  ms = 15_000,
+  label = "condition",
+): Promise<T> {
   const deadline = Date.now() + ms
   for (;;) {
-    const v = pred()
+    const v = await pred()
     if (v) return v
     if (Date.now() > deadline) throw new Error(`timed out after ${ms} ms waiting for ${label}`)
     await new Promise((r) => setTimeout(r, 50))

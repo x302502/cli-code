@@ -168,7 +168,7 @@ CLI 输出的路径（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`fil
 
 ### 终端右键菜单
 
-菜单项使用命令的越南语标题：**Sao chép**（复制）、**Dán**（粘贴）、**Sao chép ngữ cảnh**（复制上下文）、**Xoá màn hình**（清屏）、**Đổi tên tab**（重命名标签）、**Khởi động lại phiên**（重启会话）、**Tìm trong terminal**（在终端中查找）、**Mở lại phiên cũ**（恢复历史会话）、**Lệnh nhanh**（快捷命令）。
+菜单项使用命令的越南语标题：**Sao chép**（复制）、**Dán**（粘贴）、**Chọn tất cả**（全选）、**Sao chép ngữ cảnh**（复制上下文）、**Xoá màn hình**（清屏）、**Đổi tên tab**（重命名标签）、**Khởi động lại phiên**（重启会话）、**Tìm trong terminal**（在终端中查找）、**Mở lại phiên cũ**（恢复历史会话）、**Lệnh nhanh**（快捷命令）。
 
 ### 命令面板命令
 

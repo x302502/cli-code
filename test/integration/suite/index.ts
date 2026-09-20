@@ -13,6 +13,7 @@ export function run(): Promise<void> {
     require("./session.test.js")
     require("./hooks.test.js")
     require("./commands.test.js")
+    require("./menu.test.js")
     require("./lifecycle.test.js")
   }
   require("./reload.test.js")

@@ -75,6 +75,7 @@ export function activate(context: vscode.ExtensionContext): TestApi {
       sendToActivePanel({ type: "pasteText", text })
     }),
     vscode.commands.registerCommand("cli-code.copySelection", () => sendToActivePanel({ type: "copySelection" })),
+    vscode.commands.registerCommand("cli-code.selectAll", () => sendToActivePanel({ type: "selectAll" })),
     vscode.commands.registerCommand("cli-code.installClaudeHooks", async () => {
       try {
         const choice = await vscode.window.showWarningMessage(

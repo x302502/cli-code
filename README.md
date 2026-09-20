@@ -172,7 +172,7 @@ Paths the CLI prints (`src/x.ts:12:3`, `./dir`, `~/notes.md`, `README`, `file://
 
 ### Terminal right-click menu
 
-The menu entries use the commands' Vietnamese titles: **Sao chép** (Copy), **Dán** (Paste), **Sao chép ngữ cảnh** (Copy context), **Xoá màn hình** (Clear), **Đổi tên tab** (Rename tab), **Khởi động lại phiên** (Restart session), **Tìm trong terminal** (Find in terminal), **Mở lại phiên cũ** (Resume past session), **Lệnh nhanh** (Quick command).
+The menu entries use the commands' Vietnamese titles: **Sao chép** (Copy), **Dán** (Paste), **Chọn tất cả** (Select all), **Sao chép ngữ cảnh** (Copy context), **Xoá màn hình** (Clear), **Đổi tên tab** (Rename tab), **Khởi động lại phiên** (Restart session), **Tìm trong terminal** (Find in terminal), **Mở lại phiên cũ** (Resume past session), **Lệnh nhanh** (Quick command).
 
 ### Command Palette commands
 

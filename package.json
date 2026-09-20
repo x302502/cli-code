@@ -60,63 +60,83 @@
       },
       {
         "command": "cli-code.resume",
-        "title": "CLI Code: Mở lại phiên cũ"
+        "title": "Mở lại phiên cũ",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.quickCommand",
-        "title": "CLI Code: Lệnh nhanh"
+        "title": "Lệnh nhanh",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.addQuickCommand",
-        "title": "CLI Code: Lưu thành lệnh nhanh"
+        "title": "Lưu thành lệnh nhanh",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.renameTab",
-        "title": "CLI Code: Đổi tên tab"
+        "title": "Đổi tên tab",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.restart",
-        "title": "CLI Code: Khởi động lại phiên"
+        "title": "Khởi động lại phiên",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.clear",
-        "title": "CLI Code: Xoá màn hình"
+        "title": "Xoá màn hình",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.fontZoomIn",
-        "title": "CLI Code: Phóng to chữ"
+        "title": "Phóng to chữ",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.fontZoomOut",
-        "title": "CLI Code: Thu nhỏ chữ"
+        "title": "Thu nhỏ chữ",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.fontZoomReset",
-        "title": "CLI Code: Cỡ chữ mặc định"
+        "title": "Cỡ chữ mặc định",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.find",
-        "title": "CLI Code: Tìm trong terminal"
+        "title": "Tìm trong terminal",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.copyContext",
-        "title": "CLI Code: Sao chép ngữ cảnh"
+        "title": "Sao chép ngữ cảnh",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.paste",
-        "title": "CLI Code: Dán"
+        "title": "Dán",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.copySelection",
-        "title": "CLI Code: Sao chép"
+        "title": "Sao chép",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.selectAll",
+        "title": "Chọn tất cả",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.installClaudeHooks",
-        "title": "CLI Code: Cài hook trạng thái Claude"
+        "title": "Cài hook trạng thái Claude",
+        "category": "CLI Code"
       },
       {
         "command": "cli-code.uninstallClaudeHooks",
-        "title": "CLI Code: Gỡ hook trạng thái Claude"
+        "title": "Gỡ hook trạng thái Claude",
+        "category": "CLI Code"
       }
     ],
     "menus": {
@@ -136,6 +156,11 @@
           "command": "cli-code.paste",
           "when": "webviewId == cliCode.terminal",
           "group": "1_clip@2"
+        },
+        {
+          "command": "cli-code.selectAll",
+          "when": "webviewId == cliCode.terminal",
+          "group": "1_clip@4"
         },
         {
           "command": "cli-code.copyContext",
@@ -201,7 +226,8 @@
       },
       {
         "command": "cli-code.fontZoomIn",
-        "title": "CLI Code: Phóng to chữ",
+        "title": "Phóng to chữ",
+        "category": "CLI Code",
         "key": "cmd+=",
         "mac": "cmd+=",
         "win": "ctrl+=",
@@ -210,7 +236,8 @@
       },
       {
         "command": "cli-code.fontZoomOut",
-        "title": "CLI Code: Thu nhỏ chữ",
+        "title": "Thu nhỏ chữ",
+        "category": "CLI Code",
         "key": "cmd+-",
         "mac": "cmd+-",
         "win": "ctrl+-",
@@ -219,7 +246,8 @@
       },
       {
         "command": "cli-code.fontZoomReset",
-        "title": "CLI Code: Cỡ chữ mặc định",
+        "title": "Cỡ chữ mặc định",
+        "category": "CLI Code",
         "key": "cmd+0",
         "mac": "cmd+0",
         "win": "ctrl+0",
@@ -228,7 +256,8 @@
       },
       {
         "command": "cli-code.find",
-        "title": "CLI Code: Tìm trong terminal",
+        "title": "Tìm trong terminal",
+        "category": "CLI Code",
         "key": "cmd+f",
         "mac": "cmd+f",
         "win": "ctrl+f",

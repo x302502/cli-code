@@ -172,7 +172,7 @@ Ví dụ `cliCode.quickCommands`:
 
 ### Menu chuột phải trong terminal
 
-Sao chép, Dán, Sao chép ngữ cảnh, Xoá màn hình, Đổi tên tab, Khởi động lại phiên, Tìm trong terminal, Mở lại phiên cũ, Lệnh nhanh.
+Sao chép, Dán, Chọn tất cả, Sao chép ngữ cảnh, Xoá màn hình, Đổi tên tab, Khởi động lại phiên, Tìm trong terminal, Mở lại phiên cũ, Lệnh nhanh.
 
 ### Lệnh Command Palette
 

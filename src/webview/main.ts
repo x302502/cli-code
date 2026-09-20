@@ -33,6 +33,7 @@ type HostMessage =
   | { type: "pasteRejected" }
   | { type: "pasteText"; text: string; submit?: boolean }
   | { type: "copySelection" }
+  | { type: "selectAll" }
   | { type: "probeResult"; id: number; results: ProbeResult }
 
 const vscode = acquireVsCodeApi()
@@ -244,6 +245,8 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   } else if (message.type === "copySelection") {
     const selection = term.getSelection()
     if (selection) vscode.postMessage({ type: "clipboard", text: selection })
+  } else if (message.type === "selectAll") {
+    term.selectAll()
   } else if (message.type === "probeResult") {
     probes.get(message.id)?.(message.results)
     probes.delete(message.id)
