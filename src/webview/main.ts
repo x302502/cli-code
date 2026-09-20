@@ -66,6 +66,24 @@ function isOpenClick(event: MouseEvent): boolean {
   return event.metaKey || event.ctrlKey
 }
 
+// xterm activates a link on mouseup whenever the press and the release land on the same link,
+// even after the pointer dragged out a selection in between. Remember where the press was so a
+// drag never opens a link or replaces the selection with the link's own range.
+let pressAt: { x: number; y: number } | undefined
+let lastPressWasDrag = false
+const DRAG_PX = 4
+document.addEventListener("mousedown", (e) => {
+  pressAt = { x: e.clientX, y: e.clientY }
+  lastPressWasDrag = false
+}, true)
+document.addEventListener("mousemove", (e) => {
+  if (pressAt && e.buttons && Math.hypot(e.clientX - pressAt.x, e.clientY - pressAt.y) > DRAG_PX) lastPressWasDrag = true
+}, true)
+document.addEventListener("mouseup", () => (pressAt = undefined), true)
+function wasDrag(): boolean {
+  return lastPressWasDrag
+}
+
 function readTheme(): Record<string, string> {
   const read = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name)
   const theme = buildXtermTheme(read)
@@ -113,6 +131,7 @@ const term = new Terminal({
     },
     leave: () => setHovered(undefined),
     activate: (event, uri, range) => {
+      if (wasDrag()) return
       // A plain click selects the link so a normal Cmd/Ctrl+C copies all of it.
       if (!isOpenClick(event)) return selectRange(term, range)
       const target = classifyOscLink(uri)
@@ -193,6 +212,7 @@ term.registerLinkProvider(
     term,
     probePaths,
     (event, text, kind, range) => {
+      if (wasDrag()) return
       if (!isOpenClick(event)) return selectRange(term, range)
       if (kind === "url") vscode.postMessage({ type: "openLink", uri: text })
       else vscode.postMessage({ type: "openPath", text, alt: event.shiftKey })
