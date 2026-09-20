@@ -354,8 +354,8 @@
         },
         "cliCode.composer": {
           "type": "boolean",
-          "default": true,
-          "description": "Hiện khung nhập chat dưới terminal (Enter gửi, Shift+Enter xuống dòng; dán nhiều dòng gửi nguyên khối). Áp dụng cho tab mở sau khi đổi."
+          "default": false,
+          "description": "Thử nghiệm: hiện khung nhập chat dưới terminal (Enter gửi, Shift+Enter xuống dòng; dán nhiều dòng gửi nguyên khối). Mặc định tắt — dùng ô nhập của chính CLI. Áp dụng cho tab mở sau khi đổi."
         },
         "cliCode.notifications": {
           "type": "boolean",

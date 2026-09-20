@@ -827,7 +827,8 @@ function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview)
     terminalConfig.get<string>("fontFamily") || editorConfig.get<string>("fontFamily") || "monospace"
   const fontSize = currentFontSize(context)
   const escapedFamily = fontFamily.replace(/"/g, "&quot;")
-  const composer = vscode.workspace.getConfiguration("cliCode").get<boolean>("composer", true) ? "on" : "off"
+  // Experimental and off by default: the CLI's own TUI input keeps its slash/@ menus and modes.
+  const composer = vscode.workspace.getConfiguration("cliCode").get<boolean>("composer", false) ? "on" : "off"
 
   return `<!DOCTYPE html><html lang="vi"><head>
 <meta http-equiv="Content-Security-Policy" content="${csp}">
