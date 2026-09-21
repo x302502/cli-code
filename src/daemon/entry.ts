@@ -1,8 +1,10 @@
+import * as fs from "node:fs"
 import * as pty from "node-pty"
 import { startDaemon } from "./server.js"
 import type { PtyLike } from "./session.js"
 
 const socketPath = process.argv[2]
+const build = process.argv[3]
 if (!socketPath) {
   process.exit(1)
 }
@@ -33,4 +35,7 @@ void startDaemon({
     })
   },
   onIdleExit: () => process.exit(0),
+}).then(() => {
+  // Lets the extension tell a daemon from an older build apart from the current one.
+  if (build) fs.writeFileSync(`${socketPath}.build`, build)
 })

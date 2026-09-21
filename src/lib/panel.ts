@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import { randomBytes } from "node:crypto"
+import { createHash, randomBytes } from "node:crypto"
 import * as fs from "node:fs"
 import * as net from "node:net"
 import * as os from "node:os"
@@ -251,8 +251,36 @@ export function ensureDaemon(context: vscode.ExtensionContext): Promise<string> 
   return ensuring
 }
 
+/** sha256 of dist/daemon.js: the daemon stamps it beside its socket, so a daemon left over
+ * from a previous build of the extension can be told apart from the current one. */
+function daemonBuild(context: vscode.ExtensionContext): string {
+  return createHash("sha256").update(fs.readFileSync(context.asAbsolutePath("dist/daemon.js"))).digest("hex").slice(0, 16)
+}
+/** The socket of an outdated daemon that still holds this window's sessions (see ensureDaemonUncached). */
+let previousSocketPath: string | undefined
+
 async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<string> {
   let id = context.workspaceState.get<string>(DAEMON_ID_KEY)
+  const build = daemonBuild(context)
+  if (id) {
+    const socketPath = daemonSocketPath(id)
+    if (await isListening(socketPath)) {
+      let stamped: string | undefined
+      try {
+        stamped = fs.readFileSync(`${socketPath}.build`, "utf8").trim()
+      } catch {
+        // pre-stamp daemon: treat as outdated
+      }
+      if (stamped === build) return socketPath
+      // The daemon runs the previous build (the extension was updated while it kept the
+      // sessions alive). It cannot be restarted without killing them, so start a fresh one
+      // under a new id: restored tabs still attach to the old daemon through
+      // previousSocketPath, and each restart moves that tab to the new daemon. The old one
+      // exits on its own once its last client is gone.
+      previousSocketPath = socketPath
+      id = undefined
+    }
+  }
   if (!id) {
     id = randomBytes(4).toString("hex")
     await context.workspaceState.update(DAEMON_ID_KEY, id)
@@ -265,7 +293,7 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
   // path — leaving it there would make the new daemon's listen() fail with EADDRINUSE.
   if (process.platform !== "win32") fs.rmSync(socketPath, { force: true })
 
-  const daemon = spawn(process.execPath, [context.asAbsolutePath("dist/daemon.js"), socketPath], {
+  const daemon = spawn(process.execPath, [context.asAbsolutePath("dist/daemon.js"), socketPath, build], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
     detached: true,
     stdio: "ignore",
@@ -391,7 +419,9 @@ export async function restoreTerminalPanel(
   // Restore the custom title first: even a failed attach must keep it for "Restart Session".
   if (state.customTitle) customTitles.set(panel, state.customTitle)
   const socketPath = await ensureDaemon(context)
-  const connection = await connectSession(socketPath, { op: "attach", sessionId: state.sessionId })
+  const connection =
+    (await connectSession(socketPath, { op: "attach", sessionId: state.sessionId })) ??
+    (previousSocketPath ? await connectSession(previousSocketPath, { op: "attach", sessionId: state.sessionId }) : undefined)
   if (!connection) {
     // The session is gone (the app quit, or the daemon cleaned it up itself). Be honest with the user.
     panel.iconPath = iconFor(context, tool)
