@@ -170,13 +170,11 @@ CLI 输出的路径（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`fil
 
 **Restart Session**（重启）会把标签带回*同一个会话*：带状态钩子的 CLI（Claude Code、Codex、Copilot、Droid、Grok、opencode、Kilo、MiMo、Pi、OMP）使用钩子上报的会话 ID；Command Code、Prime Agent、Cline、Kimi、Cursor、Amp、Antigravity、goose 使用各自会话存储中该目录自标签打开以来的最新会话；其余 CLI 使用 `--continue` 形式。只有在一无所知时才会新开会话。
 
-右键作用于指针下的内容或选区：**Copy**（复制，有选区时）、**Paste**（粘贴）、**Select All**（全选）、指向 URL 时 **Open Link**（打开链接）／指向文件时 **Open File**（打开文件）、**Open with Default App**（用默认应用打开）、**Insert @path into CLI**（把 @路径插入 CLI）／指向文件夹时 **Open Folder**（打开文件夹）、**Copy Link / Path**（复制链接/路径）、**Find Selection**（查找选区）、**Find in Terminal**（在终端中查找）。标签级操作位于终端顶部的安静工具条（同色背景，图标靠右）：**New Session**（新会话 — 先选择 CLI，在当前标签目录打开）、**Resume Session**（历史）、**Restart Session**（重启会话）、**Find**（查找），以及 **…** 中的 **Rename Tab**（重命名标签，`F2`）、**Copy Context**（复制上下文）、**Quick Command**（快捷命令）。工具条左侧仅在代理需要你确认时显示文字。 左侧显示 CLI 正在使用的**模型**（从各 CLI 自身的会话存储读取 — Claude、Codex、Grok、Pi、OMP、opencode/MiMo/Kilo、Cline；不记录模型的 CLI 则隐藏），以及代理等待你时的状态行。 实验性的聊天式**输入框**（输入或粘贴，`Enter` 整体发送，`Shift + Enter` 换行）可通过 `cliCode.composer: true` 启用；默认关闭，以保留 CLI 自身输入框的 `/` 和 `@` 菜单。悬停链接会提示 `Cmd/Ctrl + 点击` 将打开什么及解析后的路径。
+右键作用于指针下的内容或选区：**Copy**（复制，有选区时）、**Paste**（粘贴）、**Select All**（全选）、指向 URL 时 **Open Link**（打开链接）／指向文件时 **Open File**（打开文件）、**Open with Default App**（用默认应用打开）、**Insert @path into CLI**（把 @路径插入 CLI）／指向文件夹时 **Open Folder**（打开文件夹）、**Copy Link / Path**（复制链接/路径）、**Find Selection**（查找选区）、**Find in Terminal**（在终端中查找）。标签级操作位于终端顶部的安静工具条（同色背景，图标靠右）：**New Session**（新会话 — 先选择 CLI，在当前标签目录打开）、**Resume Session**（历史）、**Restart Session**（重启会话）、**Find**（查找），以及 **…** 中的 **Rename Tab**（重命名标签，`F2`）、**Copy Context**（复制上下文）、**Quick Command**（快捷命令）。工具条左侧仅在代理需要你确认时显示文字。 左侧显示 CLI 正在使用的**模型**（从各 CLI 自身的会话存储读取 — Claude Code、Codex、Grok、Copilot、Pi、OMP、Command Code、Prime Agent、Droid、Cline、opencode/MiMo/Kilo；不记录模型的 CLI 则隐藏），以及代理等待你时的状态行。 实验性的聊天式**输入框**（输入或粘贴，`Enter` 整体发送，`Shift + Enter` 换行）可通过 `cliCode.composer: true` 启用；默认关闭，以保留 CLI 自身输入框的 `/` 和 `@` 菜单。悬停链接会提示 `Cmd/Ctrl + 点击` 将打开什么及解析后的路径。
 
 ### 命令面板命令
 
-0.2.0 的命令以越南语标题注册（括号内为中文释义）：
-
-`CLI Code:` **Resume Session**（恢复历史会话）、**Quick Command**（快捷命令）、**Save as Quick Command**（保存为快捷命令）、**Rename Tab**（重命名标签）、**Restart Session**（重启会话）、**Zoom In**（放大字体）、**Zoom Out**（缩小字体）、**Reset Zoom**（重置字体大小）、**Find in Terminal**（在终端中查找）、**Copy Context**（复制上下文）、**Paste**（粘贴）、**Copy**（复制）、**Install Status Hooks**（安装 Claude 状态钩子）、**Remove Status Hooks**（卸载 Claude 状态钩子）。
+`CLI Code:` **New Session**（新会话）、**Restart All Sessions**（重启所有会话）、**Resume Session**（恢复历史会话）、**Quick Command**（快捷命令）、**Save as Quick Command**（保存为快捷命令）、**Rename Tab**（重命名标签）、**Restart Session**（重启会话）、**Zoom In**（放大字体）、**Zoom Out**（缩小字体）、**Reset Zoom**（重置字体大小）、**Find in Terminal**（在终端中查找）、**Copy Context**（复制上下文）、**Paste**（粘贴）、**Copy**（复制）、**Install Status Hooks**（安装 Claude 状态钩子）、**Remove Status Hooks**（卸载 Claude 状态钩子）。
 
 ## 快捷键
 
