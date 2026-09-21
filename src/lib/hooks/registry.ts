@@ -122,6 +122,19 @@ function ownJsonFile(id: string, label: string, binary: string, rel: string[], c
 }
 
 const GROK_EVENTS = ["UserPromptSubmit", "Stop", "StopFailure", "StopCancelled", "Notification"] as const
+// Grok expands `$VAR` references in a hook command up front and refuses to run it when one is
+// unset ("required env var(s) not set") — outside CLI Code that would print a warning on every
+// prompt. Reading the variable through printenv keeps the reference out of Grok's scanner.
+export const GROK_HOOK_COMMAND = '[ -n "$(printenv CLI_CODE_HOOK)" ] && eval "$(printenv CLI_CODE_HOOK)" || true'
+function grokFile(): unknown {
+  const hooks: Record<string, { hooks: { type: string; command: string }[] }[]> = {}
+  for (const e of GROK_EVENTS) hooks[e] = [{ hooks: [{ type: "command", command: GROK_HOOK_COMMAND }] }]
+  return { hooks }
+}
+function grokInstalled(value: unknown): boolean {
+  const hooks = (value as { hooks?: Record<string, { hooks?: { command?: string }[] }[]> } | undefined)?.hooks
+  return GROK_EVENTS.every((e) => Array.isArray(hooks?.[e]) && hooks![e]!.some((g) => g?.hooks?.some((h) => h?.command === GROK_HOOK_COMMAND)))
+}
 
 // --- generated plugin / extension file (opencode family, pi, omp) ---
 
@@ -155,7 +168,7 @@ export const STATUS_HOOK_INSTALLERS: readonly StatusHookInstaller[] = [
   settingsHooks("droid", "Droid", "droid", [".factory", "settings.json"], ["UserPromptSubmit", "Stop", "Notification"]),
   codex,
   ownJsonFile("copilot", "GitHub Copilot", "copilot", [".copilot", "hooks", "cli-code.json"], copilotFile, copilotInstalled),
-  ownJsonFile("grok", "Grok", "grok", [".grok", "hooks", "cli-code.json"], () => installHooks({}, GROK_EVENTS).settings, (v) => hooksInstalled(v, GROK_EVENTS)),
+  ownJsonFile("grok", "Grok", "grok", [".grok", "hooks", "cli-code.json"], grokFile, grokInstalled),
   plugin("opencode", "opencode", "opencode", [".config", "opencode", "plugins", "cli-code-status.ts"], "opencode"),
   plugin("kilo", "Kilo", "kilo", [".config", "kilo", "plugins", "cli-code-status.ts"], "opencode"),
   plugin("mimo", "MiMo", "mimo", [".config", "mimocode", "plugins", "cli-code-status.ts"], "opencode"),

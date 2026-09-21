@@ -4,7 +4,7 @@ import * as os from "node:os"
 import * as path from "node:path"
 import { HOOK_COMMAND } from "../src/lib/claude-hooks.js"
 import { MANAGED_HEADER } from "../src/lib/hooks/plugin-template.js"
-import { STATUS_HOOK_INSTALLERS } from "../src/lib/hooks/registry.js"
+import { GROK_HOOK_COMMAND, STATUS_HOOK_INSTALLERS } from "../src/lib/hooks/registry.js"
 
 // Every installer runs against a throwaway home; the real one is never read or written here.
 let home: string
@@ -80,6 +80,9 @@ describe("status hook installers", () => {
     byId("grok").install(home)
     const grok = JSON.parse(read(".grok/hooks/cli-code.json")).hooks
     expect(Object.keys(grok).sort()).toEqual(["Notification", "Stop", "StopCancelled", "StopFailure", "UserPromptSubmit"])
+    // Grok validates `$VAR` references before running a hook; ours must not contain one.
+    expect(grok.Stop[0].hooks[0].command).toBe(GROK_HOOK_COMMAND)
+    expect(grok.Stop[0].hooks[0].command).not.toMatch(/\$[A-Z_{]/)
   })
   it("plugins: managed header, refuses to overwrite a user's file of the same name, never deletes it", () => {
     byId("opencode").install(home)
