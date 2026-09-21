@@ -1,30 +1,50 @@
 import type { AgentState } from "./protocol.js"
 
-/** Claude Code hook payload → agent state. Unknown events are ignored, never guessed. */
+type Payload = Record<string, unknown>
+
+/**
+ * Hook payload → agent state. The Claude Code shape is the lingua franca: Droid, Codex and
+ * Copilot emit it, Grok adds camelCase twins, and the plugins we generate for opencode/pi/omp
+ * build it by hand. Unknown events are ignored, never guessed.
+ */
 export function mapHookEvent(payload: unknown): { state: AgentState; prompt?: string; cliSessionId?: string } | undefined {
   if (!payload || typeof payload !== "object") return undefined
-  const p = payload as { hook_event_name?: unknown; prompt?: unknown; notification_type?: unknown; session_id?: unknown }
-  const prompt = typeof p.prompt === "string" ? p.prompt : undefined
+  const p = payload as Payload
   const mapped = mapState(p)
   if (!mapped) return undefined
-  // Claude's own session id lets a restarted tab resume the same conversation.
-  return typeof p.session_id === "string" ? { ...mapped, cliSessionId: p.session_id } : mapped
+  // The CLI's own session id lets a restarted tab resume the same conversation.
+  const id = str(p.session_id) ?? str(p.sessionId)
+  return id ? { ...mapped, cliSessionId: id } : mapped
 }
 
-function mapState(p: { hook_event_name?: unknown; notification_type?: unknown; prompt?: unknown }): { state: AgentState; prompt?: string } | undefined {
-  const prompt = typeof p.prompt === "string" ? p.prompt : undefined
-  switch (p.hook_event_name) {
+function str(v: unknown): string | undefined {
+  return typeof v === "string" && v ? v : undefined
+}
+
+// Grok spells the event twice ("hookEventName":"stop" and "hook_event_name":"Stop"); normalise
+// to Claude's PascalCase so one switch covers both.
+function eventName(p: Payload): string | undefined {
+  const raw = str(p.hook_event_name) ?? str(p.hookEventName)
+  return raw ? raw[0]!.toUpperCase() + raw.slice(1) : undefined
+}
+
+function mapState(p: Payload): { state: AgentState; prompt?: string } | undefined {
+  const prompt = str(p.prompt)
+  switch (eventName(p)) {
     case "UserPromptSubmit":
       return { state: "working", prompt }
     case "Stop":
+    case "StopFailure":
+    case "StopCancelled":
       return { state: "done", prompt: undefined }
-    case "Notification":
-      // Only notifications that actually wait on the user count; idle_prompt (60 s idle) and
-      // auth_success would flip a finished tab back to "waiting". No type at all: older Claude, assume waiting.
-      if (p.notification_type === undefined || p.notification_type === "permission_prompt" || p.notification_type === "elicitation_dialog") {
-        return { state: "waiting", prompt: undefined }
-      }
+    case "Notification": {
+      // Only notifications that actually wait on the user count. idle_prompt, auth_success,
+      // task_complete, Copilot's agent_completed/agent_idle/shell_completed would otherwise flip
+      // a finished tab back to "waiting". No type at all: older Claude, assume waiting.
+      const type = p.notification_type ?? p.notificationType
+      if (type === undefined || type === "permission_prompt" || type === "elicitation_dialog") return { state: "waiting", prompt: undefined }
       return undefined
+    }
     case "PermissionRequest":
       return { state: "waiting", prompt: undefined }
     default:

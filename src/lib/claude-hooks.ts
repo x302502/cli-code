@@ -6,8 +6,8 @@ export const HOOK_EVENTS = ["UserPromptSubmit", "Stop", "Notification", "Permiss
 /** Evaluates the per-session command the extension stamps into the CLI's env; a no-op when Claude runs elsewhere. */
 export const HOOK_COMMAND = '[ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true'
 
-type HookEntry = { type: string; command: string }
-type HookGroup = { matcher?: string; hooks: HookEntry[] }
+export type HookEntry = { type: string; command: string; timeout?: number }
+export type HookGroup = { matcher?: string; hooks: HookEntry[] }
 type Settings = Record<string, unknown> & { hooks?: Record<string, HookGroup[]> }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -25,26 +25,29 @@ function groupsOf(hooks: Record<string, unknown> | undefined, event: string): Ho
   const groups = hooks?.[event]
   return Array.isArray(groups) ? groups : []
 }
-function isOurs(group: HookGroup): boolean {
+export function isOurs(group: HookGroup): boolean {
   return Array.isArray(group?.hooks) && group.hooks.some((h) => h?.command === HOOK_COMMAND)
 }
 
-export function hooksInstalled(value: unknown): boolean {
+// The Claude `hooks` shape is shared by Droid, Codex and Grok; they differ only in which events
+// exist and whether a timeout is expected, hence the optional parameters.
+export function hooksInstalled(value: unknown, events: readonly string[] = HOOK_EVENTS): boolean {
   const s = asSettings(value)
-  return HOOK_EVENTS.every((e) => groupsOf(hooksRecord(s), e).some(isOurs))
+  return events.every((e) => groupsOf(hooksRecord(s), e).some(isOurs))
 }
 
-export function installHooks(value: unknown): { settings: Settings; changed: boolean } {
+export function installHooks(value: unknown, events: readonly string[] = HOOK_EVENTS, timeout?: number): { settings: Settings; changed: boolean } {
   const s = asSettings(value)
   // A non-plain-object hooks field (null, array, primitive) is replaced, not preserved: there is
   // nothing sane to merge into.
   const hooks: Record<string, HookGroup[]> = isPlainObject(s.hooks) ? (s.hooks as Record<string, HookGroup[]>) : {}
   s.hooks = hooks
   let changed = false
-  for (const e of HOOK_EVENTS) {
+  for (const e of events) {
     const groups = groupsOf(hooks, e)
     if (!groups.some(isOurs)) {
-      groups.push({ hooks: [{ type: "command", command: HOOK_COMMAND }] })
+      // Appended, never prepended: Codex keys its trust entries by group index.
+      groups.push({ hooks: [timeout === undefined ? { type: "command", command: HOOK_COMMAND } : { type: "command", command: HOOK_COMMAND, timeout }] })
       changed = true
     }
     hooks[e] = groups
@@ -52,12 +55,12 @@ export function installHooks(value: unknown): { settings: Settings; changed: boo
   return { settings: s, changed }
 }
 
-export function uninstallHooks(value: unknown): { settings: Settings; changed: boolean } {
+export function uninstallHooks(value: unknown, events: readonly string[] = HOOK_EVENTS): { settings: Settings; changed: boolean } {
   const s = asSettings(value)
   const hooks = hooksRecord(s) as Record<string, HookGroup[]> | undefined
   let changed = false
   if (hooks) {
-    for (const e of HOOK_EVENTS) {
+    for (const e of events) {
       const groups = hooks[e]
       if (!Array.isArray(groups)) continue
       const kept = groups.filter((g) => !isOurs(g))
@@ -81,7 +84,7 @@ function backupPath(file: string): string {
 /** Reads and parses `file`. A missing or empty/whitespace-only file reads as `{}` (nothing to
  * merge into yet). Any other failure — invalid JSON, a permission error, a torn read — throws:
  * we must never treat "couldn't read this" as "empty" and go on to overwrite it. */
-function readSettingsFile(file: string): unknown {
+export function readSettingsFile(file: string): unknown {
   let raw: string
   try {
     raw = fs.readFileSync(file, "utf8")
@@ -99,7 +102,7 @@ function readSettingsFile(file: string): unknown {
 
 /** Backs up the file's current bytes once, before the first modification, so the user can
  * recover — copied verbatim, never re-serialised from the parsed object. */
-function backupSettingsFileOnce(file: string): void {
+export function backupSettingsFileOnce(file: string): void {
   const bak = backupPath(file)
   if (fs.existsSync(file) && !fs.existsSync(bak)) {
     fs.copyFileSync(file, bak)
@@ -108,7 +111,7 @@ function backupSettingsFileOnce(file: string): void {
 
 /** Atomic write: stage to a temp file, then rename over the target, so a crash mid-write can
  * never leave a truncated settings.json. */
-function writeSettingsFile(file: string, settings: unknown): void {
+export function writeSettingsFile(file: string, settings: unknown): void {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   backupSettingsFileOnce(file)
   const tmp = `${file}.tmp`

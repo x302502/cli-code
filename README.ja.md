@@ -119,33 +119,40 @@ CLI Code がファイルへの参照をプロンプトに挿入します：
 
 - **タブを閉じる＝その CLI の終了。** VS Code は拡張機能に「タブを閉じる前に確認する」ことを許さないため、タブを閉じると中の CLI プロセスは警告なく即座に停止します。
 - **VS Code を終了する＝すべてのセッションの終了。** CLI Code 配下で動いているすべての CLI が一緒に停止します。
-- **Claude の状態フックは POSIX（macOS、Linux）でのみ動作します** —— Windows ではこのフックをインストールできません。
+- **状態フックは POSIX（macOS、Linux）でのみ動作します** —— Windows ではインストールできません。
 
-### Claude Code の状態フック
+### 状態フック
 
-CLI Code は Claude Code に小さなフックをインストールし、タイトルからの推測ではなく正確な状態（実行中 / 応答待ち / 完了）をタブに表示できます。これは**オプトイン**の機能です：
+CLI Code は対応する各 CLI に小さなフックを常駐させ、タブがタイトルからの推測ではなく正確な状態（作業中 / 待機中 / 完了）を表示し、非表示タブの「完了」通知が届き、**Restart Session** が戻るべき会話を正確に把握できるようにします。Orca と同じく**自動**です：起動時に `PATH` 上にある対応 CLI にフックが無ければインストールし、`cliCode.statusHooks` をオフにすると全て削除します。
 
-- CLI Code 内で Claude Code を初めて開いたとき、拡張機能はフックをインストールするか尋ねます（`cliCode.claudeStatusHooks` 設定で制御）。答えずに通知を閉じると、このウィンドウでは「off」として扱われます。後からコマンドパレットの **「CLI Code: Install Claude Status Hooks」**（Claude 状態フックをインストール）でインストールできます。
-- 同意すると `~/.claude/settings.json` に追記します。最初の書き込み前に、元のファイルは `~/.claude/settings.json.cli-code.bak` にバックアップされ、既存のフックはそのまま保持されます。
-- フックは次に Claude Code を起動したときから有効になります。すでに実行中のセッションはタイトルからの推測のままです。
-- いつでもコマンドパレットの **「CLI Code: Remove Claude Status Hooks」**（Claude 状態フックを削除）で削除できます。
-- 既知の制限：フックコマンドはシェルで `eval` されるため（`eval "$CLI_CODE_HOOK"`）、VS Code のインストールパスに `"` や `$` が含まれると動作しません。
-- `UserPromptSubmit`、`Stop`、`Notification`、`PermissionRequest` の 4 つのイベントそれぞれに追加されるエントリ：
+| CLI | フックの場所 |
+| --- | --- |
+| Claude Code | `~/.claude/settings.json` → `hooks`（UserPromptSubmit, Stop, Notification, PermissionRequest） |
+| Droid | `~/.factory/settings.json` → `hooks` |
+| Codex | `~/.codex/hooks.json` → `hooks`、および対応する `[hooks.state.…]` の信頼エントリ（`~/.codex/config.toml`。Codex は信頼済みフックしか実行しません） |
+| GitHub Copilot | `~/.copilot/hooks/cli-code.json`（専用ファイル） |
+| Grok | `~/.grok/hooks/cli-code.json`（専用ファイル） |
+| opencode / Kilo / MiMo | `~/.config/opencode|kilo|mimocode/plugins/cli-code-status.ts`（生成されたプラグイン） |
+| Pi / OMP | `~/.pi/agent/extensions/cli-code-status.ts`、`~/.omp/agent/extensions/cli-code-status.ts`（生成された拡張） |
 
-  ```json
-  {
-    "type": "command",
-    "command": "[ -n \"$CLI_CODE_HOOK\" ] && eval \"$CLI_CODE_HOOK\" || true"
-  }
+- 既存ファイルへの最初の書き込み前に `<file>.cli-code.bak` としてバックアップします。自分で設定したフックはそのまま、CLI Code 自身のエントリだけを追加・削除します。生成ファイルは `// @cli-code-managed` で始まり、そのヘッダーが無ければ決して上書きしません。
+- どのエントリも同じシェル行を実行し、CLI Code の外で動く CLI では no-op です（`CLI_CODE_HOOK` 変数が存在しないため）：
+
+  ```sh
+  [ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true
   ```
 
-  Claude Code が CLI Code の外で実行されている場合、このコマンドは何もしません（`CLI_CODE_HOOK` 変数が存在しないため）。
+  生成プラグインはシェルフックが受け取るのと同じ JSON ペイロードを組み立て、その行にパイプします。
+- フックはその CLI の次回起動から有効です。すでに動いているセッションはタイトルからの推測を続けます。
+- コマンドパレットの **「CLI Code: Install Status Hooks」** / **「Remove Status Hooks」** で手動でも実行でき、結果の要約を表示します。
+- POSIX のみ（macOS、Linux）：Windows にはフック行を評価する `sh` が無いため何もインストールしません。
+- 既知の制限：フックコマンドはシェルで `eval` されるため、VS Code のインストールパスに `"` や `$` が含まれると動きません。
 
 ### 設定
 
 | 設定                          | 型                          | デフォルト | 説明                                                                                    |
 | ------------------------------ | ---------------------------- | ---------- | ------------------------------------------------------------------------------------------ |
-| `cliCode.claudeStatusHooks`    | `"ask" \| "on" \| "off"`     | `"ask"`    | `~/.claude/settings.json` に状態フックをインストールし、Claude タブに実行中/応答待ち/完了を表示。 |
+| `cliCode.statusHooks`          | `boolean`                    | `true`     | 対応する全 CLI に状態フックを常駐させる（「状態フック」参照）。オフで全て削除。 |
 | `cliCode.notifications`        | `boolean`                    | `true`     | 非表示のタブでエージェントが作業を終えたときに通知する。                                    |
 | `cliCode.quickCommands`        | オブジェクトの配列           | `[]`       | 再利用するコマンドやプロンプト。User settings = グローバル、Workspace settings = プロジェクト。 |
 
@@ -164,7 +171,7 @@ CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`�
 
 ### ターミナルの右クリックメニュー
 
-**Restart Session**（再起動）はタブを*同じ会話*に戻します：Claude Code はフックが報告するセッション ID、Codex・Grok・Pi・OMP・Command Code・Droid・Prime Agent・Copilot・Cline・Kimi・Cursor・Amp・Antigravity・opencode・MiMo・Kilo・goose は各 CLI 自身のセッションストアにあるこのディレクトリの最新セッション、残りの CLI は `--continue` 形式で。何も分からない場合のみ新規セッションになります。
+**Restart Session**（再起動）はタブを*同じ会話*に戻します：状態フックのある CLI（Claude Code・Codex・Copilot・Droid・Grok・opencode・Kilo・MiMo・Pi・OMP）はフックが報告するセッション ID、Command Code・Prime Agent・Cline・Kimi・Cursor・Amp・Antigravity・goose は各 CLI 自身のセッションストアにあるこのディレクトリの最新セッション、残りの CLI は `--continue` 形式で。何も分からない場合のみ新規セッションになります。
 
 右クリックはポインタ下の内容や選択範囲に対して働きます：**Copy**（コピー、選択時）・**Paste**（貼り付け）・**Select All**（すべて選択）・URL 上では **Open Link**（リンクを開く）／ファイル上では **Open File**（ファイルを開く）、**Open with Default App**（既定アプリで開く）、**Insert @path into CLI**（@パスを CLI に挿入）／フォルダ上では **Open Folder**（フォルダを開く）・**Copy Link / Path**（リンク/パスをコピー）・**Find Selection**（選択範囲を検索）・**Find in Terminal**（ターミナル内検索）。タブ操作はターミナル上部の静かなバー（同じ背景色、アイコンは右端）にあります：**New Session**（新しいセッション — CLI を選んでこのタブのディレクトリで開く）、**Resume Session**（履歴）、**Restart Session**（再起動）、**Find**（検索）、**…** に **Rename Tab**（タブ名変更、`F2`）、**Copy Context**（コンテキストをコピー）、**Quick Command**（クイックコマンド）。バーの左側はエージェントが確認を求めるときだけ文言が出ます。 左側には CLI が使用中の**モデル**（各 CLI のセッションストアから読み取り — Claude、Codex、Grok、Pi、OMP、opencode/MiMo/Kilo、Cline。記録しない CLI では非表示）と、確認待ちのときの状態行が表示されます。 実験的なチャット風**入力欄**（入力・貼り付け、`Enter` で一括送信、`Shift + Enter` で改行）は `cliCode.composer: true` で有効化できます。既定では無効で、CLI 自身の入力欄の `/` や `@` メニューをそのまま使えます。リンクにホバーすると `Cmd/Ctrl + クリック` で何が開くかと解決済みパスが表示されます。
 
@@ -172,7 +179,7 @@ CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`�
 
 0.2.0 のコマンドはベトナム語タイトルで登録されています（括弧内は日本語訳）：
 
-`CLI Code:` **Resume Session**（過去のセッションを再開）、**Quick Command**（クイックコマンド）、**Save as Quick Command**（クイックコマンドとして保存）、**Rename Tab**（タブ名を変更）、**Restart Session**（セッションを再起動）、**Zoom In**（文字を拡大）、**Zoom Out**（文字を縮小）、**Reset Zoom**（文字サイズをリセット）、**Find in Terminal**（ターミナル内検索）、**Copy Context**（コンテキストをコピー）、**Paste**（貼り付け）、**Copy**（コピー）、**Install Claude Status Hooks**（Claude 状態フックをインストール）、**Remove Claude Status Hooks**（Claude 状態フックを削除）。
+`CLI Code:` **Resume Session**（過去のセッションを再開）、**Quick Command**（クイックコマンド）、**Save as Quick Command**（クイックコマンドとして保存）、**Rename Tab**（タブ名を変更）、**Restart Session**（セッションを再起動）、**Zoom In**（文字を拡大）、**Zoom Out**（文字を縮小）、**Reset Zoom**（文字サイズをリセット）、**Find in Terminal**（ターミナル内検索）、**Copy Context**（コンテキストをコピー）、**Paste**（貼り付け）、**Copy**（コピー）、**Install Status Hooks**（Claude 状態フックをインストール）、**Remove Status Hooks**（Claude 状態フックを削除）。
 
 ## キーボードショートカット
 

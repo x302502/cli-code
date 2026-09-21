@@ -132,13 +132,13 @@
         "category": "CLI Code"
       },
       {
-        "command": "cli-code.installClaudeHooks",
-        "title": "Install Claude Status Hooks",
+        "command": "cli-code.installStatusHooks",
+        "title": "Install Status Hooks",
         "category": "CLI Code"
       },
       {
-        "command": "cli-code.uninstallClaudeHooks",
-        "title": "Remove Claude Status Hooks",
+        "command": "cli-code.removeStatusHooks",
+        "title": "Remove Status Hooks",
         "category": "CLI Code"
       },
       {
@@ -346,11 +346,10 @@
     "configuration": {
       "title": "CLI Code",
       "properties": {
-        "cliCode.claudeStatusHooks": {
-          "type": "string",
-          "enum": ["ask", "on", "off"],
-          "default": "ask",
-          "description": "Install status hooks into ~/.claude/settings.json so Claude tabs show working / waiting / done."
+        "cliCode.statusHooks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep CLI Code's status hooks installed in each supported CLI's config (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP) so tabs show working / waiting / done and restart into the same conversation. A .cli-code.bak copy of every file is kept. Turning this off removes them."
         },
         "cliCode.composer": {
           "type": "boolean",

@@ -32,7 +32,21 @@ function statFile(p) {
   return { path: p, exists, sha256: exists ? createHash("sha256").update(fs.readFileSync(p)).digest("hex") : "" }
 }
 const realClaudeSettingsPath = path.join(os.homedir(), ".claude", "settings.json")
-const beforeSiblings = [statFile(`${realClaudeSettingsPath}.cli-code.bak`), statFile(`${realClaudeSettingsPath}.tmp`)]
+// Every file the status-hook installers (src/lib/hooks/registry.ts) can touch. Activation skips
+// the sync in extension-test mode; this catches a regression of that guard.
+const hookFiles = [
+  path.join(os.homedir(), ".factory", "settings.json"),
+  path.join(os.homedir(), ".codex", "hooks.json"),
+  path.join(os.homedir(), ".codex", "config.toml"),
+  path.join(os.homedir(), ".copilot", "hooks", "cli-code.json"),
+  path.join(os.homedir(), ".grok", "hooks", "cli-code.json"),
+  path.join(os.homedir(), ".config", "opencode", "plugins", "cli-code-status.ts"),
+  path.join(os.homedir(), ".config", "kilo", "plugins", "cli-code-status.ts"),
+  path.join(os.homedir(), ".config", "mimocode", "plugins", "cli-code-status.ts"),
+  path.join(os.homedir(), ".pi", "agent", "extensions", "cli-code-status.ts"),
+  path.join(os.homedir(), ".omp", "agent", "extensions", "cli-code-status.ts"),
+]
+const beforeSiblings = [statFile(`${realClaudeSettingsPath}.cli-code.bak`), statFile(`${realClaudeSettingsPath}.tmp`), ...hookFiles.map(statFile)]
 
 function checkClaudeSettingsUntouched() {
   const snapshotFile = path.join(dirs.out, "claude-settings.before")

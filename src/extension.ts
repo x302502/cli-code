@@ -1,5 +1,8 @@
 import * as vscode from "vscode"
+import * as os from "node:os"
 import { CLAUDE_SETTINGS_PATH, hooksInstalledOnDisk, installHooksToDisk, uninstallHooksFromDisk } from "./lib/claude-hooks.js"
+import { STATUS_HOOK_INSTALLERS } from "./lib/hooks/registry.js"
+import { binaryOnPath, summarize, syncStatusHooks } from "./lib/hooks/sync.js"
 import { addFilepathToTerminal, addQuickCommand, openCli, resumeSession, runQuickCommand } from "./lib/commands.js"
 import {
   activeTerminalPanel,
@@ -52,10 +55,27 @@ function linkText(ctx?: MenuContext): string | undefined {
   return typeof ctx?.cliCodeLinkText === "string" && ctx.cliCodeLinkText ? ctx.cliCodeLinkText : undefined
 }
 
+function statusHooksEnabled(): boolean {
+  return vscode.workspace.getConfiguration("cliCode").get<boolean>("statusHooks", true)
+}
+
+/** Installs/removes the status hooks of every supported CLI; the summary is shown unless quiet
+ * (then only failures are). */
+async function runStatusHookSync(enabled: boolean, opts: { quiet?: boolean } = {}): Promise<void> {
+  const results = syncStatusHooks({ installers: STATUS_HOOK_INSTALLERS, home: os.homedir(), enabled, onPath: binaryOnPath })
+  const failed = results.some((r) => r.action === "error")
+  if (failed) void vscode.window.showWarningMessage(`CLI Code status hooks — ${summarize(results)}`)
+  else if (!opts.quiet) void vscode.window.showInformationMessage(`CLI Code status hooks — ${summarize(results)}`)
+}
+
 export function activate(context: vscode.ExtensionContext): TestApi {
   // Restored CLI tabs only connect once they become visible; hold the daemon open in the
   // meantime so its idle-exit does not kill their sessions. Must not block activation.
   void holdDaemonAlive(context).then((d) => context.subscriptions.push(d))
+  // Status hooks follow the setting silently, like Orca: installed for every supported CLI on
+  // PATH, removed everywhere when turned off. Never from the integration-test host (it runs
+  // against the real home) and never on Windows (the hook line needs `sh`).
+  if (context.extensionMode !== vscode.ExtensionMode.Test && process.platform !== "win32") void runStatusHookSync(statusHooksEnabled(), { quiet: true })
   context.subscriptions.push(
     vscode.commands.registerCommand("cli-code.open", () => openCli(context, { reuseExisting: true })),
     vscode.commands.registerCommand("cli-code.openNew", () => openCli(context, { reuseExisting: false })),
@@ -98,27 +118,10 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     vscode.commands.registerCommand("cli-code.findSelection", (ctx?: MenuContext) =>
       sendToActivePanel({ type: "find", query: typeof ctx?.cliCodeSelection === "string" ? ctx.cliCodeSelection.split("\n")[0] : undefined }),
     ),
-    vscode.commands.registerCommand("cli-code.installClaudeHooks", async () => {
-      try {
-        const choice = await vscode.window.showWarningMessage(
-          "Install the status hooks into ~/.claude/settings.json (a .bak backup is kept)?",
-          { modal: true },
-          "Install",
-        )
-        if (choice !== "Install") return
-        const changed = installHooksToDisk()
-        void vscode.window.showInformationMessage(changed ? "Hooks installed." : "Nothing to change.")
-      } catch (err) {
-        void vscode.window.showErrorMessage(String(err))
-      }
-    }),
-    vscode.commands.registerCommand("cli-code.uninstallClaudeHooks", () => {
-      try {
-        const changed = uninstallHooksFromDisk()
-        void vscode.window.showInformationMessage(changed ? "Hooks removed." : "Nothing to change.")
-      } catch (err) {
-        void vscode.window.showErrorMessage(String(err))
-      }
+    vscode.commands.registerCommand("cli-code.installStatusHooks", () => runStatusHookSync(true)),
+    vscode.commands.registerCommand("cli-code.removeStatusHooks", () => runStatusHookSync(false)),
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("cliCode.statusHooks")) void runStatusHookSync(statusHooksEnabled(), { quiet: true })
     }),
     vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
       async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: PanelState | undefined) {

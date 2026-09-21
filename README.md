@@ -120,33 +120,40 @@ As of 0.2.0, CLI Code no longer opens assistants in a regular VS Code integrated
 
 - **Closing a tab ends that CLI.** VS Code doesn't let an extension "ask before closing" a tab, so closing one stops the CLI process inside it immediately — no warning.
 - **Quitting VS Code ends all sessions.** Every CLI running under CLI Code stops with it.
-- **Claude status hooks only work on POSIX** (macOS, Linux) — Windows can't install this hook.
+- **Status hooks only work on POSIX** (macOS, Linux) — Windows can't install them.
 
-### Claude Code status hook
+### Status hooks
 
-CLI Code can install a small hook into Claude Code so the tab shows accurate status (working / waiting / done) instead of guessing from the title. This is **opt-in**:
+CLI Code keeps a small hook installed in each supported CLI so the tab shows accurate status (working / waiting / done) instead of guessing from the title, the "finished" toast fires for hidden tabs, and **Restart Session** knows the exact conversation to return to. Like Orca, this happens **automatically**: on activation, every supported CLI found on `PATH` gets the hook if it is missing; turn `cliCode.statusHooks` off and they are all removed again.
 
-- The first time you open Claude Code inside CLI Code, the extension asks whether to install the hook (controlled by the `cliCode.claudeStatusHooks` setting). Dismissing that toast without answering counts as "off" for this window — install later with the Command Palette entry **"CLI Code: Install Claude Status Hooks"**.
-- If you agree, it appends to `~/.claude/settings.json`. Before the first write, the original file is backed up to `~/.claude/settings.json.cli-code.bak`; any hooks you already had are kept.
-- The hook takes effect from the next Claude Code start — a session that was already running keeps guessing status from the title.
-- Remove it anytime with the Command Palette entry **"CLI Code: Remove Claude Status Hooks"**.
-- Known limit: the hook command is evaluated by the shell (`eval "$CLI_CODE_HOOK"`), so a VS Code install path containing `"` or `$` breaks it.
-- The entry added for each of the 4 events `UserPromptSubmit`, `Stop`, `Notification`, `PermissionRequest`:
+| CLI | Where the hook lives |
+| --- | --- |
+| Claude Code | `~/.claude/settings.json` → `hooks` (UserPromptSubmit, Stop, Notification, PermissionRequest) |
+| Droid | `~/.factory/settings.json` → `hooks` |
+| Codex | `~/.codex/hooks.json` → `hooks`, plus the matching `[hooks.state.…]` trust entries in `~/.codex/config.toml` (Codex only runs trusted hooks) |
+| GitHub Copilot | `~/.copilot/hooks/cli-code.json` (a file of its own) |
+| Grok | `~/.grok/hooks/cli-code.json` (a file of its own) |
+| opencode / Kilo / MiMo | `~/.config/opencode|kilo|mimocode/plugins/cli-code-status.ts` (a generated plugin) |
+| Pi / OMP | `~/.pi/agent/extensions/cli-code-status.ts`, `~/.omp/agent/extensions/cli-code-status.ts` (a generated extension) |
 
-  ```json
-  {
-    "type": "command",
-    "command": "[ -n \"$CLI_CODE_HOOK\" ] && eval \"$CLI_CODE_HOOK\" || true"
-  }
+- Before the first write to a file you already had, it is backed up next to itself as `<file>.cli-code.bak`; hooks you configured yourself are kept, only CLI Code's own entries are added or removed. Generated files start with `// @cli-code-managed` and are never overwritten if that header is missing.
+- Every entry runs the same shell line, which is a no-op when the CLI runs outside CLI Code (the `CLI_CODE_HOOK` variable doesn't exist):
+
+  ```sh
+  [ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true
   ```
 
-  This command is a no-op when Claude Code runs outside CLI Code (the `CLI_CODE_HOOK` variable doesn't exist, so nothing happens).
+  The generated plugins build the same JSON payload the shell hooks receive and pipe it into that line.
+- A hook takes effect from the next start of that CLI — a session that was already running keeps guessing status from the title.
+- **"CLI Code: Install Status Hooks"** / **"Remove Status Hooks"** in the Command Palette do the same by hand and show a summary.
+- POSIX only (macOS, Linux): Windows has no `sh` to evaluate the hook line, so nothing is installed there.
+- Known limit: the hook command is evaluated by the shell, so a VS Code install path containing `"` or `$` breaks it.
 
 ### Settings
 
 | Setting                     | Type                       | Default | Description                                                                                 |
 | ---------------------------- | --------------------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| `cliCode.claudeStatusHooks`  | `"ask" \| "on" \| "off"`   | `"ask"` | Install a status hook into `~/.claude/settings.json` so the Claude tab shows working / waiting / done. |
+| `cliCode.statusHooks`        | `boolean`                   | `true`  | Keep status hooks installed in every supported CLI (see "Status hooks"); off removes them.     |
 | `cliCode.notifications`      | `boolean`                   | `true`  | Notify when an agent finishes work on a hidden tab.                                           |
 | `cliCode.quickCommands`      | array of objects            | `[]`    | Reusable commands or prompts. Set in User settings = Global, Workspace settings = Project.     |
 
@@ -165,7 +172,7 @@ Paths the CLI prints (`src/x.ts:12:3`, `./dir`, `~/notes.md`, `README`, `file://
 
 ### Terminal right-click menu
 
-**Restart Session** brings the tab back into the *same conversation*: Claude Code via the session id its hook reports; Codex, Grok, Pi, OMP, Command Code, Droid, Prime Agent, Copilot, Cline, Kimi, Cursor, Amp, Antigravity, opencode, MiMo, Kilo and goose via the newest session their own store shows for this directory since the tab was opened; the remaining CLIs via their `--continue` form. Only when nothing is known does it start fresh.
+**Restart Session** brings the tab back into the *same conversation*: CLIs with a status hook (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP) via the session id the hook reports; Command Code, Prime Agent, Cline, Kimi, Cursor, Amp, Antigravity and goose via the newest session their own store shows for this directory since the tab was opened; the remaining CLIs via their `--continue` form. Only when nothing is known does it start fresh.
 
 Right-click acts on what is under the pointer or selected: **Copy** · **Paste** · **Select All** · on a URL **Open Link** / on a file **Open File**, **Open with Default App**, **Insert @path into CLI** / on a folder **Open Folder** · **Copy Link / Path** · **Find Selection** · **Find in Terminal**. Tab-level actions sit in a quiet bar at the top of the terminal (same background, icons flush right): **New Session**, **Resume Session**, **Restart Session** and **Find**, and under **…**: **Rename Tab**, **Copy Context**, **Quick Command**. The bar's left side stays empty until the agent needs you (“Waiting for your confirmation”). Its left side shows the **model** the CLI is using (read from the CLI's own session store — Claude, Codex, Grok, Pi, OMP, opencode/MiMo/Kilo, Cline; hidden for CLIs that do not record it) and, while the agent waits on you, a status line. An experimental chat-style **composer** under the terminal (type or paste, `Enter` sends as one block, `Shift + Enter` breaks a line) can be enabled with `cliCode.composer: true`; it is off by default so the CLI's own input keeps its `/` and `@` menus. Hovering a link shows what `Cmd/Ctrl + click` will open and the resolved path.
 
@@ -173,7 +180,7 @@ Right-click acts on what is under the pointer or selected: **Copy** · **Paste**
 
 The 0.2.0 commands are listed under their Vietnamese titles (English in parentheses):
 
-`CLI Code:` **Resume Session**, **Quick Command**, **Save as Quick Command**, **Rename Tab**, **Restart Session**, **Zoom In**, **Zoom Out**, **Reset Zoom**, **Find in Terminal**, **Copy Context**, **Paste**, **Copy**, **Install Claude Status Hooks**, **Remove Claude Status Hooks**.
+`CLI Code:` **Resume Session**, **Quick Command**, **Save as Quick Command**, **Rename Tab**, **Restart Session**, **Zoom In**, **Zoom Out**, **Reset Zoom**, **Find in Terminal**, **Copy Context**, **Paste**, **Copy**, **Install Status Hooks**, **Remove Status Hooks**.
 
 ## Keyboard shortcuts
 
@@ -204,7 +211,7 @@ Rebind it in VS Code: **Preferences → Keyboard Shortcuts**, search for "CLI", 
 ## Development
 
 - `bun test` — unit tests.
-- `bun run test:integration` — launches a real VS Code (downloaded once into `.vscode-test/`) and runs the suites in `test/integration/suite/` inside the extension host: open/type/close, gone/restart, hook → status glyph, resume/quick commands, and a two-stage reload that re-attaches a session across a restart. macOS/Linux only; opens a test window; tests never write your real `~/.claude/settings.json` — the runner snapshots it and fails the run if it changes. VS Code's own invocation of the webview serializer on a real Reload Window can't be exercised this way (extension-test mode uses in-memory storage, so it never fires between the two launches) and stays a manual check.
+- `bun run test:integration` — launches a real VS Code (downloaded once into `.vscode-test/`) and runs the suites in `test/integration/suite/` inside the extension host: open/type/close, gone/restart, hook → status glyph, resume/quick commands, and a two-stage reload that re-attaches a session across a restart. macOS/Linux only; opens a test window; tests never write your real `~/.claude/settings.json` or any other hook file — the runner snapshots them and fails the run if one changes. VS Code's own invocation of the webview serializer on a real Reload Window can't be exercised this way (extension-test mode uses in-memory storage, so it never fires between the two launches) and stays a manual check.
 
 ## License
 

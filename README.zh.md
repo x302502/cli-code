@@ -116,33 +116,40 @@ CLI Code 会把对你文件的引用插入到提示词中：
 
 - **关闭标签＝结束该 CLI。** VS Code 不允许扩展在关闭标签前"询问确认"，所以关闭标签会立即终止其中的 CLI 进程 —— 没有警告。
 - **退出 VS Code＝结束所有会话。** CLI Code 下运行的所有 CLI 都会随之停止。
-- **Claude 状态钩子仅支持 POSIX**（macOS、Linux） —— Windows 无法安装该钩子。
+- **状态钩子仅支持 POSIX**（macOS、Linux） —— Windows 无法安装。
 
-### Claude Code 状态钩子
+### 状态钩子
 
-CLI Code 可以在 Claude Code 中安装一个小钩子，让标签显示准确的状态（运行中 / 等待 / 完成），而不是靠标题猜测。这是一个**可选启用**的功能：
+CLI Code 会在每个受支持的 CLI 中保持一个小钩子，让标签显示准确状态（工作中 / 等待中 / 完成）而不是从标题猜测，隐藏标签的"已完成"提示能弹出，**Restart Session** 也能准确回到原会话。与 Orca 一样，这是**自动**的：扩展激活时，`PATH` 上找到的受支持 CLI 若缺少钩子就会安装；关闭 `cliCode.statusHooks` 则全部移除。
 
-- 你在 CLI Code 中第一次打开 Claude Code 时，扩展会询问是否安装该钩子（由 `cliCode.claudeStatusHooks` 设置控制）。不作答直接关掉提示，在本窗口中视为"off"——之后可用命令面板中的 **"CLI Code: Install Claude Status Hooks"**（安装 Claude 状态钩子）安装。
-- 如果同意，它会追加写入 `~/.claude/settings.json`。首次写入前，原文件会备份为 `~/.claude/settings.json.cli-code.bak`；你已有的钩子会被保留。
-- 钩子从下一次启动 Claude Code 时生效——已在运行的会话仍靠标题猜测状态。
-- 随时可通过命令面板中的 **"CLI Code: Remove Claude Status Hooks"**（卸载 Claude 状态钩子）移除。
-- 已知限制：钩子命令由 shell `eval` 执行（`eval "$CLI_CODE_HOOK"`），VS Code 安装路径中含有 `"` 或 `$` 时钩子会失效。
-- 为 `UserPromptSubmit`、`Stop`、`Notification`、`PermissionRequest` 这 4 个事件各自添加的条目内容：
+| CLI | 钩子位置 |
+| --- | --- |
+| Claude Code | `~/.claude/settings.json` → `hooks`（UserPromptSubmit、Stop、Notification、PermissionRequest） |
+| Droid | `~/.factory/settings.json` → `hooks` |
+| Codex | `~/.codex/hooks.json` → `hooks`，以及 `~/.codex/config.toml` 中对应的 `[hooks.state.…]` 信任条目（Codex 只运行已信任的钩子） |
+| GitHub Copilot | `~/.copilot/hooks/cli-code.json`（独立文件） |
+| Grok | `~/.grok/hooks/cli-code.json`（独立文件） |
+| opencode / Kilo / MiMo | `~/.config/opencode|kilo|mimocode/plugins/cli-code-status.ts`（生成的插件） |
+| Pi / OMP | `~/.pi/agent/extensions/cli-code-status.ts`、`~/.omp/agent/extensions/cli-code-status.ts`（生成的扩展） |
 
-  ```json
-  {
-    "type": "command",
-    "command": "[ -n \"$CLI_CODE_HOOK\" ] && eval \"$CLI_CODE_HOOK\" || true"
-  }
+- 首次写入你已有的文件前，会在旁边备份为 `<file>.cli-code.bak`；你自己配置的钩子保持不变，只增删 CLI Code 自己的条目。生成的文件以 `// @cli-code-managed` 开头，缺少该头部时绝不覆盖。
+- 每个条目运行同一行 shell，在 CLI Code 之外运行 CLI 时是空操作（`CLI_CODE_HOOK` 变量不存在）：
+
+  ```sh
+  [ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true
   ```
 
-  当 Claude Code 在 CLI Code 之外运行时，这条命令不会产生任何效果（因为 `CLI_CODE_HOOK` 变量不存在）。
+  生成的插件构造与 shell 钩子相同的 JSON 载荷，再通过管道送入该行。
+- 钩子从该 CLI 下一次启动起生效——已在运行的会话仍从标题猜测状态。
+- 命令面板中的 **"CLI Code: Install Status Hooks"** / **"Remove Status Hooks"** 可手动执行并显示摘要。
+- 仅 POSIX（macOS、Linux）：Windows 没有 `sh` 来执行钩子行，因此不会安装任何东西。
+- 已知限制：钩子命令由 shell `eval`，VS Code 安装路径含 `"` 或 `$` 时会失效。
 
 ### 设置项
 
 | 设置项                       | 类型                        | 默认值   | 说明                                                                          |
 | ------------------------------ | ---------------------------- | -------- | -------------------------------------------------------------------------------- |
-| `cliCode.claudeStatusHooks`    | `"ask" \| "on" \| "off"`     | `"ask"`  | 在 `~/.claude/settings.json` 中安装状态钩子，让 Claude 标签显示运行中/等待/完成。 |
+| `cliCode.statusHooks`          | `boolean`                    | `true`   | 在所有受支持的 CLI 中保持状态钩子（见"状态钩子"）；关闭即全部移除。 |
 | `cliCode.notifications`        | `boolean`                    | `true`   | 当隐藏标签中的助手完成工作时发出通知。                                          |
 | `cliCode.quickCommands`        | 对象数组                     | `[]`     | 可复用的命令或提示词。设置在 User settings = 全局，Workspace settings = 项目。   |
 
@@ -161,7 +168,7 @@ CLI 输出的路径（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`fil
 
 ### 终端右键菜单
 
-**Restart Session**（重启）会把标签带回*同一个会话*：Claude Code 使用其钩子上报的会话 ID；Codex、Grok、Pi、OMP、Command Code、Droid、Prime Agent、Copilot、Cline、Kimi、Cursor、Amp、Antigravity、opencode、MiMo、Kilo、goose 使用各自会话存储中该目录自标签打开以来的最新会话；其余 CLI 使用 `--continue` 形式。只有在一无所知时才会新开会话。
+**Restart Session**（重启）会把标签带回*同一个会话*：带状态钩子的 CLI（Claude Code、Codex、Copilot、Droid、Grok、opencode、Kilo、MiMo、Pi、OMP）使用钩子上报的会话 ID；Command Code、Prime Agent、Cline、Kimi、Cursor、Amp、Antigravity、goose 使用各自会话存储中该目录自标签打开以来的最新会话；其余 CLI 使用 `--continue` 形式。只有在一无所知时才会新开会话。
 
 右键作用于指针下的内容或选区：**Copy**（复制，有选区时）、**Paste**（粘贴）、**Select All**（全选）、指向 URL 时 **Open Link**（打开链接）／指向文件时 **Open File**（打开文件）、**Open with Default App**（用默认应用打开）、**Insert @path into CLI**（把 @路径插入 CLI）／指向文件夹时 **Open Folder**（打开文件夹）、**Copy Link / Path**（复制链接/路径）、**Find Selection**（查找选区）、**Find in Terminal**（在终端中查找）。标签级操作位于终端顶部的安静工具条（同色背景，图标靠右）：**New Session**（新会话 — 先选择 CLI，在当前标签目录打开）、**Resume Session**（历史）、**Restart Session**（重启会话）、**Find**（查找），以及 **…** 中的 **Rename Tab**（重命名标签，`F2`）、**Copy Context**（复制上下文）、**Quick Command**（快捷命令）。工具条左侧仅在代理需要你确认时显示文字。 左侧显示 CLI 正在使用的**模型**（从各 CLI 自身的会话存储读取 — Claude、Codex、Grok、Pi、OMP、opencode/MiMo/Kilo、Cline；不记录模型的 CLI 则隐藏），以及代理等待你时的状态行。 实验性的聊天式**输入框**（输入或粘贴，`Enter` 整体发送，`Shift + Enter` 换行）可通过 `cliCode.composer: true` 启用；默认关闭，以保留 CLI 自身输入框的 `/` 和 `@` 菜单。悬停链接会提示 `Cmd/Ctrl + 点击` 将打开什么及解析后的路径。
 
@@ -169,7 +176,7 @@ CLI 输出的路径（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`fil
 
 0.2.0 的命令以越南语标题注册（括号内为中文释义）：
 
-`CLI Code:` **Resume Session**（恢复历史会话）、**Quick Command**（快捷命令）、**Save as Quick Command**（保存为快捷命令）、**Rename Tab**（重命名标签）、**Restart Session**（重启会话）、**Zoom In**（放大字体）、**Zoom Out**（缩小字体）、**Reset Zoom**（重置字体大小）、**Find in Terminal**（在终端中查找）、**Copy Context**（复制上下文）、**Paste**（粘贴）、**Copy**（复制）、**Install Claude Status Hooks**（安装 Claude 状态钩子）、**Remove Claude Status Hooks**（卸载 Claude 状态钩子）。
+`CLI Code:` **Resume Session**（恢复历史会话）、**Quick Command**（快捷命令）、**Save as Quick Command**（保存为快捷命令）、**Rename Tab**（重命名标签）、**Restart Session**（重启会话）、**Zoom In**（放大字体）、**Zoom Out**（缩小字体）、**Reset Zoom**（重置字体大小）、**Find in Terminal**（在终端中查找）、**Copy Context**（复制上下文）、**Paste**（粘贴）、**Copy**（复制）、**Install Status Hooks**（安装 Claude 状态钩子）、**Remove Status Hooks**（卸载 Claude 状态钩子）。
 
 ## 快捷键
 

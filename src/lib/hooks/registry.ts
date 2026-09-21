@@ -1,0 +1,164 @@
+import * as fs from "node:fs"
+import * as path from "node:path"
+import { backupSettingsFileOnce, hooksInstalled, installHooks, readSettingsFile, uninstallHooks, writeSettingsFile } from "../claude-hooks.js"
+import { addTrust, codexTrustKeys, removeTrust } from "./codex-trust.js"
+import { copilotFile, copilotInstalled } from "./copilot.js"
+import { isManagedPlugin, pluginSource, type PluginFlavour } from "./plugin-template.js"
+
+/**
+ * One installer per CLI that can tell us its agent state. All of them register the same
+ * `HOOK_COMMAND`, so a CLI started outside CLI Code runs a no-op. Every method takes the home
+ * directory explicitly so tests never touch the real one. Disk writes back the file up once
+ * (`<file>.cli-code.bak`) and are atomic.
+ */
+export type StatusHookInstaller = {
+  id: string
+  label: string
+  /** Binary looked up on PATH to decide whether the CLI is present. */
+  binary: string
+  files(home: string): string[]
+  installed(home: string): boolean
+  install(home: string): boolean
+  uninstall(home: string): boolean
+}
+
+// --- text files (TOML, plugins) ---
+
+function readText(file: string): string | undefined {
+  try {
+    return fs.readFileSync(file, "utf8")
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return undefined
+    throw new Error(`Could not read ${file}: ${String(err)}`)
+  }
+}
+function writeText(file: string, text: string): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true })
+  backupSettingsFileOnce(file)
+  const tmp = `${file}.tmp`
+  fs.writeFileSync(tmp, text)
+  fs.renameSync(tmp, file)
+}
+
+// --- the Claude `hooks` object inside a settings file the user also edits (claude, droid) ---
+
+function settingsHooks(id: string, label: string, binary: string, rel: string[], events: readonly string[], timeout?: number): StatusHookInstaller {
+  const file = (home: string) => path.join(home, ...rel)
+  return {
+    id,
+    label,
+    binary,
+    files: (home) => [file(home)],
+    installed: (home) => hooksInstalled(readSettingsFile(file(home)), events),
+    install: (home) => {
+      const { settings, changed } = installHooks(readSettingsFile(file(home)), events, timeout)
+      if (changed) writeSettingsFile(file(home), settings)
+      return changed
+    },
+    uninstall: (home) => {
+      const { settings, changed } = uninstallHooks(readSettingsFile(file(home)), events)
+      if (changed) writeSettingsFile(file(home), settings)
+      return changed
+    },
+  }
+}
+
+// --- Codex: hooks.json plus trust entries in config.toml ---
+
+const CODEX_EVENTS = ["UserPromptSubmit", "Stop", "PermissionRequest"] as const
+const codex: StatusHookInstaller = {
+  id: "codex",
+  label: "Codex",
+  binary: "codex",
+  files: (home) => [path.join(home, ".codex", "hooks.json"), path.join(home, ".codex", "config.toml")],
+  installed: (home) => {
+    const [hooksFile, tomlFile] = codex.files(home) as [string, string]
+    const value = readSettingsFile(hooksFile)
+    if (!hooksInstalled(value, CODEX_EVENTS)) return false
+    const toml = readText(tomlFile) ?? ""
+    return codexTrustKeys(hooksFile, value).every((e) => toml.includes(`[hooks.state."${e.key}"]`))
+  },
+  install: (home) => {
+    const [hooksFile, tomlFile] = codex.files(home) as [string, string]
+    const { settings, changed } = installHooks(readSettingsFile(hooksFile), CODEX_EVENTS, 10)
+    if (changed) writeSettingsFile(hooksFile, settings)
+    const trust = addTrust(readText(tomlFile) ?? "", codexTrustKeys(hooksFile, settings))
+    if (trust.changed) writeText(tomlFile, trust.text)
+    return changed || trust.changed
+  },
+  uninstall: (home) => {
+    const [hooksFile, tomlFile] = codex.files(home) as [string, string]
+    const before = readSettingsFile(hooksFile)
+    const hashes = codexTrustKeys(hooksFile, before).map((e) => e.hash)
+    const { settings, changed } = uninstallHooks(before, CODEX_EVENTS)
+    if (changed) writeSettingsFile(hooksFile, settings)
+    const trust = removeTrust(readText(tomlFile) ?? "", hashes)
+    if (trust.changed) writeText(tomlFile, trust.text)
+    return changed || trust.changed
+  },
+}
+
+// --- a file of our own inside a hooks directory (copilot, grok) ---
+
+function ownJsonFile(id: string, label: string, binary: string, rel: string[], content: () => unknown, isOurs: (value: unknown) => boolean): StatusHookInstaller {
+  const file = (home: string) => path.join(home, ...rel)
+  return {
+    id,
+    label,
+    binary,
+    files: (home) => [file(home)],
+    installed: (home) => fs.existsSync(file(home)) && isOurs(readSettingsFile(file(home))),
+    install: (home) => {
+      if (fs.existsSync(file(home)) && isOurs(readSettingsFile(file(home)))) return false
+      writeSettingsFile(file(home), content())
+      return true
+    },
+    uninstall: (home) => {
+      if (!fs.existsSync(file(home))) return false
+      fs.rmSync(file(home))
+      return true
+    },
+  }
+}
+
+const GROK_EVENTS = ["UserPromptSubmit", "Stop", "StopFailure", "StopCancelled", "Notification"] as const
+
+// --- generated plugin / extension file (opencode family, pi, omp) ---
+
+function plugin(id: string, label: string, binary: string, rel: string[], flavour: PluginFlavour): StatusHookInstaller {
+  const file = (home: string) => path.join(home, ...rel)
+  return {
+    id,
+    label,
+    binary,
+    files: (home) => [file(home)],
+    installed: (home) => readText(file(home)) === pluginSource(flavour),
+    install: (home) => {
+      const current = readText(file(home))
+      if (current === pluginSource(flavour)) return false
+      // Never overwrite a file the user wrote under our name.
+      if (current !== undefined && !isManagedPlugin(current)) throw new Error(`${file(home)} exists and is not managed by CLI Code`)
+      writeText(file(home), pluginSource(flavour))
+      return true
+    },
+    uninstall: (home) => {
+      const current = readText(file(home))
+      if (current === undefined || !isManagedPlugin(current)) return false
+      fs.rmSync(file(home))
+      return true
+    },
+  }
+}
+
+export const STATUS_HOOK_INSTALLERS: readonly StatusHookInstaller[] = [
+  settingsHooks("claude", "Claude Code", "claude", [".claude", "settings.json"], ["UserPromptSubmit", "Stop", "Notification", "PermissionRequest"]),
+  settingsHooks("droid", "Droid", "droid", [".factory", "settings.json"], ["UserPromptSubmit", "Stop", "Notification"]),
+  codex,
+  ownJsonFile("copilot", "GitHub Copilot", "copilot", [".copilot", "hooks", "cli-code.json"], copilotFile, copilotInstalled),
+  ownJsonFile("grok", "Grok", "grok", [".grok", "hooks", "cli-code.json"], () => installHooks({}, GROK_EVENTS).settings, (v) => hooksInstalled(v, GROK_EVENTS)),
+  plugin("opencode", "opencode", "opencode", [".config", "opencode", "plugins", "cli-code-status.ts"], "opencode"),
+  plugin("kilo", "Kilo", "kilo", [".config", "kilo", "plugins", "cli-code-status.ts"], "opencode"),
+  plugin("mimo", "MiMo", "mimo", [".config", "mimocode", "plugins", "cli-code-status.ts"], "opencode"),
+  plugin("pi", "Pi", "pi", [".pi", "agent", "extensions", "cli-code-status.ts"], "pi"),
+  plugin("omp", "OMP", "omp", [".omp", "agent", "extensions", "cli-code-status.ts"], "omp"),
+]

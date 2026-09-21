@@ -120,33 +120,40 @@ Từ 0.2.0, CLI Code không còn mở trợ lý trong terminal tích hợp thư�
 
 - **Đóng tab = kết thúc CLI đó.** VS Code không cho extension "hỏi trước khi đóng" một tab, nên đóng tab sẽ dừng luôn tiến trình CLI trong đó — không có cảnh báo.
 - **Thoát hẳn VS Code = kết thúc mọi phiên.** Tất cả các CLI đang chạy trong CLI Code sẽ dừng theo.
-- **Hook trạng thái Claude chỉ hoạt động trên POSIX** (macOS, Linux) — Windows không cài được hook này.
+- **Hook trạng thái chỉ hoạt động trên POSIX** (macOS, Linux) — Windows không cài được.
 
-### Hook trạng thái Claude Code
+### Hook trạng thái
 
-CLI Code có thể cài một hook nhỏ vào Claude Code để hiển thị đúng trạng thái (đang chạy / đang chờ / xong) trên tab, thay vì chỉ suy đoán từ tiêu đề. Đây là tính năng **opt-in**:
+CLI Code giữ một hook nhỏ trong mỗi CLI được hỗ trợ để tab hiển thị đúng trạng thái (đang chạy / đang chờ / xong) thay vì đoán từ tiêu đề, thông báo "xong việc" bật cho tab đang ẩn, và **Restart Session** biết chính xác hội thoại cần quay về. Giống Orca, việc này diễn ra **tự động**: khi extension khởi động, CLI nào có trên `PATH` mà thiếu hook thì được cài; tắt `cliCode.statusHooks` là gỡ hết.
 
-- Lần đầu bạn mở Claude Code trong CLI Code, extension sẽ hỏi có muốn cài hook không (điều khiển bằng setting `cliCode.claudeStatusHooks`). Đóng thông báo mà không trả lời được coi là "off" cho cửa sổ này — cài lại bằng lệnh Command Palette **"CLI Code: Install Claude Status Hooks"**.
-- Nếu đồng ý, nó ghi thêm vào `~/.claude/settings.json`. Trước lần ghi đầu tiên, file gốc được sao lưu thành `~/.claude/settings.json.cli-code.bak`; các hook đã có của bạn được giữ nguyên.
-- Hook có hiệu lực từ lần mở Claude Code tiếp theo — phiên đang chạy vẫn suy đoán trạng thái từ tiêu đề.
-- Gỡ bất kỳ lúc nào bằng lệnh Command Palette **"CLI Code: Remove Claude Status Hooks"**.
-- Giới hạn đã biết: lệnh hook được shell `eval` (`eval "$CLI_CODE_HOOK"`), nên đường dẫn cài VS Code chứa `"` hoặc `$` sẽ làm hook hỏng.
-- Nội dung mỗi entry được thêm cho 4 sự kiện `UserPromptSubmit`, `Stop`, `Notification`, `PermissionRequest`:
+| CLI | Hook nằm ở đâu |
+| --- | --- |
+| Claude Code | `~/.claude/settings.json` → `hooks` (UserPromptSubmit, Stop, Notification, PermissionRequest) |
+| Droid | `~/.factory/settings.json` → `hooks` |
+| Codex | `~/.codex/hooks.json` → `hooks`, kèm các mục trust `[hooks.state.…]` tương ứng trong `~/.codex/config.toml` (Codex chỉ chạy hook đã được tin cậy) |
+| GitHub Copilot | `~/.copilot/hooks/cli-code.json` (file riêng) |
+| Grok | `~/.grok/hooks/cli-code.json` (file riêng) |
+| opencode / Kilo / MiMo | `~/.config/opencode|kilo|mimocode/plugins/cli-code-status.ts` (plugin sinh tự động) |
+| Pi / OMP | `~/.pi/agent/extensions/cli-code-status.ts`, `~/.omp/agent/extensions/cli-code-status.ts` (extension sinh tự động) |
 
-  ```json
-  {
-    "type": "command",
-    "command": "[ -n \"$CLI_CODE_HOOK\" ] && eval \"$CLI_CODE_HOOK\" || true"
-  }
+- Trước lần ghi đầu tiên vào file bạn đã có, file được sao lưu ngay cạnh thành `<file>.cli-code.bak`; hook bạn tự cấu hình được giữ nguyên, chỉ mục của CLI Code được thêm/bớt. File sinh tự động bắt đầu bằng `// @cli-code-managed` và không bao giờ bị ghi đè nếu thiếu header đó.
+- Mọi mục đều chạy cùng một dòng shell, là no-op khi CLI chạy ngoài CLI Code (không có biến `CLI_CODE_HOOK`):
+
+  ```sh
+  [ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true
   ```
 
-  Lệnh này vô hại khi Claude Code chạy ngoài CLI Code (biến `CLI_CODE_HOOK` không tồn tại nên không làm gì cả).
+  Plugin sinh tự động dựng đúng payload JSON như hook shell nhận, rồi pipe vào dòng đó.
+- Hook có hiệu lực từ lần khởi động tiếp theo của CLI — phiên đang chạy sẵn vẫn đoán trạng thái từ tiêu đề.
+- **"CLI Code: Install Status Hooks"** / **"Remove Status Hooks"** trong Command Palette làm việc tương tự bằng tay và hiện tóm tắt.
+- Chỉ POSIX (macOS, Linux): Windows không có `sh` để chạy dòng hook nên không cài gì.
+- Giới hạn đã biết: lệnh hook được shell `eval`, nên đường dẫn cài VS Code có `"` hoặc `$` sẽ hỏng.
 
 ### Settings
 
 | Setting                     | Kiểu                     | Mặc định | Mô tả                                                                                       |
 | ---------------------------- | ------------------------- | -------- | --------------------------------------------------------------------------------------------- |
-| `cliCode.claudeStatusHooks`  | `"ask" \| "on" \| "off"`   | `"ask"`  | Cài hook trạng thái vào `~/.claude/settings.json` để tab Claude hiện đang chạy / chờ / xong. |
+| `cliCode.statusHooks`        | `boolean`                   | `true`   | Giữ hook trạng thái trong mọi CLI được hỗ trợ (xem "Hook trạng thái"); tắt là gỡ hết. |
 | `cliCode.notifications`      | `boolean`                  | `true`   | Thông báo khi agent xong việc ở một tab đang ẩn.                                              |
 | `cliCode.quickCommands`      | mảng object                | `[]`     | Lệnh hoặc prompt dùng lại. Đặt trong User settings = Global, Workspace settings = Project.    |
 
@@ -165,13 +172,13 @@ Ví dụ `cliCode.quickCommands`:
 
 ### Menu chuột phải trong terminal
 
-**Restart Session** (khởi động lại phiên) đưa tab về *đúng hội thoại cũ*: Claude Code theo session id mà hook báo; Codex, Grok, Pi, OMP, Command Code, Droid, Prime Agent, Copilot, Cline, Kimi, Cursor, Amp, Antigravity, opencode, MiMo, Kilo, goose theo phiên mới nhất trong kho phiên của chính CLI cho thư mục này kể từ lúc mở tab; các CLI còn lại theo dạng `--continue`. Chỉ khi không biết gì mới mở phiên mới.
+**Restart Session** (khởi động lại phiên) đưa tab về *đúng hội thoại cũ*: CLI có hook trạng thái (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP) theo session id mà hook báo; Command Code, Prime Agent, Cline, Kimi, Cursor, Amp, Antigravity, goose theo phiên mới nhất trong kho phiên của chính CLI cho thư mục này kể từ lúc mở tab; các CLI còn lại theo dạng `--continue`. Chỉ khi không biết gì mới mở phiên mới.
 
 Chuột phải làm việc với nội dung dưới con trỏ / vùng bôi: **Copy** (sao chép, khi có vùng bôi) · **Paste** (dán) · **Select All** (chọn tất cả) · trỏ vào URL: **Open Link** / vào tệp: **Open File**, **Open with Default App** (mở bằng app mặc định), **Insert @path into CLI** (chèn @đường-dẫn vào CLI) / vào thư mục: **Open Folder** · **Copy Link / Path** · **Find Selection** (tìm vùng đã bôi) · **Find in Terminal**. Các thao tác với tab nằm ở thanh lặng trên đầu terminal (cùng màu nền, icon sát mép phải): **New Session** (phiên mới — chọn CLI, mở trong thư mục của tab này), **Resume Session** (mở lại phiên cũ), **Restart Session** (khởi động lại phiên), **Find** (tìm), và trong **…**: Rename Tab (đổi tên tab, `F2`), Copy Context (sao chép ngữ cảnh), Quick Command (lệnh nhanh). Bên trái thanh để trống, chỉ hiện chữ khi agent cần anh (“Waiting for your confirmation”). Bên trái thanh hiện **model** CLI đang dùng (đọc từ kho phiên của chính CLI — Claude, Codex, Grok, Pi, OMP, opencode/MiMo/Kilo, Cline; ẩn với CLI không ghi model) và, khi agent chờ anh, một dòng trạng thái. **Khung nhập chat** (thử nghiệm) dưới terminal — gõ/dán, `Enter` gửi nguyên khối, `Shift + Enter` xuống dòng — bật bằng `cliCode.composer: true`; mặc định tắt để giữ nguyên menu `/` và `@` trong ô nhập của chính CLI. Rê chuột lên link sẽ hiện gợi ý `Cmd/Ctrl + click` mở gì kèm đường dẫn đã resolve.
 
 ### Lệnh Command Palette
 
-`CLI Code:` **Resume Session** (mở lại phiên cũ), **Quick Command** (lệnh nhanh), **Save as Quick Command** (lưu thành lệnh nhanh), **Rename Tab** (đổi tên tab), **Restart Session** (khởi động lại phiên), **Zoom In** / **Zoom Out** / **Reset Zoom** (cỡ chữ), **Find in Terminal** (tìm trong terminal), **Copy Context** (sao chép ngữ cảnh), **Paste** (dán), **Copy** (sao chép), **Install Claude Status Hooks** / **Remove Claude Status Hooks** (cài / gỡ hook trạng thái Claude).
+`CLI Code:` **Resume Session** (mở lại phiên cũ), **Quick Command** (lệnh nhanh), **Save as Quick Command** (lưu thành lệnh nhanh), **Rename Tab** (đổi tên tab), **Restart Session** (khởi động lại phiên), **Zoom In** / **Zoom Out** / **Reset Zoom** (cỡ chữ), **Find in Terminal** (tìm trong terminal), **Copy Context** (sao chép ngữ cảnh), **Paste** (dán), **Copy** (sao chép), **Install Status Hooks** / **Remove Status Hooks** (cài / gỡ hook trạng thái Claude).
 
 ## Phím tắt
 

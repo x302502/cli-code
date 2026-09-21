@@ -27,3 +27,17 @@ describe("mapHookEvent — Claude session id", () => {
     expect(mapHookEvent({ hook_event_name: "Stop", session_id: 42 })).toEqual({ state: "done", prompt: undefined })
   })
 })
+
+describe("mapHookEvent — other CLIs' spellings", () => {
+  it("grok: camelCase keys, StopFailure/StopCancelled end a turn, idle_prompt/task_complete ignored", () => {
+    expect(mapHookEvent({ hookEventName: "stop", hook_event_name: "Stop", sessionId: "g-1" })).toEqual({ state: "done", prompt: undefined, cliSessionId: "g-1" })
+    expect(mapHookEvent({ hookEventName: "userPromptSubmit", prompt: "p", sessionId: "g-1" })).toEqual({ state: "working", prompt: "p", cliSessionId: "g-1" })
+    expect(mapHookEvent({ hook_event_name: "StopFailure" })).toEqual({ state: "done", prompt: undefined })
+    expect(mapHookEvent({ hook_event_name: "StopCancelled" })).toEqual({ state: "done", prompt: undefined })
+    expect(mapHookEvent({ hook_event_name: "Notification", notificationType: "permission_prompt" })).toEqual({ state: "waiting", prompt: undefined })
+    expect(mapHookEvent({ hook_event_name: "Notification", notificationType: "task_complete" })).toBeUndefined()
+  })
+  it("copilot: system notifications (agent_completed, agent_idle, shell_completed) never mean waiting", () => {
+    for (const t of ["agent_completed", "agent_idle", "shell_completed"]) expect(mapHookEvent({ hook_event_name: "Notification", notification_type: t })).toBeUndefined()
+  })
+})

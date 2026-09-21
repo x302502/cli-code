@@ -4,7 +4,6 @@ import * as fs from "node:fs"
 import * as net from "node:net"
 import * as os from "node:os"
 import * as vscode from "vscode"
-import { hooksInstalledOnDisk, installHooksToDisk } from "./claude-hooks.js"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
@@ -319,39 +318,6 @@ function isListening(socketPath: string): Promise<boolean> {
   })
 }
 
-/** Opt-in offer to install the Claude status hooks (Task 3's UserPromptSubmit/Stop/Notification/
- * PermissionRequest mapping) into ~/.claude/settings.json, asked once per machine unless the
- * user already set a preference. Windows has no `eval`-based shell hook to install. */
-async function maybeOfferClaudeHooks(context: vscode.ExtensionContext): Promise<void> {
-  try {
-    const mode = vscode.workspace.getConfiguration("cliCode").get<string>("claudeStatusHooks") ?? "ask"
-    if (mode === "off") return
-    // Mark "asked" before touching disk so a corrupt settings.json shows its error once,
-    // not on every Claude open.
-    const asked = context.globalState.get<boolean>("cliCode.hooksAsked")
-    if (mode === "ask" && !asked) await context.globalState.update("cliCode.hooksAsked", true)
-    if (hooksInstalledOnDisk()) return
-    if (mode === "on") {
-      installHooksToDisk()
-      return
-    }
-    if (asked) return
-    const choice = await vscode.window.showInformationMessage(
-      "Install the status hooks into ~/.claude/settings.json (a .bak backup is kept)? Takes effect the next time Claude starts.",
-      "Install",
-      "No",
-    )
-    if (choice === "Install") {
-      installHooksToDisk()
-      await vscode.workspace.getConfiguration("cliCode").update("claudeStatusHooks", "on", vscode.ConfigurationTarget.Global)
-    } else {
-      await vscode.workspace.getConfiguration("cliCode").update("claudeStatusHooks", "off", vscode.ConfigurationTarget.Global)
-    }
-  } catch (err) {
-    void vscode.window.showErrorMessage(String(err))
-  }
-}
-
 export async function openTerminalPanel(
   context: vscode.ExtensionContext,
   tool: CliTool,
@@ -364,7 +330,6 @@ export async function openTerminalPanel(
   } = {},
 ): Promise<void> {
   // Not awaited: the offer is a non-modal toast, and the terminal must open right away.
-  if (tool.id.startsWith("claude") && process.platform !== "win32") void maybeOfferClaudeHooks(context)
   const socketPath = await ensureDaemon(context)
   const cwd = usableCwd(options.cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
   const port = tool.hasHttpApi ? randomPort() : undefined
