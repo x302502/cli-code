@@ -1,28 +1,61 @@
+/** Orca's generated-tab-title budget: a tab shows a preview, not the prompt. */
+export const TAB_TITLE_MAX_LENGTH = 40
+const SOURCE_SCAN_LIMIT = 512
+// Openers that carry no information about the task ("can you please …").
+const LEADING_FILLER = [
+  /^(?:can|could|would)\s+you(?:\s+please)?\s+/i,
+  /^please(?:\s+|$)/i,
+  /^i\s+(?:want|need)\s+(?:you\s+)?to\s+/i,
+  /^help\s+me(?:\s+to)?\s+/i,
+  /^help\s+/i,
+  /^let'?s\s+/i,
+  /^we\s+need\s+to\s+/i,
+  /^need\s+to\s+/i,
+]
+
+/** Cuts to `max` chars at a word boundary (unless that loses most of it) and marks the cut with …. */
+export function truncateTitle(value: string, max = TAB_TITLE_MAX_LENGTH): string {
+  if (value.length <= max) return value
+  const raw = value.slice(0, max)
+  const sliced = raw.trim()
+  // The cut landed on whitespace: the slice already ends on a word.
+  if (sliced.length < raw.length) return `${sliced}…`
+  const lastSpace = sliced.lastIndexOf(" ")
+  return `${(lastSpace >= Math.floor(max * 0.55) ? sliced.slice(0, lastSpace) : sliced).trim()}…`
+}
+
 /**
- * Strips slash commands, pasted-text annotations, and limits length
- * to produce a clean, human-readable terminal tab title from a prompt.
+ * A tab title from a prompt, the way Orca derives one: first clause only, URLs, markdown
+ * punctuation, issue prefixes and filler openers dropped, letters/digits kept, capitalised,
+ * at most 40 characters with … when cut. Slash commands and pasted-text markers are ours.
  */
 export function formatPromptTitle(prompt: string): string {
   if (!prompt) return ""
-
-  // Strip leading slash commands like /goal, /plan, /clear
-  let text = prompt.replace(/^\/[a-zA-Z0-9_-]+\s*/, "").trim()
-  // Strip pasted-text annotations like [Pasted text #3 +14 lines]
-  text = text.replace(/\[Pasted text[^\]]*\]/g, "").trim()
-  // Take first non-empty line
-  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean)
-  const firstLine = lines[0] ?? ""
-  if (!firstLine || firstLine.length < 2) return ""
-
-  const MAX_LEN = 20
-  if (firstLine.length <= MAX_LEN) return firstLine
-
-  // Cut at a word boundary so tabs don't end mid-word, unless that would throw
-  // away most of the title (e.g. a long path with no spaces to break on).
-  const cut = firstLine.slice(0, MAX_LEN)
-  const lastSpace = cut.lastIndexOf(" ")
-  const kept = lastSpace >= Math.floor(MAX_LEN * 0.55) ? cut.slice(0, lastSpace) : cut
-  return kept.trimEnd() + "…"
+  // Prompts can be paste-sized; the title only ever comes from the start.
+  let text = prompt.slice(0, SOURCE_SCAN_LIMIT).replace(/^\/[a-zA-Z0-9_-]+\s*/, "")
+  text = text.replace(/\[Pasted text[^\]]*\]/g, "")
+  const firstClause = text
+    .trim()
+    // URLs first: their `_`/`#` would otherwise be folded to spaces and leak fragments.
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/[`*_~#>[\]{}()]/g, " ")
+    .replace(/^(?:issue|task|bug|feature|pr)\s*(?:#?\d+)?\s*[:-]\s*/i, "")
+    .split(/[.!?;\n\r\u2028\u2029]/u)[0]
+    ?.trim()
+  if (!firstClause) return ""
+  let candidate = firstClause
+  for (let i = 0; i < 3; i++) {
+    const before = candidate
+    for (const pattern of LEADING_FILLER) candidate = candidate.replace(pattern, "")
+    candidate = candidate.trim()
+    if (candidate === before.trim()) break
+  }
+  candidate = candidate
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+  if (candidate.length < 2) return ""
+  return truncateTitle(candidate.replace(/\p{L}/u, (letter) => letter.toLocaleUpperCase()))
 }
 
 const SHELL_NAMES = new Set(["sh", "bash", "zsh", "fish", "pwsh", "powershell", "powershell.exe", "cmd.exe"])
@@ -58,7 +91,7 @@ export function resolveTabTitle(parts: {
   // others (Claude, Gemini, Pi/OMP) prefix a status glyph or spinner — the tab shows its own
   // status glyph already. Same prefix set Orca strips, plus prompt markers.
   const osc = parts.oscTitle?.replace(/^(?:[\s✳✦⏲◇✋⠀-⣿◐-◓>❯›»$%#]+|[.*]\s)\s*/u, "").trim()
-  if (osc && isMeaningfulOscTitle(osc)) return osc
+  if (osc && isMeaningfulOscTitle(osc)) return truncateTitle(osc)
 
   const prompt = parts.promptTitle?.trim()
   if (prompt) return prompt

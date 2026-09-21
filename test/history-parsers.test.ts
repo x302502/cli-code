@@ -19,7 +19,7 @@ describe("claude", () => {
   })
   it("không có title record thì dùng prompt đầu (đã format)", () => {
     const lines = fx("claude-session.jsonl").split("\n").filter((l) => !l.includes("custom-title")).join("\n")
-    expect(parseClaudeSession(lines, fb)!.title).toBe("sửa bug đăng nhập")
+    expect(parseClaudeSession(lines, fb)!.title).toBe("Sửa bug đăng nhập")
   })
   it("mã hoá thư mục project không gộp dấu gạch", () => {
     expect(encodeClaudeProjectDir("/Volumes/Data/.x y")).toBe("-Volumes-Data--x-y")
@@ -43,13 +43,13 @@ describe("claude", () => {
 describe("codex", () => {
   it("lấy id/cwd từ session_meta và input_text đầu", () => {
     const s = parseCodexRollout(fx("codex-rollout.jsonl"), fb)!
-    expect(s).toMatchObject({ toolId: "codex", sessionId: "c0dex-1", cwd: "/w", title: "refactor auth" })
+    expect(s).toMatchObject({ toolId: "codex", sessionId: "c0dex-1", cwd: "/w", title: "Refactor auth" })
   })
 })
 
 describe("grok", () => {
   it("summary.title thắng; thiếu thì lột <user_query>", () => {
     expect(parseGrokSession(fx("grok-summary.json"), fx("grok-chat.jsonl"), fb)!.title).toBe("Grok việc A")
-    expect(parseGrokSession(undefined, fx("grok-chat.jsonl"), fb)!.title).toBe("hỏi grok")
+    expect(parseGrokSession(undefined, fx("grok-chat.jsonl"), fb)!.title).toBe("Hỏi grok")
   })
 })

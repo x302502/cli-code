@@ -1,36 +1,30 @@
 import { describe, expect, it } from "bun:test"
 import { formatPromptTitle, isMeaningfulOscTitle, resolveTabTitle } from "../src/lib/tab-title.js"
 
-describe("formatPromptTitle", () => {
-  it("formats regular prompt strings", () => {
-    expect(formatPromptTitle("hello world")).toBe("hello world")
-    expect(formatPromptTitle("Review PR này, https://github.com/foo/bar/very/long/path/indeed")).toBe(
-      "Review PR này,…",
-    )
+describe("formatPromptTitle — Orca's generated-tab-title rule (40 chars, first clause, ellipsis)", () => {
+  it("keeps short prompts, capitalised", () => {
+    expect(formatPromptTitle("hello world")).toBe("Hello world")
+    expect(formatPromptTitle("sửa bug đăng nhập")).toBe("Sửa bug đăng nhập")
   })
-
-  it("cuts long titles at a word boundary", () => {
-    expect(formatPromptTitle("Rồi bây giờ bạn xóa cms-demo và làm lại")).toBe("Rồi bây giờ bạn xóa…")
-    // Exactly at the cap stays whole.
-    expect(formatPromptTitle("a".repeat(20))).toBe("a".repeat(20))
-  })
-
-  it("falls back to a hard cut when there is no usable word boundary", () => {
-    expect(formatPromptTitle("Data/itsme/study/ai/sdlc-ts")).toBe("Data/itsme/study/ai/…")
+  it("cuts at a word boundary after 40 chars and appends …", () => {
+    expect(formatPromptTitle("Rồi bây giờ bạn xóa cms-demo và làm lại toàn bộ phần đăng nhập")).toBe("Rồi bây giờ bạn xóa cms demo và làm lại…")
+    expect(formatPromptTitle("a".repeat(40))).toBe("A" + "a".repeat(39))
+    expect(formatPromptTitle("a".repeat(41))).toBe("A" + "a".repeat(39) + "…")
     // A space too early in the string is ignored, otherwise the title loses too much.
-    expect(formatPromptTitle("run demo-with-a-very-long-flag")).toBe("run demo-with-a-very…")
+    expect(formatPromptTitle("run demo-with-a-very-long-flag-that-keeps-going-on")).toBe("Run demo with a very long flag that…")
   })
-
-  it("strips slash commands like /goal, /clear, /plan", () => {
-    expect(formatPromptTitle("/goal fix auth bugs")).toBe("fix auth bugs")
-    expect(formatPromptTitle("/plan create a new database model")).toBe("create a new…")
+  it("takes the first clause and drops URLs, markdown punctuation and leading filler", () => {
+    expect(formatPromptTitle("Review PR này https://github.com/foo/bar/very/long/path/indeed and deploy")).toBe("Review PR này and deploy")
+    expect(formatPromptTitle("Fix the login bug. Then merge it.")).toBe("Fix the login bug")
+    expect(formatPromptTitle("Can you please fix the **login** bug? It breaks on iOS")).toBe("Fix the login bug")
+    expect(formatPromptTitle("Issue #42: add `retry` to the client")).toBe("Add retry to the client")
+    expect(formatPromptTitle("let's refactor   the	parser")).toBe("Refactor the parser")
+  })
+  it("strips slash commands like /goal, /clear, /plan and [Pasted text #…]", () => {
+    expect(formatPromptTitle("/goal fix auth bugs")).toBe("Fix auth bugs")
     expect(formatPromptTitle("/clear")).toBe("")
-  })
-
-  it("strips [Pasted text #...]", () => {
     expect(formatPromptTitle("Check this code\n[Pasted text #3 +14 lines]")).toBe("Check this code")
   })
-
   it("handles empty or single char inputs", () => {
     expect(formatPromptTitle("")).toBe("")
     expect(formatPromptTitle("a")).toBe("")
@@ -100,5 +94,10 @@ describe("OSC title prompt prefixes", () => {
     expect(resolveTabTitle({ oscTitle: "✳ sửa bug đăng nhập", toolLabel: "Claude" })).toBe("sửa bug đăng nhập")
     expect(resolveTabTitle({ oscTitle: "⠋ Grok", toolLabel: "Grok" })).toBe("Grok")
     expect(resolveTabTitle({ oscTitle: "* thinking", toolLabel: "X" })).toBe("thinking")
+  })
+  it("caps long OSC titles at 40 chars with …, but never touches a title the user typed", () => {
+    const long = "Refactor the authentication flow so tokens refresh silently"
+    expect(resolveTabTitle({ oscTitle: long, toolLabel: "X" })).toBe("Refactor the authentication flow so…")
+    expect(resolveTabTitle({ customTitle: long, toolLabel: "X" })).toBe(long)
   })
 })
