@@ -39,3 +39,13 @@ function matchesTemplate(command: string, template: string): boolean {
   if (after === undefined) return command === template
   return command.startsWith(before!) && command.endsWith(after) && command.length > before!.length + after.length
 }
+
+/**
+ * "Continue latest session" for the resume picker: the folder's newest session by id when
+ * the CLI's own store named one (right folder, and the only option for CLIs such as Cline
+ * that have no --continue), else the CLI's continue command, else nothing.
+ */
+export function continueLatestCommand(tool: CliTool, locatedId: string | undefined): string | undefined {
+  if (tool.resumeCommand && locatedId && SAFE_ID.test(locatedId)) return tool.resumeCommand.replace("{sessionId}", locatedId)
+  return tool.continueCommand
+}

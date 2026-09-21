@@ -1,7 +1,7 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
 import { encodeClaudeProjectDir } from "./claude.js"
-import { locateLatestSessionFile, openDb } from "./locate.js"
+import { locateLatestSession, locateLatestSessionFile, openDb } from "./locate.js"
 import { codexSessions, grokSessions } from "./scan.js"
 
 // The model id shows up under a handful of spellings across CLIs' transcripts; the latest
@@ -74,6 +74,10 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
         const db = { opencode: "opencode/opencode.db", mimo: "mimocode/mimocode.db", kilo: "kilo/kilo.db" }[toolId]!
         return modelFromOpencodeDb(path.join(home, ".local", "share", db), cwd, sinceMs)
       }
+      case "copilot": {
+        const id = sessionId ?? locateLatestSession("copilot", cwd, sinceMs, home)
+        return id ? modelFromCopilotDb(path.join(home, ".copilot", "session-store.db"), id) : undefined
+      }
       default: {
         const file = locateLatestSessionFile(toolId, cwd, sinceMs, home)
         return file ? modelFromFile(file) : undefined
@@ -110,6 +114,18 @@ function modelFromOpencodeDb(file: string, cwd: string, sinceMs: number): string
     if (!session || typeof session.id !== "string") return undefined
     const row = db.prepare("SELECT data FROM message WHERE session_id = ? AND data LIKE '%\"modelID\"%' ORDER BY time_created DESC LIMIT 1").get(session.id)
     return typeof row?.data === "string" ? modelFromText(row.data) : undefined
+  } finally {
+    db.close()
+  }
+}
+
+/** Copilot logs every assistant turn's model in session-store.db; the newest row is the model in play. */
+function modelFromCopilotDb(file: string, sessionId: string): string | undefined {
+  const db = openDb(file)
+  if (!db) return undefined
+  try {
+    const row = db.prepare("SELECT model FROM assistant_usage_events WHERE session_id = ? ORDER BY id DESC LIMIT 1").get(sessionId)
+    return typeof row?.model === "string" && row.model ? row.model : undefined
   } finally {
     db.close()
   }

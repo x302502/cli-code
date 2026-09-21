@@ -1,9 +1,12 @@
 import * as vscode from "vscode"
-import { CLI_TOOLS } from "./config.js"
+import * as os from "node:os"
+import { CLI_TOOLS, type CliTool } from "./config.js"
 import { getActiveFileReference } from "./editor.js"
+import { locateLatestSession } from "./history/locate.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
 import { activePanelCwd, findExistingPanel, openTerminalPanel, pasteToActivePanel, writeToActivePanel } from "./panel.js"
 import { mergeQuickCommands } from "./quick-commands.js"
+import { continueLatestCommand } from "./restart-command.js"
 import { pickTool } from "./terminal.js"
 
 /** Opens a CLI terminal panel, optionally reusing an already-open one for the chosen tool. */
@@ -39,9 +42,12 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
     return
   }
   const sessions = await listSessionsForWorkspace(cwd)
-  // Tools whose sessions cannot be listed (no history parser) still get a "continue latest" entry.
-  const continueOnlyTools = CLI_TOOLS.filter((t) => t.continueCommand && !sessions.some((s) => s.toolId === t.id))
-  if (sessions.length === 0 && continueOnlyTools.length === 0) {
+  // Tools whose sessions cannot be listed (no history parser) still get a "continue latest"
+  // entry: this folder's newest session from the CLI's own store when it has one, else --continue.
+  const continueEntries = CLI_TOOLS.filter((t) => !sessions.some((s) => s.toolId === t.id))
+    .map((tool) => ({ tool, command: continueLatestCommand(tool, locateLatestSession(tool.historyToolId ?? tool.id, cwd, 0, os.homedir())) }))
+    .filter((e): e is { tool: CliTool; command: string } => e.command !== undefined)
+  if (sessions.length === 0 && continueEntries.length === 0) {
     void vscode.window.showInformationMessage("No sessions found for this folder.")
     return
   }
@@ -56,8 +62,8 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
       run: () => openTerminalPanel(context, tool, { command: tool.resumeCommand!.replace("{sessionId}", s.sessionId), title: s.title }),
     }
   })
-  for (const tool of continueOnlyTools) {
-    items.push({ label: `$(debug-continue) Continue latest session`, description: tool.label, run: () => openTerminalPanel(context, tool, { command: tool.continueCommand! }) })
+  for (const { tool, command } of continueEntries) {
+    items.push({ label: `$(debug-continue) Continue latest session`, description: tool.label, run: () => openTerminalPanel(context, tool, { command }) })
   }
   const picked = await vscode.window.showQuickPick(items, { placeHolder: "Pick a session to resume", matchOnDescription: true })
   if (picked) await picked.run()

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { restartCommand } from "../src/lib/restart-command.js"
+import { continueLatestCommand, restartCommand } from "../src/lib/restart-command.js"
 import type { CliTool } from "../src/lib/config.js"
 import type { SessionSummary } from "../src/lib/history/types.js"
 
@@ -34,5 +34,22 @@ describe("restartCommand", () => {
   it("a variant sharing another CLI's transcripts (Claude Agent Teams) resumes through historyToolId", () => {
     const teams: CliTool = { ...claude, id: "claude-agent-teams", historyToolId: "claude", resumeCommand: "X=1 claude --resume {sessionId}" }
     expect(restartCommand({ tool: teams, baseCommand: "X=1 claude", sessions: [s("claude", "t1", 5000)], spawnedAt: 1000 })).toBe("X=1 claude --resume t1")
+  })
+})
+
+describe("continueLatestCommand", () => {
+  const base: CliTool = { id: "x", label: "X", icon: "", themeIcon: "", command: "x", hasHttpApi: false }
+  const cline: CliTool = { ...base, id: "cline", resumeCommand: "cline --id {sessionId}", continueCommand: undefined }
+  const amp: CliTool = { ...base, id: "amp", resumeCommand: "amp threads continue {sessionId}", continueCommand: "amp threads continue --last" }
+  it("resumes the folder's newest session by id when the CLI's store names one", () => {
+    expect(continueLatestCommand(cline, "abc-123")).toBe("cline --id abc-123")
+    expect(continueLatestCommand(amp, "T-1")).toBe("amp threads continue T-1")
+  })
+  it("falls back to the CLI's own --continue, or nothing for CLIs without one", () => {
+    expect(continueLatestCommand(amp, undefined)).toBe("amp threads continue --last")
+    expect(continueLatestCommand(cline, undefined)).toBeUndefined()
+  })
+  it("never splices an unsafe id into a shell line", () => {
+    expect(continueLatestCommand(amp, "x; rm -rf /")).toBe("amp threads continue --last")
   })
 })

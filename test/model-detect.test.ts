@@ -57,6 +57,15 @@ describe("detectModel — per-CLI session stores", () => {
     db.close()
     expect(detectModel("opencode", cwd, T0, home)).toBe("mimo-v2.5-free")
   })
+  it("copilot: newest usage event of the folder's session in session-store.db", () => {
+    const { Database } = require("bun:sqlite") as { Database: new (p: string) => { exec(s: string): void; close(): void } }
+    write(".copilot/session-state/s-1/workspace.yaml", "id: s-1\ncwd: /w/proj\n")
+    const db = new Database(path.join(home, ".copilot/session-store.db"))
+    db.exec("CREATE TABLE assistant_usage_events (id integer primary key, session_id text, model text)")
+    db.exec("INSERT INTO assistant_usage_events (session_id, model) VALUES ('s-1','gpt-5'), ('s-1','claude-sonnet-5'), ('s-other','gpt-4.1')")
+    db.close()
+    expect(detectModel("copilot", cwd, T0, home)).toBe("claude-sonnet-5")
+  })
   it("unknown CLI or no store → undefined", () => {
     expect(detectModel("copilot", cwd, T0, home)).toBeUndefined()
     expect(detectModel("pi", cwd, T0, home)).toBeUndefined()
