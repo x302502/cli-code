@@ -4,19 +4,21 @@
 
 📖 Tài liệu đầy đủ: [Hướng dẫn sử dụng](docs/user-guide.vi.md) · [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
 
-> Mở trợ lý lập trình AI yêu thích của bạn trong terminal ngay cạnh code — và gửi thẳng file bạn đang xem vào đó, chỉ với một phím tắt.
+> Chạy Claude Code, Codex, Copilot, opencode, Pi và 23 trợ lý lập trình khác ngay trong VS Code — mỗi trợ lý một tab terminal biết agent đang làm gì, mở được mọi file nó nhắc tới, sống qua reload, và khởi động lại về đúng hội thoại.
 
 ![Nhiều AI CLI chạy song song trong VS Code](images/screenshots/terminals.png)
 
 ## Nó làm gì?
 
-Nhiều công cụ lập trình AI chạy trên terminal: **Claude Code, Codex, Antigravity, opencode**, và nhiều hơn nữa. Nếu bạn dùng nhiều hơn một cái, việc chuyển qua lại khá mất công.
+- **Một phím tắt tới mọi trợ lý.** `Cmd/Ctrl + Esc` → chọn trong 28 CLI → mở ngay cạnh editor, trong thư mục dự án, bằng shell thật của bạn (`PATH`, nvm, MCP server — y như terminal).
+- **Gửi file đang xem** bằng `Cmd/Ctrl + Alt + K`: trợ lý nhận `@src/app.ts#L10-20`, không copy-paste.
+- **Tab cho biết chuyện gì đang xảy ra.** Tab tự đổi tên theo việc bạn giao, hiện `⟳` đang chạy / `?` đang chờ bạn / `●` đã xong khi bạn ở tab khác, và có thông báo khi agent ở tab ẩn cần bạn.
+- **Mọi đường dẫn và link agent in ra đều bấm được.** `Cmd/Ctrl + click` mở file đúng dòng, thư mục trong Explorer, URL trong trình duyệt; click thường chọn trọn link để `Cmd/Ctrl + C`. Bôi chọn và chép vẫn hoạt động khi Claude Code bắt chuột.
+- **Reload Window không mất gì.** Phiên chạy dưới daemon nền, nối lại với đủ scrollback, tên tab, trạng thái.
+- **Khởi động lại về đúng hội thoại.** Vừa đổi MCP server hay plugin? Restart tab, 19 trợ lý quay về đúng chỗ đang dở — tab rảnh còn tự restart khi config đổi.
+- **Mở lại phiên cũ, lệnh nhanh, chép ngữ cảnh, tìm, zoom**, và ô model cho biết trợ lý đang chạy model nào.
 
-**CLI Code** đưa tất cả vào trong tầm một phím tắt:
-
-- Nhấn một phím → chọn trợ lý → nó mở trong terminal **bên cạnh editor**.
-- Mỗi trợ lý mở kèm **icon riêng** trên tab terminal (icon lấy từ [Orca](https://github.com/stablyai/orca)).
-- Nhấn một phím khác → **file bạn đang xem** (và những dòng bạn bôi đen) được đưa vào prompt của trợ lý. Khỏi copy-paste.
+Trạng thái, restart theo phiên và ô model đến từ một hook trạng thái nhỏ mà CLI Code cài vào config của từng trợ lý (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP) — có sao lưu, gỡ được, và không làm gì khi chạy ngoài CLI Code. Chi tiết trong [Hướng dẫn sử dụng](docs/user-guide.vi.md).
 
 ## Bắt đầu
 
@@ -109,9 +111,9 @@ CLI Code chèn một tham chiếu tới file của bạn vào prompt:
 
 Giờ chỉ cần gõ câu hỏi — trợ lý đã biết bạn đang nói về file (và dòng) nào.
 
-## Terminal riêng (0.2.0)
+## Terminal riêng của CLI Code
 
-Từ 0.2.0, CLI Code không còn mở trợ lý trong terminal tích hợp thường của VS Code — mỗi trợ lý mở trong **terminal riêng của extension**: một webview panel nối tới một daemon PTY chạy nền. Nhờ đó:
+Trợ lý không chạy trong terminal tích hợp của VS Code mà trong **terminal riêng của extension** — một webview panel nối tới một daemon PTY chạy nền. Đó là thứ làm nên phần còn lại:
 
 - Tab terminal có **icon màu** riêng cho từng trợ lý.
 - **Tên tab tự cập nhật** theo prompt bạn vừa gõ (không cần đặt tên tay) — theo giới hạn của Orca: bỏ URL, tối đa 40 ký tự, cắt tại ranh giới từ và thêm `…`.

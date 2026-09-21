@@ -4,19 +4,21 @@
 
 📖 Full manual: [User Guide](docs/user-guide.md) · [Hướng dẫn sử dụng](docs/user-guide.vi.md) · [Changelog](CHANGELOG.md)
 
-> Open your favourite AI coding assistant in a terminal next to your code — and send the file you're looking at straight into it, with one shortcut.
+> Run Claude Code, Codex, Copilot, opencode, Pi and 23 other coding assistants in VS Code — each in a terminal tab that knows what the agent is doing, opens every file it mentions, survives a reload, and restarts into the same conversation.
 
 ![Multiple AI CLIs running side by side in VS Code](images/screenshots/terminals.png)
 
 ## What it does
 
-Many AI coding tools run in the terminal: **Claude Code, Codex, Antigravity, opencode**, and more. If you use more than one, switching between them is a chore.
+- **One shortcut to any assistant.** `Cmd/Ctrl + Esc` → pick from 28 CLIs → it opens beside your editor, in your project folder, in your real shell (`PATH`, nvm, MCP servers — all as in a terminal).
+- **Send the file you're looking at** with `Cmd/Ctrl + Alt + K`: the assistant gets `@src/app.ts#L10-20`, no copy-paste.
+- **Tabs that tell you what's going on.** The tab renames itself after the task you gave, shows `⟳` working / `?` waiting for you / `●` done while you were away, and you get a notification when an agent on a hidden tab needs you.
+- **Every path and link the agent prints is clickable.** `Cmd/Ctrl + click` opens the file at the exact line, folders in the Explorer, URLs in the browser; a plain click selects the link so `Cmd/Ctrl + C` copies it. Selection and copy work even while Claude Code captures the mouse.
+- **Nothing lost on Reload Window.** Sessions run under a background daemon and re-attach with scrollback, title and state.
+- **Restart into the same conversation.** Changed an MCP server or a plugin? Restart the tab and 19 assistants come back exactly where you were — idle tabs even restart themselves when their config changes.
+- **Resume past sessions, quick commands, copy context, find, zoom**, and a model pill showing what the assistant is running on.
 
-**CLI Code** puts all of them one shortcut away:
-
-- Press a key → pick an assistant → it opens in a terminal **beside your editor**.
-- Each assistant opens with its **own icon** on the terminal tab (icons sourced from [Orca](https://github.com/stablyai/orca)).
-- Press another key → the **file you're viewing** (and the lines you selected) is dropped into the assistant's prompt. No copy-paste.
+Status, restart-by-session and the model pill come from a small status hook CLI Code installs into each assistant's own config (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP) — backed up, removable, and a no-op outside CLI Code. Details in the [User Guide](docs/user-guide.md).
 
 ## Getting started
 
@@ -109,9 +111,9 @@ CLI Code drops a reference to your file into the prompt:
 
 Now just type your question — the assistant already knows which file (and lines) you mean.
 
-## Built-in terminal (0.2.0)
+## The CLI Code terminal
 
-As of 0.2.0, CLI Code no longer opens assistants in a regular VS Code integrated terminal — each assistant opens in the **extension's own terminal**: a webview panel connected to a background PTY daemon. That gets you:
+Assistants don't run in VS Code's integrated terminal but in the **extension's own terminal** — a webview panel connected to a background PTY daemon. That is what makes the rest possible:
 
 - A **coloured icon** on the terminal tab for each assistant.
 - **Automatic tab titles** that update from the prompt you just typed (no manual renaming needed) — Orca's budget: URLs dropped, at most 40 characters, cut at a word boundary with `…`.
