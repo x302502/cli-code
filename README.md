@@ -112,7 +112,7 @@ Now just type your question — the assistant already knows which file (and line
 As of 0.2.0, CLI Code no longer opens assistants in a regular VS Code integrated terminal — each assistant opens in the **extension's own terminal**: a webview panel connected to a background PTY daemon. That gets you:
 
 - A **coloured icon** on the terminal tab for each assistant.
-- **Automatic tab titles** that update from the prompt you just typed (no manual renaming needed) — the same rule as Orca: first clause, URLs and markdown noise dropped, at most 40 characters with `…` when cut.
+- **Automatic tab titles** that update from the prompt you just typed (no manual renaming needed) — Orca's budget: URLs dropped, at most 40 characters, cut at a word boundary with `…`.
 - **Agent status** shown right on the tab title — working, waiting on you, or done.
 - Sessions that **survive Reload Window**: after a reload, the terminal reconnects to the running CLI session automatically, with nothing lost.
 

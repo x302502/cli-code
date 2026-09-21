@@ -112,7 +112,7 @@ Giờ chỉ cần gõ câu hỏi — trợ lý đã biết bạn đang nói về
 Từ 0.2.0, CLI Code không còn mở trợ lý trong terminal tích hợp thường của VS Code — mỗi trợ lý mở trong **terminal riêng của extension**: một webview panel nối tới một daemon PTY chạy nền. Nhờ đó:
 
 - Tab terminal có **icon màu** riêng cho từng trợ lý.
-- **Tên tab tự cập nhật** theo prompt bạn vừa gõ (không cần đặt tên tay) — cùng quy tắc với Orca: lấy mệnh đề đầu, bỏ URL và ký hiệu markdown, tối đa 40 ký tự, cắt thì thêm `…`.
+- **Tên tab tự cập nhật** theo prompt bạn vừa gõ (không cần đặt tên tay) — theo giới hạn của Orca: bỏ URL, tối đa 40 ký tự, cắt tại ranh giới từ và thêm `…`.
 - Tab hiển thị **trạng thái agent** — đang chạy, đang chờ bạn, hay đã xong — ngay trên tiêu đề.
 - Phiên **sống qua Reload Window**: reload cửa sổ xong, terminal tự nối lại vào đúng phiên CLI đang chạy, không mất ngữ cảnh.
 

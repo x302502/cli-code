@@ -5,29 +5,29 @@ describe("createPromptTracker", () => {
   it("emits a title on Enter, then resets", () => {
     const feed = createPromptTracker()
     expect(feed("fix login bug")).toBeUndefined()
-    expect(feed("\r")).toBe("Fix login bug")
+    expect(feed("\r")).toBe("fix login bug")
     expect(feed("\r")).toBeUndefined()
   })
   it("types characters and deletes with backspace", () => {
     const feed = createPromptTracker()
     for (const ch of "abcd") feed(ch)
     feed("\x7f")
-    expect(feed("\r")).toBe("Abc")
+    expect(feed("\r")).toBe("abc")
   })
   it("skips CSI (arrow keys) and lone ESC, keeps printable characters", () => {
     const feed = createPromptTracker()
     feed("a\x1b[Ab\x1b[D\x1bc")
-    expect(feed("\r")).toBe("Abc")
+    expect(feed("\r")).toBe("abc")
   })
   it("takes bracketed paste content verbatim", () => {
     const feed = createPromptTracker()
     feed("\x1b[200~review PR\x1b[201~")
-    expect(feed("\r")).toBe("Review PR")
+    expect(feed("\r")).toBe("review PR")
   })
   it("Shift+Enter (ESC CR) is a soft newline, not a submit", () => {
     const feed = createPromptTracker()
     feed("line one\x1b\rline two")
-    expect(feed("\r")).toBe("Line one")
+    expect(feed("\r")).toBe("line one")
   })
   it("does not emit when the formatted line is under 2 characters", () => {
     const feed = createPromptTracker()

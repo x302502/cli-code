@@ -1,17 +1,6 @@
 /** Orca's generated-tab-title budget: a tab shows a preview, not the prompt. */
 export const TAB_TITLE_MAX_LENGTH = 40
 const SOURCE_SCAN_LIMIT = 512
-// Openers that carry no information about the task ("can you please …").
-const LEADING_FILLER = [
-  /^(?:can|could|would)\s+you(?:\s+please)?\s+/i,
-  /^please(?:\s+|$)/i,
-  /^i\s+(?:want|need)\s+(?:you\s+)?to\s+/i,
-  /^help\s+me(?:\s+to)?\s+/i,
-  /^help\s+/i,
-  /^let'?s\s+/i,
-  /^we\s+need\s+to\s+/i,
-  /^need\s+to\s+/i,
-]
 
 /** Cuts to `max` chars at a word boundary (unless that loses most of it) and marks the cut with …. */
 export function truncateTitle(value: string, max = TAB_TITLE_MAX_LENGTH): string {
@@ -25,37 +14,23 @@ export function truncateTitle(value: string, max = TAB_TITLE_MAX_LENGTH): string
 }
 
 /**
- * A tab title from a prompt, the way Orca derives one: first clause only, URLs, markdown
- * punctuation, issue prefixes and filler openers dropped, letters/digits kept, capitalised,
- * at most 40 characters with … when cut. Slash commands and pasted-text markers are ours.
+ * A tab title from a prompt: first line, URLs dropped, whitespace folded, at most 40
+ * characters cut at a word boundary with … (Orca's budget and cut rule). Orca also splits at
+ * the first sentence punctuation and folds all punctuation to spaces; measured on this
+ * user's real prompts that ate file names (`source ~/.zshrc` → "Source"), so it is not
+ * copied — see docs/title-sync-multi-cli-note.md.
  */
 export function formatPromptTitle(prompt: string): string {
   if (!prompt) return ""
   // Prompts can be paste-sized; the title only ever comes from the start.
   let text = prompt.slice(0, SOURCE_SCAN_LIMIT).replace(/^\/[a-zA-Z0-9_-]+\s*/, "")
   text = text.replace(/\[Pasted text[^\]]*\]/g, "")
-  const firstClause = text
-    .trim()
-    // URLs first: their `_`/`#` would otherwise be folded to spaces and leak fragments.
-    .replace(/https?:\/\/\S+/gi, " ")
-    .replace(/[`*_~#>[\]{}()]/g, " ")
-    .replace(/^(?:issue|task|bug|feature|pr)\s*(?:#?\d+)?\s*[:-]\s*/i, "")
-    .split(/[.!?;\n\r\u2028\u2029]/u)[0]
-    ?.trim()
-  if (!firstClause) return ""
-  let candidate = firstClause
-  for (let i = 0; i < 3; i++) {
-    const before = candidate
-    for (const pattern of LEADING_FILLER) candidate = candidate.replace(pattern, "")
-    candidate = candidate.trim()
-    if (candidate === before.trim()) break
-  }
-  candidate = candidate
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-  if (candidate.length < 2) return ""
-  return truncateTitle(candidate.replace(/\p{L}/u, (letter) => letter.toLocaleUpperCase()))
+  const firstLine = text
+    .split(/[\n\r\u2028\u2029]/u)
+    .map((l) => l.replace(/https?:\/\/\S+/gi, " ").replace(/\s+/g, " ").trim())
+    .find(Boolean)
+  if (!firstLine || firstLine.length < 2) return ""
+  return truncateTitle(firstLine)
 }
 
 // Prompt markers and the status glyphs / spinners CLIs prefix (same set Orca strips).

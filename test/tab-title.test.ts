@@ -1,27 +1,25 @@
 import { describe, expect, it } from "bun:test"
 import { formatPromptTitle, isMeaningfulOscTitle, resolveTabTitle } from "../src/lib/tab-title.js"
 
-describe("formatPromptTitle — Orca's generated-tab-title rule (40 chars, first clause, ellipsis)", () => {
-  it("keeps short prompts, capitalised", () => {
-    expect(formatPromptTitle("hello world")).toBe("Hello world")
-    expect(formatPromptTitle("sửa bug đăng nhập")).toBe("Sửa bug đăng nhập")
+describe("formatPromptTitle — Orca's 40-char budget with word-boundary … (no sentence/punctuation folding)", () => {
+  it("keeps short prompts as typed, file names included", () => {
+    expect(formatPromptTitle("hello world")).toBe("hello world")
+    expect(formatPromptTitle("source ~/.zshrc")).toBe("source ~/.zshrc")
+    expect(formatPromptTitle("Fix the login bug. Then merge it.")).toBe("Fix the login bug. Then merge it.")
   })
   it("cuts at a word boundary after 40 chars and appends …", () => {
-    expect(formatPromptTitle("Rồi bây giờ bạn xóa cms-demo và làm lại toàn bộ phần đăng nhập")).toBe("Rồi bây giờ bạn xóa cms demo và làm lại…")
-    expect(formatPromptTitle("a".repeat(40))).toBe("A" + "a".repeat(39))
-    expect(formatPromptTitle("a".repeat(41))).toBe("A" + "a".repeat(39) + "…")
+    expect(formatPromptTitle("Rồi bây giờ bạn xóa cms-demo và làm lại toàn bộ phần đăng nhập")).toBe("Rồi bây giờ bạn xóa cms-demo và làm lại…")
+    expect(formatPromptTitle("a".repeat(40))).toBe("a".repeat(40))
+    expect(formatPromptTitle("a".repeat(41))).toBe("a".repeat(40) + "…")
     // A space too early in the string is ignored, otherwise the title loses too much.
-    expect(formatPromptTitle("run demo-with-a-very-long-flag-that-keeps-going-on")).toBe("Run demo with a very long flag that…")
+    expect(formatPromptTitle("run demo-with-a-very-long-flag-that-keeps-going-on")).toBe("run demo-with-a-very-long-flag-that-keep…")
   })
-  it("takes the first clause and drops URLs, markdown punctuation and leading filler", () => {
+  it("drops URLs and takes the first non-empty line", () => {
     expect(formatPromptTitle("Review PR này https://github.com/foo/bar/very/long/path/indeed and deploy")).toBe("Review PR này and deploy")
-    expect(formatPromptTitle("Fix the login bug. Then merge it.")).toBe("Fix the login bug")
-    expect(formatPromptTitle("Can you please fix the **login** bug? It breaks on iOS")).toBe("Fix the login bug")
-    expect(formatPromptTitle("Issue #42: add `retry` to the client")).toBe("Add retry to the client")
-    expect(formatPromptTitle("let's refactor   the	parser")).toBe("Refactor the parser")
+    expect(formatPromptTitle("\n\nsecond line first")).toBe("second line first")
   })
   it("strips slash commands like /goal, /clear, /plan and [Pasted text #…]", () => {
-    expect(formatPromptTitle("/goal fix auth bugs")).toBe("Fix auth bugs")
+    expect(formatPromptTitle("/goal fix auth bugs")).toBe("fix auth bugs")
     expect(formatPromptTitle("/clear")).toBe("")
     expect(formatPromptTitle("Check this code\n[Pasted text #3 +14 lines]")).toBe("Check this code")
   })
