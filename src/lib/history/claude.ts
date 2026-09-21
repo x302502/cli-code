@@ -38,5 +38,5 @@ export function parseClaudeSession(text: string, fallback: ParseFallback): Sessi
   }
   if (!firstPrompt && !custom && !ai) return undefined
   const title = custom ?? ai ?? formatPromptTitle(firstPrompt ?? "") ?? ""
-  return { toolId: "claude", sessionId: sessionId ?? fallback.sessionId, title: title || "(không tiêu đề)", cwd, updatedAt: fallback.mtimeMs, source: fallback.source }
+  return { toolId: "claude", sessionId: sessionId ?? fallback.sessionId, title: title || "(untitled)", cwd, updatedAt: fallback.mtimeMs, source: fallback.source }
 }

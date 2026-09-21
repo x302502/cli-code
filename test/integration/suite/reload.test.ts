@@ -98,14 +98,14 @@ if (stage() === "1") {
     })
 
     // Regression: the failed-attach path never ran wirePanel, so showGone had no tool
-    // recorded for the panel and "Khởi động lại" silently did nothing on a tab restored
+    // recorded for the panel and "Restart" silently did nothing on a tab restored
     // after Reload Window whose session was gone.
     it("a restored tab whose session is gone shows the gone page, and its restart opens a fresh tab with the saved title", async () => {
       const a = await api()
       const panel = await restoredPanel(a, { ...saved(), sessionId: "00000000-0000-0000-0000-000000000000", title: "Mất phiên" })
       openPanel = panel
       await waitFor(() => a.inspectPanel(panel).gone, 15_000, "gone page")
-      assert.ok(panel.webview.html.includes("Khởi động lại"))
+      assert.ok(panel.webview.html.includes("Restart"))
 
       // Spawns the real `codex` command (no command override survives a restore); it may
       // not be installed — the tab still opens, the shell reports the missing command.

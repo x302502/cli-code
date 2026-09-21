@@ -30,10 +30,10 @@ describe("prepareSubmission — what actually reaches the CLI", () => {
 
 describe("composerHint", () => {
   it("single line: how to send and break lines", () => {
-    expect(composerHint("")).toBe("Enter gửi · Shift+Enter xuống dòng")
-    expect(composerHint("một dòng")).toBe("Enter gửi · Shift+Enter xuống dòng")
+    expect(composerHint("")).toBe("Enter to send · Shift+Enter for a new line")
+    expect(composerHint("một dòng")).toBe("Enter to send · Shift+Enter for a new line")
   })
   it("multi-line: says it goes as one block", () => {
-    expect(composerHint("a\nb\nc")).toBe("3 dòng · Enter gửi nguyên khối · Shift+Enter xuống dòng")
+    expect(composerHint("a\nb\nc")).toBe("3 lines · Enter sends it all · Shift+Enter for a new line")
   })
 })

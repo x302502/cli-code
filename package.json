@@ -60,120 +60,120 @@
       },
       {
         "command": "cli-code.resume",
-        "title": "Mở lại phiên cũ",
+        "title": "Resume Session",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.quickCommand",
-        "title": "Lệnh nhanh",
+        "title": "Quick Command",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.addQuickCommand",
-        "title": "Lưu thành lệnh nhanh",
+        "title": "Save as Quick Command",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.newSession",
-        "title": "Phiên mới",
+        "title": "New Session",
         "category": "CLI Code",
         "icon": "$(add)"
       },
       {
         "command": "cli-code.renameTab",
-        "title": "Đổi tên tab",
+        "title": "Rename Tab",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.restart",
-        "title": "Khởi động lại phiên",
+        "title": "Restart Session",
         "category": "CLI Code",
         "icon": "$(debug-restart)"
       },
       {
         "command": "cli-code.fontZoomIn",
-        "title": "Phóng to chữ",
+        "title": "Zoom In",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.fontZoomOut",
-        "title": "Thu nhỏ chữ",
+        "title": "Zoom Out",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.fontZoomReset",
-        "title": "Cỡ chữ mặc định",
+        "title": "Reset Zoom",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.find",
-        "title": "Tìm trong terminal",
+        "title": "Find in Terminal",
         "category": "CLI Code",
         "icon": "$(search)"
       },
       {
         "command": "cli-code.copyContext",
-        "title": "Sao chép ngữ cảnh",
+        "title": "Copy Context",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.paste",
-        "title": "Dán",
+        "title": "Paste",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.copySelection",
-        "title": "Sao chép",
+        "title": "Copy",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.selectAll",
-        "title": "Chọn tất cả",
+        "title": "Select All",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.installClaudeHooks",
-        "title": "Cài hook trạng thái Claude",
+        "title": "Install Claude Status Hooks",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.uninstallClaudeHooks",
-        "title": "Gỡ hook trạng thái Claude",
+        "title": "Remove Claude Status Hooks",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.openLinkAt",
-        "title": "Mở liên kết",
+        "title": "Open Link",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.copyLinkAt",
-        "title": "Sao chép liên kết / đường dẫn",
+        "title": "Copy Link / Path",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.openFileAt",
-        "title": "Mở tệp",
+        "title": "Open File",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.openDirAt",
-        "title": "Mở thư mục",
+        "title": "Open Folder",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.openWithDefaultAppAt",
-        "title": "Mở bằng app mặc định",
+        "title": "Open with Default App",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.insertPathAt",
-        "title": "Chèn @đường-dẫn vào CLI",
+        "title": "Insert @path into CLI",
         "category": "CLI Code"
       },
       {
         "command": "cli-code.findSelection",
-        "title": "Tìm vùng đã bôi",
+        "title": "Find Selection",
         "category": "CLI Code"
       }
     ],
@@ -299,7 +299,7 @@
       },
       {
         "command": "cli-code.fontZoomIn",
-        "title": "Phóng to chữ",
+        "title": "Zoom In",
         "category": "CLI Code",
         "key": "cmd+=",
         "mac": "cmd+=",
@@ -309,7 +309,7 @@
       },
       {
         "command": "cli-code.fontZoomOut",
-        "title": "Thu nhỏ chữ",
+        "title": "Zoom Out",
         "category": "CLI Code",
         "key": "cmd+-",
         "mac": "cmd+-",
@@ -319,7 +319,7 @@
       },
       {
         "command": "cli-code.fontZoomReset",
-        "title": "Cỡ chữ mặc định",
+        "title": "Reset Zoom",
         "category": "CLI Code",
         "key": "cmd+0",
         "mac": "cmd+0",
@@ -329,7 +329,7 @@
       },
       {
         "command": "cli-code.find",
-        "title": "Tìm trong terminal",
+        "title": "Find in Terminal",
         "category": "CLI Code",
         "key": "cmd+f",
         "mac": "cmd+f",
@@ -350,17 +350,17 @@
           "type": "string",
           "enum": ["ask", "on", "off"],
           "default": "ask",
-          "description": "Cài hook trạng thái vào ~/.claude/settings.json để tab Claude hiện đang chạy / chờ / xong."
+          "description": "Install status hooks into ~/.claude/settings.json so Claude tabs show working / waiting / done."
         },
         "cliCode.composer": {
           "type": "boolean",
           "default": false,
-          "description": "Thử nghiệm: hiện khung nhập chat dưới terminal (Enter gửi, Shift+Enter xuống dòng; dán nhiều dòng gửi nguyên khối). Mặc định tắt — dùng ô nhập của chính CLI. Áp dụng cho tab mở sau khi đổi."
+          "description": "Experimental: show a chat composer under the terminal (Enter sends, Shift+Enter inserts a new line; a multi-line paste is sent as one block). Off by default — the CLI's own input is used. Applies to tabs opened after the change."
         },
         "cliCode.notifications": {
           "type": "boolean",
           "default": true,
-          "description": "Thông báo khi agent xong việc ở một tab đang ẩn."
+          "description": "Notify when an agent finishes in a tab that is not visible."
         },
         "cliCode.quickCommands": {
           "type": "array",
@@ -382,7 +382,7 @@
               }
             }
           },
-          "description": "Lệnh hoặc prompt dùng lại. Đặt trong User settings = Global, trong Workspace settings = Project."
+          "description": "Reusable commands or prompts. Put them in User settings for Global, in Workspace settings for Project."
         }
       }
     }

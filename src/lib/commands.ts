@@ -35,14 +35,14 @@ export function addFilepathToTerminal() {
 export async function resumeSession(context: vscode.ExtensionContext): Promise<void> {
   const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
   if (!cwd) {
-    void vscode.window.showInformationMessage("Mở một thư mục trước.")
+    void vscode.window.showInformationMessage("Open a folder first.")
     return
   }
   const sessions = await listSessionsForWorkspace(cwd)
   // Tools whose sessions cannot be listed (no history parser) still get a "continue latest" entry.
   const continueOnlyTools = CLI_TOOLS.filter((t) => t.continueCommand && !sessions.some((s) => s.toolId === t.id))
   if (sessions.length === 0 && continueOnlyTools.length === 0) {
-    void vscode.window.showInformationMessage("Không tìm thấy phiên nào cho thư mục này.")
+    void vscode.window.showInformationMessage("No sessions found for this folder.")
     return
   }
   type Item = vscode.QuickPickItem & { run: () => Promise<void> }
@@ -52,14 +52,14 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
     return {
       label: `$(history) ${s.title}`,
       description: tool.label,
-      detail: new Date(s.updatedAt).toLocaleString("vi-VN"),
+      detail: new Date(s.updatedAt).toLocaleString(),
       run: () => openTerminalPanel(context, tool, { command: tool.resumeCommand!.replace("{sessionId}", s.sessionId), title: s.title }),
     }
   })
   for (const tool of continueOnlyTools) {
-    items.push({ label: `$(debug-continue) Tiếp tục phiên gần nhất`, description: tool.label, run: () => openTerminalPanel(context, tool, { command: tool.continueCommand! }) })
+    items.push({ label: `$(debug-continue) Continue latest session`, description: tool.label, run: () => openTerminalPanel(context, tool, { command: tool.continueCommand! }) })
   }
-  const picked = await vscode.window.showQuickPick(items, { placeHolder: "Chọn phiên để mở lại", matchOnDescription: true })
+  const picked = await vscode.window.showQuickPick(items, { placeHolder: "Pick a session to resume", matchOnDescription: true })
   if (picked) await picked.run()
 }
 
@@ -69,12 +69,12 @@ export async function runQuickCommand(context: vscode.ExtensionContext): Promise
   const inspected = vscode.workspace.getConfiguration("cliCode").inspect<unknown>("quickCommands")
   const commands = mergeQuickCommands(inspected?.globalValue, inspected?.workspaceValue)
   if (commands.length === 0) {
-    void vscode.window.showInformationMessage("Chưa có lệnh nhanh nào. Thêm trong setting cliCode.quickCommands.")
+    void vscode.window.showInformationMessage("No quick commands yet. Add some in the cliCode.quickCommands setting.")
     return
   }
   const picked = await vscode.window.showQuickPick(
     commands.map((c) => ({ label: `${c.scope === "workspace" ? "$(folder)" : "$(globe)"} ${c.label}`, detail: c.text, c })),
-    { placeHolder: "Chọn lệnh nhanh" },
+    { placeHolder: "Pick a quick command" },
   )
   if (!picked) return
   const submit = picked.c.submit !== false
@@ -89,17 +89,17 @@ export async function addQuickCommand(): Promise<void> {
   const editor = vscode.window.activeTextEditor
   const text = editor?.document.getText(editor.selection)
   if (!text) {
-    void vscode.window.showInformationMessage("Chọn đoạn văn bản trước.")
+    void vscode.window.showInformationMessage("Select some text first.")
     return
   }
-  const label = await vscode.window.showInputBox({ prompt: "Tên lệnh nhanh" })
+  const label = await vscode.window.showInputBox({ prompt: "Quick command name" })
   if (!label?.trim()) return
 
   const hasWorkspace = !!vscode.workspace.workspaceFolders?.length
   type ScopeItem = vscode.QuickPickItem & { target: vscode.ConfigurationTarget }
   const scopeItems: ScopeItem[] = [{ label: "Global (User settings)", target: vscode.ConfigurationTarget.Global }]
   if (hasWorkspace) scopeItems.push({ label: "Project (Workspace settings)", target: vscode.ConfigurationTarget.Workspace })
-  const scope = await vscode.window.showQuickPick(scopeItems, { placeHolder: "Lưu vào đâu?" })
+  const scope = await vscode.window.showQuickPick(scopeItems, { placeHolder: "Save where?" })
   if (!scope) return
 
   const config = vscode.workspace.getConfiguration("cliCode")

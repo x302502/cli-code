@@ -101,7 +101,7 @@ const { fontFamily, fontSize } = readFont()
 let hoveredLink: HoveredLink | undefined
 const tooltip = createLinkTooltip()
 const OPEN_KEY = navigator.platform.startsWith("Mac") ? "⌘" : "Ctrl"
-const OPEN_LABEL = { url: "Mở liên kết", file: "Mở tệp", dir: "Mở thư mục" } as const
+const OPEN_LABEL = { url: "Open link", file: "Open file", dir: "Open folder" } as const
 function setHovered(link: HoveredLink | undefined) {
   hoveredLink = link
   if (!link) return tooltip.hide()
@@ -392,7 +392,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     actionBar.setModel(message.model)
   } else if (message.type === "agentStatus") {
     // Only states that need the user get a word; working/done stay quiet.
-    actionBar.setStatus(message.state === "waiting" ? "● Đang chờ bạn xác nhận" : message.state === "blocked" ? "● Đang bị chặn, cần bạn xem" : "")
+    actionBar.setStatus(message.state === "waiting" ? "● Waiting for your confirmation" : message.state === "blocked" ? "● Blocked — needs your attention" : "")
   } else if (message.type === "probeResult") {
     probes.get(message.id)?.(message.results)
     probes.delete(message.id)

@@ -23,5 +23,5 @@ export function prepareSubmission(text: string): string | undefined {
 /** The line under the box; it changes once the text spans several lines (a paste). */
 export function composerHint(text: string): string {
   const lines = text.split("\n").length
-  return lines > 1 ? `${lines} dòng · Enter gửi nguyên khối · Shift+Enter xuống dòng` : "Enter gửi · Shift+Enter xuống dòng"
+  return lines > 1 ? `${lines} lines · Enter sends it all · Shift+Enter for a new line` : "Enter to send · Shift+Enter for a new line"
 }

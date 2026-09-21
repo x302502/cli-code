@@ -5,13 +5,13 @@ export function createExitOverlay(onRestart: () => void): { show(code: number): 
   el.hidden = true
   const text = document.createElement("span")
   const button = document.createElement("button")
-  button.textContent = "Khởi động lại"
+  button.textContent = "Restart"
   button.addEventListener("click", onRestart)
   el.append(text, button)
   document.body.append(el)
   return {
     show(code) {
-      text.textContent = `Tiến trình đã thoát (mã ${code})`
+      text.textContent = `Process exited (code ${code})`
       el.hidden = false
     },
     hide() {

@@ -70,7 +70,7 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     vscode.commands.registerCommand("cli-code.renameTab", async () => {
       const panel = activeTerminalPanel()
       if (!panel) return
-      const title = await vscode.window.showInputBox({ prompt: "Tên mới cho tab", value: baseTitle(panel) })
+      const title = await vscode.window.showInputBox({ prompt: "New tab name", value: baseTitle(panel) })
       if (title?.trim()) setCustomTitle(panel, title.trim())
     }),
     vscode.commands.registerCommand("cli-code.restart", () => {
@@ -101,13 +101,13 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     vscode.commands.registerCommand("cli-code.installClaudeHooks", async () => {
       try {
         const choice = await vscode.window.showWarningMessage(
-          "Cài hook trạng thái vào ~/.claude/settings.json (có sao lưu .bak)?",
+          "Install the status hooks into ~/.claude/settings.json (a .bak backup is kept)?",
           { modal: true },
-          "Cài",
+          "Install",
         )
-        if (choice !== "Cài") return
+        if (choice !== "Install") return
         const changed = installHooksToDisk()
-        void vscode.window.showInformationMessage(changed ? "Đã cài hook." : "Không có gì để thay đổi.")
+        void vscode.window.showInformationMessage(changed ? "Hooks installed." : "Nothing to change.")
       } catch (err) {
         void vscode.window.showErrorMessage(String(err))
       }
@@ -115,7 +115,7 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     vscode.commands.registerCommand("cli-code.uninstallClaudeHooks", () => {
       try {
         const changed = uninstallHooksFromDisk()
-        void vscode.window.showInformationMessage(changed ? "Đã gỡ hook." : "Không có gì để thay đổi.")
+        void vscode.window.showInformationMessage(changed ? "Hooks removed." : "Nothing to change.")
       } catch (err) {
         void vscode.window.showErrorMessage(String(err))
       }

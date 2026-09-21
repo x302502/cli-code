@@ -48,7 +48,7 @@ describe("lifecycle (checklist B, A-e)", () => {
     // The killed daemon takes its PTY children with it.
     await waitFor(() => !pidAlive(Number(env.pid)), 10_000, "old PTY child to die")
     await waitFor(() => a.inspectPanel(panel).gone, 15_000, "gone page")
-    assert.ok(panel.webview.html.includes("Khởi động lại"))
+    assert.ok(panel.webview.html.includes("Restart"))
     assert.ok(!a.activePanels().includes(panel))
 
     await a.restartFromGone(a.context, panel)

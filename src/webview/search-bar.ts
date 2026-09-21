@@ -7,10 +7,10 @@ export function createSearchBar(term: Terminal, search: SearchAddon): { show(que
   bar.id = "search-bar"
   bar.hidden = true
   const input = document.createElement("input")
-  input.placeholder = "Tìm"
+  input.placeholder = "Find"
   const count = document.createElement("span")
-  const caseBtn = toggle("Aa", "Phân biệt hoa thường")
-  const regexBtn = toggle(".*", "Biểu thức chính quy")
+  const caseBtn = toggle("Aa", "Match case")
+  const regexBtn = toggle(".*", "Use regular expression")
   const prev = button("↑", () => find(false))
   const next = button("↓", () => find(true))
   const close = button("✕", hide)

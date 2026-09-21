@@ -21,5 +21,5 @@ export function parseCodexRollout(text: string, fallback: ParseFallback): Sessio
     if (id && first) break
   }
   if (!id && !first) return undefined
-  return { toolId: "codex", sessionId: id ?? fallback.sessionId, title: formatPromptTitle(first ?? "") || "(không tiêu đề)", cwd, updatedAt: fallback.mtimeMs, source: fallback.source }
+  return { toolId: "codex", sessionId: id ?? fallback.sessionId, title: formatPromptTitle(first ?? "") || "(untitled)", cwd, updatedAt: fallback.mtimeMs, source: fallback.source }
 }

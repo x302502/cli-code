@@ -126,10 +126,10 @@ Từ 0.2.0, CLI Code không còn mở trợ lý trong terminal tích hợp thư�
 
 CLI Code có thể cài một hook nhỏ vào Claude Code để hiển thị đúng trạng thái (đang chạy / đang chờ / xong) trên tab, thay vì chỉ suy đoán từ tiêu đề. Đây là tính năng **opt-in**:
 
-- Lần đầu bạn mở Claude Code trong CLI Code, extension sẽ hỏi có muốn cài hook không (điều khiển bằng setting `cliCode.claudeStatusHooks`). Đóng thông báo mà không trả lời được coi là "off" cho cửa sổ này — cài lại bằng lệnh Command Palette **"CLI Code: Cài hook trạng thái Claude"**.
+- Lần đầu bạn mở Claude Code trong CLI Code, extension sẽ hỏi có muốn cài hook không (điều khiển bằng setting `cliCode.claudeStatusHooks`). Đóng thông báo mà không trả lời được coi là "off" cho cửa sổ này — cài lại bằng lệnh Command Palette **"CLI Code: Install Claude Status Hooks"**.
 - Nếu đồng ý, nó ghi thêm vào `~/.claude/settings.json`. Trước lần ghi đầu tiên, file gốc được sao lưu thành `~/.claude/settings.json.cli-code.bak`; các hook đã có của bạn được giữ nguyên.
 - Hook có hiệu lực từ lần mở Claude Code tiếp theo — phiên đang chạy vẫn suy đoán trạng thái từ tiêu đề.
-- Gỡ bất kỳ lúc nào bằng lệnh Command Palette **"CLI Code: Gỡ hook trạng thái Claude"**.
+- Gỡ bất kỳ lúc nào bằng lệnh Command Palette **"CLI Code: Remove Claude Status Hooks"**.
 - Giới hạn đã biết: lệnh hook được shell `eval` (`eval "$CLI_CODE_HOOK"`), nên đường dẫn cài VS Code chứa `"` hoặc `$` sẽ làm hook hỏng.
 - Nội dung mỗi entry được thêm cho 4 sự kiện `UserPromptSubmit`, `Stop`, `Notification`, `PermissionRequest`:
 
@@ -165,13 +165,13 @@ Ví dụ `cliCode.quickCommands`:
 
 ### Menu chuột phải trong terminal
 
-**Khởi động lại phiên** đưa tab về *đúng hội thoại cũ*: Claude Code theo session id mà hook báo; Codex, Grok, Pi, OMP, Command Code, Droid, Prime Agent, Copilot, Cline, Kimi, Cursor, Amp, Antigravity, opencode, MiMo, Kilo, goose theo phiên mới nhất trong kho phiên của chính CLI cho thư mục này kể từ lúc mở tab; các CLI còn lại theo dạng `--continue`. Chỉ khi không biết gì mới mở phiên mới.
+**Restart Session** (khởi động lại phiên) đưa tab về *đúng hội thoại cũ*: Claude Code theo session id mà hook báo; Codex, Grok, Pi, OMP, Command Code, Droid, Prime Agent, Copilot, Cline, Kimi, Cursor, Amp, Antigravity, opencode, MiMo, Kilo, goose theo phiên mới nhất trong kho phiên của chính CLI cho thư mục này kể từ lúc mở tab; các CLI còn lại theo dạng `--continue`. Chỉ khi không biết gì mới mở phiên mới.
 
-Chuột phải làm việc với nội dung dưới con trỏ / vùng bôi: Sao chép (khi có vùng bôi) · Dán · Chọn tất cả · trỏ vào URL: Mở liên kết / vào tệp: Mở tệp, Mở bằng app mặc định, Chèn @đường-dẫn vào CLI / vào thư mục: Mở thư mục · Sao chép liên kết / đường dẫn · Tìm vùng đã bôi · Tìm trong terminal. Các thao tác với tab nằm ở thanh lặng trên đầu terminal (cùng màu nền, icon sát mép phải): **Phiên mới** (chọn CLI, mở trong thư mục của tab này), **Mở lại phiên cũ**, **Khởi động lại phiên**, **Tìm**, và trong **…**: Đổi tên tab (`F2`), Sao chép ngữ cảnh, Lệnh nhanh. Bên trái thanh để trống, chỉ hiện chữ khi agent cần anh (“Đang chờ bạn xác nhận”). Bên trái thanh hiện **model** CLI đang dùng (đọc từ kho phiên của chính CLI — Claude, Codex, Grok, Pi, OMP, opencode/MiMo/Kilo, Cline; ẩn với CLI không ghi model) và, khi agent chờ anh, một dòng trạng thái. **Khung nhập chat** (thử nghiệm) dưới terminal — gõ/dán, `Enter` gửi nguyên khối, `Shift + Enter` xuống dòng — bật bằng `cliCode.composer: true`; mặc định tắt để giữ nguyên menu `/` và `@` trong ô nhập của chính CLI. Rê chuột lên link sẽ hiện gợi ý `Cmd/Ctrl + click` mở gì kèm đường dẫn đã resolve.
+Chuột phải làm việc với nội dung dưới con trỏ / vùng bôi: **Copy** (sao chép, khi có vùng bôi) · **Paste** (dán) · **Select All** (chọn tất cả) · trỏ vào URL: **Open Link** / vào tệp: **Open File**, **Open with Default App** (mở bằng app mặc định), **Insert @path into CLI** (chèn @đường-dẫn vào CLI) / vào thư mục: **Open Folder** · **Copy Link / Path** · **Find Selection** (tìm vùng đã bôi) · **Find in Terminal**. Các thao tác với tab nằm ở thanh lặng trên đầu terminal (cùng màu nền, icon sát mép phải): **New Session** (phiên mới — chọn CLI, mở trong thư mục của tab này), **Resume Session** (mở lại phiên cũ), **Restart Session** (khởi động lại phiên), **Find** (tìm), và trong **…**: Rename Tab (đổi tên tab, `F2`), Copy Context (sao chép ngữ cảnh), Quick Command (lệnh nhanh). Bên trái thanh để trống, chỉ hiện chữ khi agent cần anh (“Waiting for your confirmation”). Bên trái thanh hiện **model** CLI đang dùng (đọc từ kho phiên của chính CLI — Claude, Codex, Grok, Pi, OMP, opencode/MiMo/Kilo, Cline; ẩn với CLI không ghi model) và, khi agent chờ anh, một dòng trạng thái. **Khung nhập chat** (thử nghiệm) dưới terminal — gõ/dán, `Enter` gửi nguyên khối, `Shift + Enter` xuống dòng — bật bằng `cliCode.composer: true`; mặc định tắt để giữ nguyên menu `/` và `@` trong ô nhập của chính CLI. Rê chuột lên link sẽ hiện gợi ý `Cmd/Ctrl + click` mở gì kèm đường dẫn đã resolve.
 
 ### Lệnh Command Palette
 
-`CLI Code:` **Mở lại phiên cũ**, **Lệnh nhanh**, **Lưu thành lệnh nhanh**, **Đổi tên tab**, **Khởi động lại phiên**, **Phóng to chữ**, **Thu nhỏ chữ**, **Cỡ chữ mặc định**, **Tìm trong terminal**, **Sao chép ngữ cảnh**, **Dán**, **Sao chép**, **Cài hook trạng thái Claude**, **Gỡ hook trạng thái Claude**.
+`CLI Code:` **Resume Session** (mở lại phiên cũ), **Quick Command** (lệnh nhanh), **Save as Quick Command** (lưu thành lệnh nhanh), **Rename Tab** (đổi tên tab), **Restart Session** (khởi động lại phiên), **Zoom In** / **Zoom Out** / **Reset Zoom** (cỡ chữ), **Find in Terminal** (tìm trong terminal), **Copy Context** (sao chép ngữ cảnh), **Paste** (dán), **Copy** (sao chép), **Install Claude Status Hooks** / **Remove Claude Status Hooks** (cài / gỡ hook trạng thái Claude).
 
 ## Phím tắt
 
@@ -186,7 +186,7 @@ Chuột phải làm việc với nội dung dưới con trỏ / vùng bôi: Sao 
 | Thu nhỏ chữ                    | `Cmd + -`             | `Ctrl + -`               |
 | Cỡ chữ mặc định                | `Cmd + 0`             | `Ctrl + 0`               |
 
-\* Trên Windows / Linux, terminal đang focus nuốt `Ctrl + F` (xterm gửi xuống CLI dưới dạng `^F`). Dùng lệnh Command Palette **"CLI Code: Tìm trong terminal"** hoặc mục chuột phải **Tìm trong terminal** thay thế.
+\* Trên Windows / Linux, terminal đang focus nuốt `Ctrl + F` (xterm gửi xuống CLI dưới dạng `^F`). Dùng lệnh Command Palette **"CLI Code: Find in Terminal"** hoặc mục chuột phải **Find in Terminal** thay thế.
 
 ## Câu hỏi thường gặp
 

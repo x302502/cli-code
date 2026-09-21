@@ -87,13 +87,13 @@ function readSettingsFile(file: string): unknown {
     raw = fs.readFileSync(file, "utf8")
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return {}
-    throw new Error(`Không đọc được ${file}: ${String(err)}`)
+    throw new Error(`Could not read ${file}: ${String(err)}`)
   }
   if (raw.trim() === "") return {}
   try {
     return JSON.parse(raw)
   } catch (err) {
-    throw new Error(`Không đọc được ${file}: ${String(err)}`)
+    throw new Error(`Could not read ${file}: ${String(err)}`)
   }
 }
 

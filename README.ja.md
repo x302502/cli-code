@@ -125,10 +125,10 @@ CLI Code がファイルへの参照をプロンプトに挿入します：
 
 CLI Code は Claude Code に小さなフックをインストールし、タイトルからの推測ではなく正確な状態（実行中 / 応答待ち / 完了）をタブに表示できます。これは**オプトイン**の機能です：
 
-- CLI Code 内で Claude Code を初めて開いたとき、拡張機能はフックをインストールするか尋ねます（`cliCode.claudeStatusHooks` 設定で制御）。答えずに通知を閉じると、このウィンドウでは「off」として扱われます。後からコマンドパレットの **「CLI Code: Cài hook trạng thái Claude」**（Claude 状態フックをインストール）でインストールできます。
+- CLI Code 内で Claude Code を初めて開いたとき、拡張機能はフックをインストールするか尋ねます（`cliCode.claudeStatusHooks` 設定で制御）。答えずに通知を閉じると、このウィンドウでは「off」として扱われます。後からコマンドパレットの **「CLI Code: Install Claude Status Hooks」**（Claude 状態フックをインストール）でインストールできます。
 - 同意すると `~/.claude/settings.json` に追記します。最初の書き込み前に、元のファイルは `~/.claude/settings.json.cli-code.bak` にバックアップされ、既存のフックはそのまま保持されます。
 - フックは次に Claude Code を起動したときから有効になります。すでに実行中のセッションはタイトルからの推測のままです。
-- いつでもコマンドパレットの **「CLI Code: Gỡ hook trạng thái Claude」**（Claude 状態フックを削除）で削除できます。
+- いつでもコマンドパレットの **「CLI Code: Remove Claude Status Hooks」**（Claude 状態フックを削除）で削除できます。
 - 既知の制限：フックコマンドはシェルで `eval` されるため（`eval "$CLI_CODE_HOOK"`）、VS Code のインストールパスに `"` や `$` が含まれると動作しません。
 - `UserPromptSubmit`、`Stop`、`Notification`、`PermissionRequest` の 4 つのイベントそれぞれに追加されるエントリ：
 
@@ -164,15 +164,15 @@ CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`�
 
 ### ターミナルの右クリックメニュー
 
-**Khởi động lại phiên**（再起動）はタブを*同じ会話*に戻します：Claude Code はフックが報告するセッション ID、Codex・Grok・Pi・OMP・Command Code・Droid・Prime Agent・Copilot・Cline・Kimi・Cursor・Amp・Antigravity・opencode・MiMo・Kilo・goose は各 CLI 自身のセッションストアにあるこのディレクトリの最新セッション、残りの CLI は `--continue` 形式で。何も分からない場合のみ新規セッションになります。
+**Restart Session**（再起動）はタブを*同じ会話*に戻します：Claude Code はフックが報告するセッション ID、Codex・Grok・Pi・OMP・Command Code・Droid・Prime Agent・Copilot・Cline・Kimi・Cursor・Amp・Antigravity・opencode・MiMo・Kilo・goose は各 CLI 自身のセッションストアにあるこのディレクトリの最新セッション、残りの CLI は `--continue` 形式で。何も分からない場合のみ新規セッションになります。
 
-右クリックはポインタ下の内容や選択範囲に対して働きます：**Sao chép**（コピー、選択時）・**Dán**（貼り付け）・**Chọn tất cả**（すべて選択）・URL 上では **Mở liên kết**（リンクを開く）／ファイル上では **Mở tệp**（ファイルを開く）、**Mở bằng app mặc định**（既定アプリで開く）、**Chèn @đường-dẫn vào CLI**（@パスを CLI に挿入）／フォルダ上では **Mở thư mục**（フォルダを開く）・**Sao chép liên kết / đường dẫn**（リンク/パスをコピー）・**Tìm vùng đã bôi**（選択範囲を検索）・**Tìm trong terminal**（ターミナル内検索）。タブ操作はターミナル上部の静かなバー（同じ背景色、アイコンは右端）にあります：**Phiên mới**（新しいセッション — CLI を選んでこのタブのディレクトリで開く）、**Mở lại phiên cũ**（履歴）、**Khởi động lại phiên**（再起動）、**Tìm**（検索）、**…** に **Đổi tên tab**（タブ名変更、`F2`）、**Sao chép ngữ cảnh**（コンテキストをコピー）、**Lệnh nhanh**（クイックコマンド）。バーの左側はエージェントが確認を求めるときだけ文言が出ます。 左側には CLI が使用中の**モデル**（各 CLI のセッションストアから読み取り — Claude、Codex、Grok、Pi、OMP、opencode/MiMo/Kilo、Cline。記録しない CLI では非表示）と、確認待ちのときの状態行が表示されます。 実験的なチャット風**入力欄**（入力・貼り付け、`Enter` で一括送信、`Shift + Enter` で改行）は `cliCode.composer: true` で有効化できます。既定では無効で、CLI 自身の入力欄の `/` や `@` メニューをそのまま使えます。リンクにホバーすると `Cmd/Ctrl + クリック` で何が開くかと解決済みパスが表示されます。
+右クリックはポインタ下の内容や選択範囲に対して働きます：**Copy**（コピー、選択時）・**Paste**（貼り付け）・**Select All**（すべて選択）・URL 上では **Open Link**（リンクを開く）／ファイル上では **Open File**（ファイルを開く）、**Open with Default App**（既定アプリで開く）、**Insert @path into CLI**（@パスを CLI に挿入）／フォルダ上では **Open Folder**（フォルダを開く）・**Copy Link / Path**（リンク/パスをコピー）・**Find Selection**（選択範囲を検索）・**Find in Terminal**（ターミナル内検索）。タブ操作はターミナル上部の静かなバー（同じ背景色、アイコンは右端）にあります：**New Session**（新しいセッション — CLI を選んでこのタブのディレクトリで開く）、**Resume Session**（履歴）、**Restart Session**（再起動）、**Find**（検索）、**…** に **Rename Tab**（タブ名変更、`F2`）、**Copy Context**（コンテキストをコピー）、**Quick Command**（クイックコマンド）。バーの左側はエージェントが確認を求めるときだけ文言が出ます。 左側には CLI が使用中の**モデル**（各 CLI のセッションストアから読み取り — Claude、Codex、Grok、Pi、OMP、opencode/MiMo/Kilo、Cline。記録しない CLI では非表示）と、確認待ちのときの状態行が表示されます。 実験的なチャット風**入力欄**（入力・貼り付け、`Enter` で一括送信、`Shift + Enter` で改行）は `cliCode.composer: true` で有効化できます。既定では無効で、CLI 自身の入力欄の `/` や `@` メニューをそのまま使えます。リンクにホバーすると `Cmd/Ctrl + クリック` で何が開くかと解決済みパスが表示されます。
 
 ### コマンドパレットのコマンド
 
 0.2.0 のコマンドはベトナム語タイトルで登録されています（括弧内は日本語訳）：
 
-`CLI Code:` **Mở lại phiên cũ**（過去のセッションを再開）、**Lệnh nhanh**（クイックコマンド）、**Lưu thành lệnh nhanh**（クイックコマンドとして保存）、**Đổi tên tab**（タブ名を変更）、**Khởi động lại phiên**（セッションを再起動）、**Phóng to chữ**（文字を拡大）、**Thu nhỏ chữ**（文字を縮小）、**Cỡ chữ mặc định**（文字サイズをリセット）、**Tìm trong terminal**（ターミナル内検索）、**Sao chép ngữ cảnh**（コンテキストをコピー）、**Dán**（貼り付け）、**Sao chép**（コピー）、**Cài hook trạng thái Claude**（Claude 状態フックをインストール）、**Gỡ hook trạng thái Claude**（Claude 状態フックを削除）。
+`CLI Code:` **Resume Session**（過去のセッションを再開）、**Quick Command**（クイックコマンド）、**Save as Quick Command**（クイックコマンドとして保存）、**Rename Tab**（タブ名を変更）、**Restart Session**（セッションを再起動）、**Zoom In**（文字を拡大）、**Zoom Out**（文字を縮小）、**Reset Zoom**（文字サイズをリセット）、**Find in Terminal**（ターミナル内検索）、**Copy Context**（コンテキストをコピー）、**Paste**（貼り付け）、**Copy**（コピー）、**Install Claude Status Hooks**（Claude 状態フックをインストール）、**Remove Claude Status Hooks**（Claude 状態フックを削除）。
 
 ## キーボードショートカット
 
@@ -187,7 +187,7 @@ CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`�
 | 文字を縮小                         | `Cmd + -`             | `Ctrl + -`               |
 | 文字サイズをリセット               | `Cmd + 0`             | `Ctrl + 0`               |
 
-\* Windows / Linux ではフォーカス中のターミナルが `Ctrl + F` を消費します（xterm が `^F` として CLI に送ります）。代わりにコマンドパレットの **「CLI Code: Tìm trong terminal」** か右クリックの **Tìm trong terminal** を使ってください。
+\* Windows / Linux ではフォーカス中のターミナルが `Ctrl + F` を消費します（xterm が `^F` として CLI に送ります）。代わりにコマンドパレットの **「CLI Code: Find in Terminal」** か右クリックの **Find in Terminal** を使ってください。
 
 ## よくある質問
 

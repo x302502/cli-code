@@ -72,12 +72,12 @@ function notifyFinished(panel: vscode.WebviewPanel, state: AgentState): void {
   if (!vscode.workspace.getConfiguration("cliCode").get<boolean>("notifications", true)) return
   const tool = panelTools.get(panel)
   const what = panelPromptTitles.get(panel) ?? customTitles.get(panel) ?? ""
-  const verb = state === "done" ? "đã xong" : "đang chờ bạn"
+  const verb = state === "done" ? "finished" : "is waiting for you"
   void vscode.window
-    .showInformationMessage(`${tool?.label ?? "CLI"} ${verb}${what ? `: ${what}` : ""}`, "Mở tab")
+    .showInformationMessage(`${tool?.label ?? "CLI"} ${verb}${what ? `: ${what}` : ""}`, "Open tab")
     .then((choice) => {
       // The tab may have been closed while the toast sat there; reveal() on a disposed panel throws.
-      if (choice === "Mở tab" && activePanels.has(panel)) panel.reveal()
+      if (choice === "Open tab" && activePanels.has(panel)) panel.reveal()
     })
 }
 
@@ -103,7 +103,7 @@ function updateTitle(panel: vscode.WebviewPanel): void {
 /** A cwd is only usable as a spawn cwd if it exists locally as a directory. OSC 7 drops the
  * host, so an ssh session (or a deleted directory) can report a path that is not here —
  * node-pty would then throw inside the daemon and the user would see a misleading
- * "daemon không phản hồi" instead of a running CLI. */
+ * "daemon not responding" instead of a running CLI. */
 function usableCwd(p: string | undefined): string | undefined {
   return p && fs.existsSync(p) && fs.statSync(p).isDirectory() ? p : undefined
 }
@@ -203,7 +203,7 @@ export function pasteToActivePanel(text: string, submit: boolean): boolean {
   return true
 }
 
-/** "Phiên mới": opens another tab of the same CLI as the active tab, in the same directory. */
+/** "New Session": opens another tab of the same CLI as the active tab, in the same directory. */
 export async function openNewSessionLikeActive(context: vscode.ExtensionContext): Promise<boolean> {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
   const tool = panel && panelTools.get(panel)
@@ -276,7 +276,7 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
     if (await isListening(socketPath)) return socketPath
     await new Promise((r) => setTimeout(r, 50))
   }
-  throw new Error("Không khởi động được daemon terminal của CLI Code.")
+  throw new Error("Could not start the CLI Code terminal daemon.")
 }
 
 /**
@@ -337,11 +337,11 @@ async function maybeOfferClaudeHooks(context: vscode.ExtensionContext): Promise<
     }
     if (asked) return
     const choice = await vscode.window.showInformationMessage(
-      "Cài hook trạng thái vào ~/.claude/settings.json (có sao lưu .bak)? Có hiệu lực từ lần mở Claude tiếp theo.",
-      "Cài",
-      "Không",
+      "Install the status hooks into ~/.claude/settings.json (a .bak backup is kept)? Takes effect the next time Claude starts.",
+      "Install",
+      "No",
     )
-    if (choice === "Cài") {
+    if (choice === "Install") {
       installHooksToDisk()
       await vscode.workspace.getConfiguration("cliCode").update("claudeStatusHooks", "on", vscode.ConfigurationTarget.Global)
     } else {
@@ -380,7 +380,7 @@ export async function openTerminalPanel(
     rows: 24,
   })
   if (!connection) {
-    void vscode.window.showErrorMessage("Không mở được terminal: daemon không phản hồi.")
+    void vscode.window.showErrorMessage("Could not open the terminal: the daemon is not responding.")
     return
   }
 
@@ -411,7 +411,7 @@ export async function restoreTerminalPanel(
     return
   }
 
-  // Restore the custom title first: even a failed attach must keep it for "Khởi động lại".
+  // Restore the custom title first: even a failed attach must keep it for "Restart Session".
   if (state.customTitle) customTitles.set(panel, state.customTitle)
   const socketPath = await ensureDaemon(context)
   const connection = await connectSession(socketPath, { op: "attach", sessionId: state.sessionId })
@@ -659,7 +659,7 @@ function attachConnection(
     }
     else if (message.type === "context" && typeof message.text === "string" && typeof message.lines === "number") {
       void vscode.env.clipboard.writeText(message.text)
-      void vscode.window.showInformationMessage(`Đã chép ${message.lines} dòng ngữ cảnh.`)
+      void vscode.window.showInformationMessage(`Copied ${message.lines} lines of context.`)
     } else if (message.type === "openPath" && typeof message.text === "string") {
       const parsed = parsePathLink(message.text)
       if (parsed) void openLinkTarget(panel, parsed, message.alt === true)
@@ -683,8 +683,8 @@ function attachConnection(
     }
     else if (message.type === "pasteConfirm" && typeof message.size === "number") {
       void vscode.window
-        .showWarningMessage(`Dán ${Math.round(message.size / 1024)} KB vào terminal?`, { modal: true }, "Dán")
-        .then((choice) => sendTo(panel, { type: choice === "Dán" ? "pasteApproved" : "pasteRejected" }))
+        .showWarningMessage(`Paste ${Math.round(message.size / 1024)} KB into the terminal?`, { modal: true }, "Paste")
+        .then((choice) => sendTo(panel, { type: choice === "Paste" ? "pasteApproved" : "pasteRejected" }))
     }
   })
 
@@ -716,7 +716,7 @@ function resolveTarget(panel: vscode.WebviewPanel, parsed: { path: string; line?
 async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string; line?: number; col?: number }, alt: boolean): Promise<void> {
   const target = resolveTarget(panel, parsed)
   if (!target) {
-    void vscode.window.showInformationMessage(`Không tìm thấy: ${parsed.path}`)
+    void vscode.window.showInformationMessage(`Not found: ${parsed.path}`)
     return
   }
   const uri = vscode.Uri.file(target.path)
@@ -744,7 +744,7 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
       await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, col, line, col), preview: true })
     }
   } catch {
-    void vscode.window.showWarningMessage(`Không mở được: ${target.path}`)
+    void vscode.window.showWarningMessage(`Could not open: ${target.path}`)
   }
 }
 
@@ -783,7 +783,7 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
       rows: 24,
     })
     if (!connection) {
-      void vscode.window.showErrorMessage("Không khởi động lại được: daemon không phản hồi.")
+      void vscode.window.showErrorMessage("Could not restart: the daemon is not responding.")
       return
     }
     // The panel may have been closed while awaiting connectSession above; a disposed panel
@@ -852,7 +852,7 @@ function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview)
   // Experimental and off by default: the CLI's own TUI input keeps its slash/@ menus and modes.
   const composer = vscode.workspace.getConfiguration("cliCode").get<boolean>("composer", false) ? "on" : "off"
 
-  return `<!DOCTYPE html><html lang="vi"><head>
+  return `<!DOCTYPE html><html lang="en"><head>
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="${xtermCss}"><link rel="stylesheet" href="${css}">
 </head><body data-composer="${composer}" style="--cli-code-font-family:${escapedFamily};--cli-code-font-size:${fontSize}">
@@ -864,11 +864,11 @@ function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview)
 function goneHtml(label: string): string {
   const nonce = randomBytes(16).toString("base64")
   const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';`
-  return `<!DOCTYPE html><html lang="vi"><head>
+  return `<!DOCTYPE html><html lang="en"><head>
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 </head><body style="font-family: var(--vscode-font-family); padding: 24px">
-<p>Phiên <strong>${escapeHtml(label)}</strong> đã kết thúc.</p>
-<button id="restart">Khởi động lại</button>
+<p>Session <strong>${escapeHtml(label)}</strong> has ended.</p>
+<button id="restart">Restart</button>
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi()
   document.getElementById("restart").addEventListener("click", () => vscode.postMessage({ type: "restart" }))

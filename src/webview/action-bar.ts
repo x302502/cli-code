@@ -41,18 +41,18 @@ export function createActionBar(handlers: {
     right.append(b)
     return b
   }
-  icon({ id: "openNew", label: "Phiên mới — chọn CLI", svg: NEW_SESSION }, () => handlers.onCommand("openNew"))
-  icon({ id: "resume", label: "Mở lại phiên cũ", svg: HISTORY }, () => handlers.onCommand("resume"))
-  icon({ id: "restart", label: "Khởi động lại phiên — về đúng hội thoại này", svg: RESTART }, () => handlers.onCommand("restart"))
-  icon({ id: "find", label: "Tìm trong terminal (⌘F)", svg: FIND }, () => handlers.onFind())
+  icon({ id: "openNew", label: "New session — pick a CLI", svg: NEW_SESSION }, () => handlers.onCommand("openNew"))
+  icon({ id: "resume", label: "Resume a previous session", svg: HISTORY }, () => handlers.onCommand("resume"))
+  icon({ id: "restart", label: "Restart session — back into this conversation", svg: RESTART }, () => handlers.onCommand("restart"))
+  icon({ id: "find", label: "Find in terminal (⌘F)", svg: FIND }, () => handlers.onFind())
 
   const menu = document.createElement("div")
   menu.id = "action-menu"
   menu.hidden = true
   for (const item of [
-    { id: "renameTab", label: "Đổi tên tab", key: "F2" },
-    { id: "copyContext", label: "Sao chép ngữ cảnh", key: "" },
-    { id: "quickCommand", label: "Lệnh nhanh", key: "" },
+    { id: "renameTab", label: "Rename tab", key: "F2" },
+    { id: "copyContext", label: "Copy context", key: "" },
+    { id: "quickCommand", label: "Quick command", key: "" },
   ]) {
     const entry = document.createElement("button")
     entry.innerHTML = `<span>${item.label}</span><span class="key">${item.key}</span>`
@@ -62,7 +62,7 @@ export function createActionBar(handlers: {
     })
     menu.append(entry)
   }
-  const more = icon({ id: "more", label: "Thêm", svg: MORE }, (e) => {
+  const more = icon({ id: "more", label: "More", svg: MORE }, (e) => {
     e.stopPropagation()
     if (menu.hidden) show()
     else hide()
@@ -99,7 +99,7 @@ export function createActionBar(handlers: {
     },
     setModel(id) {
       model.textContent = id
-      model.title = id ? `Model đang dùng: ${id}` : ""
+      model.title = id ? `Model in use: ${id}` : ""
       model.hidden = !id
     },
   }

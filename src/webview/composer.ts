@@ -14,7 +14,7 @@ export function createComposer(term: Terminal): void {
   const input = document.createElement("textarea")
   input.id = "composer-input"
   input.rows = 1
-  input.placeholder = "Nhập cho CLI…"
+  input.placeholder = "Message the CLI…"
   input.spellcheck = false
   const row = document.createElement("div")
   row.id = "composer-row"
@@ -22,8 +22,8 @@ export function createComposer(term: Terminal): void {
   hint.id = "composer-hint"
   const send = document.createElement("button")
   send.id = "composer-send"
-  send.title = "Gửi (Enter)"
-  send.setAttribute("aria-label", "Gửi")
+  send.title = "Send (Enter)"
+  send.setAttribute("aria-label", "Send")
   send.innerHTML = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 15V5M5.5 9.5 10 5l4.5 4.5"/></svg>'
   row.append(hint, send)
   box.append(input, row)

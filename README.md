@@ -126,10 +126,10 @@ As of 0.2.0, CLI Code no longer opens assistants in a regular VS Code integrated
 
 CLI Code can install a small hook into Claude Code so the tab shows accurate status (working / waiting / done) instead of guessing from the title. This is **opt-in**:
 
-- The first time you open Claude Code inside CLI Code, the extension asks whether to install the hook (controlled by the `cliCode.claudeStatusHooks` setting). Dismissing that toast without answering counts as "off" for this window — install later with the Command Palette entry **"CLI Code: Cài hook trạng thái Claude"** (Install Claude status hook).
+- The first time you open Claude Code inside CLI Code, the extension asks whether to install the hook (controlled by the `cliCode.claudeStatusHooks` setting). Dismissing that toast without answering counts as "off" for this window — install later with the Command Palette entry **"CLI Code: Install Claude Status Hooks"**.
 - If you agree, it appends to `~/.claude/settings.json`. Before the first write, the original file is backed up to `~/.claude/settings.json.cli-code.bak`; any hooks you already had are kept.
 - The hook takes effect from the next Claude Code start — a session that was already running keeps guessing status from the title.
-- Remove it anytime with the Command Palette entry **"CLI Code: Gỡ hook trạng thái Claude"** (Uninstall Claude status hook).
+- Remove it anytime with the Command Palette entry **"CLI Code: Remove Claude Status Hooks"**.
 - Known limit: the hook command is evaluated by the shell (`eval "$CLI_CODE_HOOK"`), so a VS Code install path containing `"` or `$` breaks it.
 - The entry added for each of the 4 events `UserPromptSubmit`, `Stop`, `Notification`, `PermissionRequest`:
 
@@ -165,15 +165,15 @@ Paths the CLI prints (`src/x.ts:12:3`, `./dir`, `~/notes.md`, `README`, `file://
 
 ### Terminal right-click menu
 
-**Khởi động lại phiên** (Restart) brings the tab back into the *same conversation*: Claude Code via the session id its hook reports; Codex, Grok, Pi, OMP, Command Code, Droid, Prime Agent, Copilot, Cline, Kimi, Cursor, Amp, Antigravity, opencode, MiMo, Kilo and goose via the newest session their own store shows for this directory since the tab was opened; the remaining CLIs via their `--continue` form. Only when nothing is known does it start fresh.
+**Restart Session** brings the tab back into the *same conversation*: Claude Code via the session id its hook reports; Codex, Grok, Pi, OMP, Command Code, Droid, Prime Agent, Copilot, Cline, Kimi, Cursor, Amp, Antigravity, opencode, MiMo, Kilo and goose via the newest session their own store shows for this directory since the tab was opened; the remaining CLIs via their `--continue` form. Only when nothing is known does it start fresh.
 
-Right-click acts on what is under the pointer or selected: **Sao chép** (Copy, with a selection) · **Dán** (Paste) · **Chọn tất cả** (Select all) · on a URL **Mở liên kết** / on a file **Mở tệp**, **Mở bằng app mặc định**, **Chèn @đường-dẫn vào CLI** / on a folder **Mở thư mục** · **Sao chép liên kết / đường dẫn** · **Tìm vùng đã bôi** · **Tìm trong terminal**. Tab-level actions sit in a quiet bar at the top of the terminal (same background, icons flush right): **Phiên mới** (New session — pick a CLI, opened in this tab's directory), **Mở lại phiên cũ** (History), **Khởi động lại phiên** (Restart) and **Tìm** (Find), and under **…**: **Đổi tên tab** (Rename, `F2`), **Sao chép ngữ cảnh** (Copy context), **Lệnh nhanh** (Quick command). The bar's left side stays empty until the agent needs you (“Đang chờ bạn xác nhận”). Its left side shows the **model** the CLI is using (read from the CLI's own session store — Claude, Codex, Grok, Pi, OMP, opencode/MiMo/Kilo, Cline; hidden for CLIs that do not record it) and, while the agent waits on you, a status line. An experimental chat-style **composer** under the terminal (type or paste, `Enter` sends as one block, `Shift + Enter` breaks a line) can be enabled with `cliCode.composer: true`; it is off by default so the CLI's own input keeps its `/` and `@` menus. Hovering a link shows what `Cmd/Ctrl + click` will open and the resolved path.
+Right-click acts on what is under the pointer or selected: **Copy** · **Paste** · **Select All** · on a URL **Open Link** / on a file **Open File**, **Open with Default App**, **Insert @path into CLI** / on a folder **Open Folder** · **Copy Link / Path** · **Find Selection** · **Find in Terminal**. Tab-level actions sit in a quiet bar at the top of the terminal (same background, icons flush right): **New Session**, **Resume Session**, **Restart Session** and **Find**, and under **…**: **Rename Tab**, **Copy Context**, **Quick Command**. The bar's left side stays empty until the agent needs you (“Waiting for your confirmation”). Its left side shows the **model** the CLI is using (read from the CLI's own session store — Claude, Codex, Grok, Pi, OMP, opencode/MiMo/Kilo, Cline; hidden for CLIs that do not record it) and, while the agent waits on you, a status line. An experimental chat-style **composer** under the terminal (type or paste, `Enter` sends as one block, `Shift + Enter` breaks a line) can be enabled with `cliCode.composer: true`; it is off by default so the CLI's own input keeps its `/` and `@` menus. Hovering a link shows what `Cmd/Ctrl + click` will open and the resolved path.
 
 ### Command Palette commands
 
 The 0.2.0 commands are listed under their Vietnamese titles (English in parentheses):
 
-`CLI Code:` **Mở lại phiên cũ** (Resume past session), **Lệnh nhanh** (Quick command), **Lưu thành lệnh nhanh** (Save as quick command), **Đổi tên tab** (Rename tab), **Khởi động lại phiên** (Restart session), **Phóng to chữ** (Font zoom in), **Thu nhỏ chữ** (Font zoom out), **Cỡ chữ mặc định** (Reset font zoom), **Tìm trong terminal** (Find in terminal), **Sao chép ngữ cảnh** (Copy context), **Dán** (Paste), **Sao chép** (Copy), **Cài hook trạng thái Claude** (Install Claude status hook), **Gỡ hook trạng thái Claude** (Uninstall Claude status hook).
+`CLI Code:` **Resume Session**, **Quick Command**, **Save as Quick Command**, **Rename Tab**, **Restart Session**, **Zoom In**, **Zoom Out**, **Reset Zoom**, **Find in Terminal**, **Copy Context**, **Paste**, **Copy**, **Install Claude Status Hooks**, **Remove Claude Status Hooks**.
 
 ## Keyboard shortcuts
 
@@ -188,7 +188,7 @@ The 0.2.0 commands are listed under their Vietnamese titles (English in parenthe
 | Font zoom out                          | `Cmd + -`             | `Ctrl + -`               |
 | Reset font zoom                        | `Cmd + 0`             | `Ctrl + 0`               |
 
-\* On Windows / Linux the focused terminal consumes `Ctrl + F` (xterm sends it to the CLI as `^F`). Use the Command Palette command **"CLI Code: Tìm trong terminal"** or the right-click entry **Tìm trong terminal** instead.
+\* On Windows / Linux the focused terminal consumes `Ctrl + F` (xterm sends it to the CLI as `^F`). Use the Command Palette command **"CLI Code: Find in Terminal"** or the right-click entry **Find in Terminal** instead.
 
 ## FAQ
 
