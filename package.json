@@ -132,6 +132,11 @@
         "category": "CLI Code"
       },
       {
+        "command": "cli-code.restartAllSessions",
+        "category": "CLI Code",
+        "title": "Restart All Sessions"
+      },
+      {
         "command": "cli-code.installStatusHooks",
         "title": "Install Status Hooks",
         "category": "CLI Code"

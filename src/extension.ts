@@ -6,6 +6,9 @@ import { binaryOnPath, summarize, syncStatusHooks } from "./lib/hooks/sync.js"
 import { addFilepathToTerminal, addQuickCommand, openCli, resumeSession, runQuickCommand } from "./lib/commands.js"
 import {
   activeTerminalPanel,
+  checkAllStale,
+  markActivation,
+  restartAllPanels,
   applyFontZoom,
   baseTitle,
   currentFontSize,
@@ -61,9 +64,10 @@ function statusHooksEnabled(): boolean {
 
 /** Installs/removes the status hooks of every supported CLI; the summary is shown unless quiet
  * (then only failures are). */
-async function runStatusHookSync(enabled: boolean, opts: { quiet?: boolean } = {}): Promise<void> {
+async function runStatusHookSync(context: vscode.ExtensionContext, enabled: boolean, opts: { quiet?: boolean } = {}): Promise<void> {
   const results = syncStatusHooks({ installers: STATUS_HOOK_INSTALLERS, home: os.homedir(), enabled, onPath: binaryOnPath })
   const failed = results.some((r) => r.action === "error")
+  if (results.some((r) => r.action === "installed" || r.action === "removed")) checkAllStale(context)
   if (failed) void vscode.window.showWarningMessage(`CLI Code status hooks — ${summarize(results)}`)
   else if (!opts.quiet) void vscode.window.showInformationMessage(`CLI Code status hooks — ${summarize(results)}`)
 }
@@ -71,11 +75,12 @@ async function runStatusHookSync(enabled: boolean, opts: { quiet?: boolean } = {
 export function activate(context: vscode.ExtensionContext): TestApi {
   // Restored CLI tabs only connect once they become visible; hold the daemon open in the
   // meantime so its idle-exit does not kill their sessions. Must not block activation.
+  markActivation(context)
   void holdDaemonAlive(context).then((d) => context.subscriptions.push(d))
   // Status hooks follow the setting silently, like Orca: installed for every supported CLI on
   // PATH, removed everywhere when turned off. Never from the integration-test host (it runs
   // against the real home) and never on Windows (the hook line needs `sh`).
-  if (context.extensionMode !== vscode.ExtensionMode.Test && process.platform !== "win32") void runStatusHookSync(statusHooksEnabled(), { quiet: true })
+  if (context.extensionMode !== vscode.ExtensionMode.Test && process.platform !== "win32") void runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
   context.subscriptions.push(
     vscode.commands.registerCommand("cli-code.open", () => openCli(context, { reuseExisting: true })),
     vscode.commands.registerCommand("cli-code.openNew", () => openCli(context, { reuseExisting: false })),
@@ -118,10 +123,11 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     vscode.commands.registerCommand("cli-code.findSelection", (ctx?: MenuContext) =>
       sendToActivePanel({ type: "find", query: typeof ctx?.cliCodeSelection === "string" ? ctx.cliCodeSelection.split("\n")[0] : undefined }),
     ),
-    vscode.commands.registerCommand("cli-code.installStatusHooks", () => runStatusHookSync(true)),
-    vscode.commands.registerCommand("cli-code.removeStatusHooks", () => runStatusHookSync(false)),
+    vscode.commands.registerCommand("cli-code.restartAllSessions", () => restartAllPanels(context)),
+    vscode.commands.registerCommand("cli-code.installStatusHooks", () => runStatusHookSync(context, true)),
+    vscode.commands.registerCommand("cli-code.removeStatusHooks", () => runStatusHookSync(context, false)),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("cliCode.statusHooks")) void runStatusHookSync(statusHooksEnabled(), { quiet: true })
+      if (e.affectsConfiguration("cliCode.statusHooks")) void runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
     }),
     vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
       async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: PanelState | undefined) {

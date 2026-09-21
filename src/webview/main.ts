@@ -39,6 +39,7 @@ type HostMessage =
   | { type: "probeResult"; id: number; results: ProbeResult }
   | { type: "agentStatus"; state: "working" | "waiting" | "blocked" | "done" | "none" }
   | { type: "model"; model: string }
+  | { type: "configStale"; reason: string }
 
 const vscode = acquireVsCodeApi()
 
@@ -388,6 +389,8 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     if (selection) vscode.postMessage({ type: "clipboard", text: selection })
   } else if (message.type === "selectAll") {
     term.selectAll()
+  } else if (message.type === "configStale") {
+    actionBar.setNotice(message.reason ? `● ${message.reason} — restart to apply` : "")
   } else if (message.type === "model") {
     actionBar.setModel(message.model)
   } else if (message.type === "agentStatus") {

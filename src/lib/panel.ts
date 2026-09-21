@@ -11,6 +11,7 @@ import { locateLatestSession } from "./history/locate.js"
 import { detectModel } from "./history/model.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
 import { createPromptTracker } from "./prompt-tracker.js"
+import { canAutoRestart, configChangedSince, configPathsFor } from "./config-watch.js"
 import { restartCommand } from "./restart-command.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
@@ -21,7 +22,7 @@ export const VIEW_TYPE = "cliCode.terminal"
 const DAEMON_ID_KEY = "cliCode.daemonId"
 const FONT_ZOOM_KEY = "cliCode.fontZoom"
 
-export type PanelState = { sessionId: string; toolId: string; customTitle?: string; promptTitle?: string; quickCommandLabel?: string }
+export type PanelState = { sessionId: string; toolId: string; customTitle?: string; promptTitle?: string; quickCommandLabel?: string; spawnedAt?: number }
 
 // Registries for rename (Task 10) and Task 11 (focus tracking, writing at-mentions
 // into the active session).
@@ -36,6 +37,11 @@ const panelCommands = new WeakMap<vscode.WebviewPanel, string>()
 // When the tab's CLI was spawned, and the CLI's own session id (Claude reports it through its
 // hook) — together they let a restart resume the same conversation instead of starting over.
 const panelSpawnedAt = new WeakMap<vscode.WebviewPanel, number>()
+// When the PTY last produced output — a quiet terminal is one that can be restarted safely.
+const panelLastOutput = new WeakMap<vscode.WebviewPanel, number>()
+// Set by markActivation: sessions spawned before an extension update run stale hooks.
+let activatedAt = 0
+let extensionUpdated = false
 const panelCliSessionIds = new WeakMap<vscode.WebviewPanel, string>()
 // Last model id shown in the tab's action bar, so unchanged detections post nothing.
 const panelModels = new WeakMap<vscode.WebviewPanel, string>()
@@ -390,7 +396,9 @@ export async function restoreTerminalPanel(
   // Restore the prompt title before wiring so the first title/state posted is already correct.
   if (state.promptTitle) panelPromptTitles.set(panel, state.promptTitle)
   if (state.quickCommandLabel) panelQuickLabels.set(panel, state.quickCommandLabel)
+  if (state.spawnedAt) panelSpawnedAt.set(panel, state.spawnedAt)
   wirePanel(context, panel, tool, connection)
+  void checkStale(context, panel)
 }
 
 /** Renders the "session gone" view and wires its restart button. Shared by a failed
@@ -510,6 +518,7 @@ function wirePanel(
     if (e.webviewPanel.visible) {
       panelUnread.delete(panel)
       updateTitle(panel)
+      void checkStale(context, panel)
     }
   })
 
@@ -562,6 +571,7 @@ function attachConnection(
     sendTo(panel, { type: "pasteText", ...initial })
   }
   connection.onData((bytes) => {
+    panelLastOutput.set(panel, Date.now())
     sendTo(panel, { type: "data", bytes })
     if (panelInitialInputs.has(panel)) {
       clearTimeout(quietTimer)
@@ -713,6 +723,54 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
   }
 }
 
+/** Called once per activation: an extension update means every session spawned before it
+ * runs the previous version's hooks and must be restarted to pick the new ones up. */
+export function markActivation(context: vscode.ExtensionContext): void {
+  const version = (context.extension.packageJSON as { version?: string }).version ?? ""
+  activatedAt = Date.now()
+  // Extension-test hosts use in-memory storage, so every launch would look like an update.
+  extensionUpdated = context.extensionMode !== vscode.ExtensionMode.Test && context.globalState.get<string>("cliCode.lastVersion") !== version
+  void context.globalState.update("cliCode.lastVersion", version)
+}
+
+/**
+ * A tab whose CLI started before its config (MCP servers, plugins, hooks) or this extension
+ * changed is stale: MCP/plugins/hooks are read only at CLI start. Idle tabs restart into the
+ * same conversation by themselves; busy ones show a notice until the user restarts.
+ */
+export async function checkStale(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
+  const tool = panelTools.get(panel)
+  const spawnedAt = panelSpawnedAt.get(panel)
+  if (!tool || !spawnedAt || !activePanels.has(panel) || !panelConnections.has(panel)) return
+  const cwd = usableCwd(panelCwds.get(panel))
+  const reason =
+    extensionUpdated && spawnedAt < activatedAt
+      ? "CLI Code was updated"
+      : (() => {
+          const changed = configChangedSince(configPathsFor(tool.id, tool.historyToolId, cwd, os.homedir()), spawnedAt)
+          return changed ? `${vscode.workspace.asRelativePath(changed)} changed` : undefined
+        })()
+  if (!reason) {
+    sendTo(panel, { type: "configStale", reason: "" })
+    return
+  }
+  if (canAutoRestart({ state: panelStatus.get(panel)?.state, lastOutputAt: panelLastOutput.get(panel) ?? 0, now: Date.now() })) {
+    await restartPanel(context, panel)
+    return
+  }
+  sendTo(panel, { type: "configStale", reason })
+}
+
+/** Restarts every open tab into its own conversation (config/MCP/plugins are re-read). */
+export async function restartAllPanels(context: vscode.ExtensionContext): Promise<void> {
+  for (const panel of [...activePanels]) if (panelConnections.has(panel)) await restartPanel(context, panel)
+}
+
+/** Re-checks every open tab; used after the status hooks were (re)installed. */
+export function checkAllStale(context: vscode.ExtensionContext): void {
+  for (const panel of [...activePanels]) void checkStale(context, panel)
+}
+
 // Guards against a second restart request (e.g. a doubled click, or the palette command
 // firing while a "restart" webview message is still in flight) racing the same panel.
 const restarting = new WeakSet<vscode.WebviewPanel>()
@@ -790,6 +848,7 @@ function postState(panel: vscode.WebviewPanel): void {
       customTitle: customTitles.get(panel),
       promptTitle: panelPromptTitles.get(panel),
       quickCommandLabel: panelQuickLabels.get(panel),
+      spawnedAt: panelSpawnedAt.get(panel),
     },
   })
 }

@@ -144,7 +144,7 @@ CLI Code keeps a small hook installed in each supported CLI so the tab shows acc
   ```
 
   The generated plugins build the same JSON payload the shell hooks receive and pipe it into that line.
-- A hook takes effect from the next start of that CLI — a session that was already running keeps guessing status from the title.
+- A hook takes effect from the next start of that CLI. CLI Code notices when a tab's CLI is older than its config (MCP servers, plugins, hooks — the files listed above plus each CLI's MCP config, checked after a Reload Window, when a tab becomes visible, and after an extension update): an idle tab restarts into the same conversation by itself; a busy one shows *"… changed — restart to apply"* in the action bar until you restart it. **"CLI Code: Restart All Sessions"** restarts every tab at once.
 - **"CLI Code: Install Status Hooks"** / **"Remove Status Hooks"** in the Command Palette do the same by hand and show a summary.
 - POSIX only (macOS, Linux): Windows has no `sh` to evaluate the hook line, so nothing is installed there.
 - Known limit: the hook command is evaluated by the shell, so a VS Code install path containing `"` or `$` breaks it.

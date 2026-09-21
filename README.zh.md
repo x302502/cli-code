@@ -140,7 +140,7 @@ CLI Code 会在每个受支持的 CLI 中保持一个小钩子，让标签显示
   ```
 
   生成的插件构造与 shell 钩子相同的 JSON 载荷，再通过管道送入该行。
-- 钩子从该 CLI 下一次启动起生效——已在运行的会话仍从标题猜测状态。
+- 钩子从该 CLI 下一次启动起生效。CLI Code 会察觉标签里的 CLI 比其配置更旧（MCP 服务器、插件、钩子——上表文件加各 CLI 的 MCP 配置；在 Reload Window 后、标签显示时、扩展更新后检查）：空闲标签自动重启回同一会话；忙碌标签在操作栏显示 *"… changed — restart to apply"* 直到你重启。**"CLI Code: Restart All Sessions"** 一次重启所有标签。
 - 命令面板中的 **"CLI Code: Install Status Hooks"** / **"Remove Status Hooks"** 可手动执行并显示摘要。
 - 仅 POSIX（macOS、Linux）：Windows 没有 `sh` 来执行钩子行，因此不会安装任何东西。
 - 已知限制：钩子命令由 shell `eval`，VS Code 安装路径含 `"` 或 `$` 时会失效。

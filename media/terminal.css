@@ -63,12 +63,16 @@ body {
   background: var(--vscode-focusBorder, #d97757);
   flex: none;
 }
-#action-status {
+#action-status,
+#action-notice {
   font: 12px var(--vscode-font-family);
   color: var(--vscode-editorWarning-foreground, var(--vscode-descriptionForeground));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+#action-notice {
+  color: var(--vscode-descriptionForeground);
 }
 #action-icons {
   display: flex;

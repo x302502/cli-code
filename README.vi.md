@@ -144,7 +144,7 @@ CLI Code giữ một hook nhỏ trong mỗi CLI được hỗ trợ để tab hi
   ```
 
   Plugin sinh tự động dựng đúng payload JSON như hook shell nhận, rồi pipe vào dòng đó.
-- Hook có hiệu lực từ lần khởi động tiếp theo của CLI — phiên đang chạy sẵn vẫn đoán trạng thái từ tiêu đề.
+- Hook có hiệu lực từ lần khởi động tiếp theo của CLI. CLI Code tự nhận ra khi CLI của một tab cũ hơn config của nó (MCP, plugin, hook — các file ở bảng trên cộng file MCP của từng CLI; kiểm tra sau Reload Window, khi tab hiện ra, và sau khi extension được cập nhật): tab đang rảnh tự khởi động lại vào đúng hội thoại; tab đang bận hiện *"… changed — restart to apply"* trên thanh action cho tới khi bạn restart. **"CLI Code: Restart All Sessions"** khởi động lại mọi tab một lượt.
 - **"CLI Code: Install Status Hooks"** / **"Remove Status Hooks"** trong Command Palette làm việc tương tự bằng tay và hiện tóm tắt.
 - Chỉ POSIX (macOS, Linux): Windows không có `sh` để chạy dòng hook nên không cài gì.
 - Giới hạn đã biết: lệnh hook được shell `eval`, nên đường dẫn cài VS Code có `"` hoặc `$` sẽ hỏng.

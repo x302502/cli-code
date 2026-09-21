@@ -17,7 +17,7 @@ const MORE =
 export function createActionBar(handlers: {
   onCommand(id: string): void
   onFind(): void
-}): { setStatus(text: string): void; setModel(model: string): void } {
+}): { setStatus(text: string): void; setModel(model: string): void; setNotice(text: string): void } {
   const bar = document.createElement("div")
   bar.id = "action-bar"
   const left = document.createElement("div")
@@ -27,7 +27,10 @@ export function createActionBar(handlers: {
   model.hidden = true
   const status = document.createElement("div")
   status.id = "action-status"
-  left.append(model, status)
+  const notice = document.createElement("div")
+  notice.id = "action-notice"
+  notice.hidden = true
+  left.append(model, status, notice)
   const right = document.createElement("div")
   right.id = "action-icons"
   bar.append(left, right)
@@ -96,6 +99,10 @@ export function createActionBar(handlers: {
     setStatus(text) {
       status.textContent = text
       status.hidden = !text
+    },
+    setNotice(text) {
+      notice.textContent = text
+      notice.hidden = !text
     },
     setModel(id) {
       model.textContent = id
