@@ -304,6 +304,12 @@ export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise
 
 /** Shell snippet Claude's hook entry evaluates; the editor's own binary runs our bundle as node.
  * stdout is discarded so nothing the bundle prints can be read by Claude as hook output. */
+/** Per-tool extras for a new CLI process; PATH and the rest come from the daemon's interactive
+ * login shell (see daemon/entry.ts). */
+function spawnEnv(context: vscode.ExtensionContext, tool: CliTool, port: number | undefined): Record<string, string> {
+  return { ...buildEnv(tool, port), CLI_CODE_HOOK: hookCommand(context) }
+}
+
 function hookCommand(context: vscode.ExtensionContext): string {
   return `ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "${context.asAbsolutePath("dist/hook.js")}" >/dev/null`
 }
@@ -346,7 +352,7 @@ export async function openTerminalPanel(
     toolId: tool.id,
     command: port ? baseCommand.replace("{port}", String(port)) : baseCommand,
     cwd,
-    env: { ...buildEnv(tool, port), CLI_CODE_HOOK: hookCommand(context) },
+    env: spawnEnv(context, tool, port),
     cols: 80,
     rows: 24,
   })
@@ -801,7 +807,7 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
       toolId: tool.id,
       command: port ? baseCommand.replace("{port}", String(port)) : baseCommand,
       cwd: usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
-      env: { ...buildEnv(tool, port), CLI_CODE_HOOK: hookCommand(context) },
+      env: spawnEnv(context, tool, port),
       cols: 80,
       rows: 24,
     })

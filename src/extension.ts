@@ -3,6 +3,7 @@ import * as os from "node:os"
 import { CLAUDE_SETTINGS_PATH, hooksInstalledOnDisk, installHooksToDisk, uninstallHooksFromDisk } from "./lib/claude-hooks.js"
 import { STATUS_HOOK_INSTALLERS } from "./lib/hooks/registry.js"
 import { binaryOnPath, summarize, syncStatusHooks } from "./lib/hooks/sync.js"
+import { shellEnv } from "./lib/shell-env.js"
 import { addFilepathToTerminal, addQuickCommand, openCli, resumeSession, runQuickCommand } from "./lib/commands.js"
 import {
   activeTerminalPanel,
@@ -65,7 +66,9 @@ function statusHooksEnabled(): boolean {
 /** Installs/removes the status hooks of every supported CLI; the summary is shown unless quiet
  * (then only failures are). */
 async function runStatusHookSync(context: vscode.ExtensionContext, enabled: boolean, opts: { quiet?: boolean } = {}): Promise<void> {
-  const results = syncStatusHooks({ installers: STATUS_HOOK_INSTALLERS, home: os.homedir(), enabled, onPath: binaryOnPath })
+  // The CLIs' bin dirs usually come from .zshrc, which the extension host's PATH may lack.
+  const envPath = (await shellEnv())?.PATH ?? process.env.PATH
+  const results = syncStatusHooks({ installers: STATUS_HOOK_INSTALLERS, home: os.homedir(), enabled, onPath: (b) => binaryOnPath(b, envPath) })
   const failed = results.some((r) => r.action === "error")
   if (results.some((r) => r.action === "installed" || r.action === "removed")) checkAllStale(context)
   if (failed) void vscode.window.showWarningMessage(`CLI Code status hooks — ${summarize(results)}`)

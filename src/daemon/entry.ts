@@ -10,11 +10,14 @@ if (!socketPath) {
 void startDaemon({
   socketPath,
   spawnPty: (opts): PtyLike => {
-    // Run through the user's login shell so PATH and aliases match a normal terminal.
+    // Run through the user's *interactive* login shell (-ilc), exactly what a terminal tab is:
+    // a plain login shell (-lc) skips .zshrc/.bashrc, where nvm, pnpm, pyenv and the CLIs'
+    // own ~/.x/bin dirs land on PATH — Codex's MCP servers spawned via npx then picked the
+    // wrong node and failed to start, while the same CLI worked in a terminal and in Orca.
     // SHELL is ignored on win32: a POSIX SHELL (e.g. from Git Bash) must not pair with the -NoLogo/-Command args below.
     const posixFallback = process.platform === "darwin" ? "/bin/zsh" : "/bin/bash"
     const shell = process.platform === "win32" ? "powershell.exe" : (process.env.SHELL ?? posixFallback)
-    const args = process.platform === "win32" ? ["-NoLogo", "-Command", opts.command] : ["-lc", opts.command]
+    const args = process.platform === "win32" ? ["-NoLogo", "-Command", opts.command] : ["-ilc", opts.command]
     const env = { ...process.env, ...opts.env, TERM: "xterm-256color" } as Record<string, string>
     // The daemon itself is spawned with ELECTRON_RUN_AS_NODE=1 (so the editor's own Electron
     // binary runs it as plain node) and would otherwise pass that down into every CLI's shell.

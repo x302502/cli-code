@@ -105,8 +105,10 @@ async function runOne(tool) {
     for (let i = 0; i < b.length; i++) lines.push(b.getLine(i)?.translateToString(true) ?? "")
     return lines.join("\n").replace(/\n+$/, "")
   }
+  // TUIs with spinners never go fully quiet; give up waiting for silence after 15 s.
   const idle = async (ms) => {
-    while (!exited && Date.now() - lastData < ms) await sleep(100)
+    const cap = Date.now() + 15_000
+    while (!exited && Date.now() - lastData < ms && Date.now() < cap) await sleep(100)
   }
   const payloads = () =>
     fs
@@ -128,7 +130,13 @@ async function runOne(tool) {
     for (let i = 0; i < 3 && !exited; i++) {
       const s = screen().toLowerCase()
       if (/trust|yes, proceed|press enter|continue\?|\(y\/n\)|allow/.test(s)) {
-        log("dialog detected, sending Enter")
+        // Claude's trust dialog lists "No, exit" first: move down to "Yes, I trust" before Enter.
+        const down = /no, exit[\s\S]*yes, i trust/.test(s)
+        log(`dialog detected, sending ${down ? "Down + " : ""}Enter`)
+        if (down) {
+          p.write("\x1b[B")
+          await sleep(300)
+        }
         p.write("\r")
         await sleep(1000)
         await idle(READY_IDLE_MS)
@@ -137,8 +145,12 @@ async function runOne(tool) {
     if (exited) throw new Error("CLI exited during startup")
     fs.writeFileSync(path.join(dir, "screen-ready.txt"), screen())
     log("ready, sending prompt")
-    p.write(PROMPT)
-    await sleep(400)
+    await sleep(1500)
+    for (const ch of PROMPT) {
+      p.write(ch)
+      await sleep(15)
+    }
+    await sleep(600)
     p.write("\r")
 
     // Turn: wait for prompt + stop from the hook.
