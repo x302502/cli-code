@@ -2,6 +2,8 @@
 
 [English](README.md) · [Tiếng Việt](README.vi.md) · **中文** · [日本語](README.ja.md)
 
+📖 完整手册: [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
+
 > 在代码旁边的终端中打开你喜爱的 AI 编程助手，并用一个快捷键把你正在查看的文件直接送进去。
 
 ![多个 AI CLI 在 VS Code 中并排运行](images/screenshots/terminals.png)

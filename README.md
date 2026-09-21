@@ -2,6 +2,8 @@
 
 **English** · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · [日本語](README.ja.md)
 
+📖 Full manual: [User Guide](docs/user-guide.md) · [Hướng dẫn sử dụng](docs/user-guide.vi.md) · [Changelog](CHANGELOG.md)
+
 > Open your favourite AI coding assistant in a terminal next to your code — and send the file you're looking at straight into it, with one shortcut.
 
 ![Multiple AI CLIs running side by side in VS Code](images/screenshots/terminals.png)

@@ -2,6 +2,8 @@
 
 [English](README.md) · **Tiếng Việt** · [中文](README.zh.md) · [日本語](README.ja.md)
 
+📖 Tài liệu đầy đủ: [Hướng dẫn sử dụng](docs/user-guide.vi.md) · [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
+
 > Mở trợ lý lập trình AI yêu thích của bạn trong terminal ngay cạnh code — và gửi thẳng file bạn đang xem vào đó, chỉ với một phím tắt.
 
 ![Nhiều AI CLI chạy song song trong VS Code](images/screenshots/terminals.png)

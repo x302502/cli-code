@@ -2,6 +2,8 @@
 
 [English](README.md) · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · **日本語**
 
+📖 詳細マニュアル: [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
+
 > お気に入りの AI コーディングアシスタントをコードの隣のターミナルで開き、今見ているファイルをショートカット一つでそのまま送り込めます。
 
 ![複数の AI CLI を VS Code で横に並べて実行](images/screenshots/terminals.png)
