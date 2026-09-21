@@ -7,3 +7,6 @@ docs/
 .codegraph
 .vscode-test/
 dist-test/
+# Local tooling output
+.playwright-mcp/
+.superpowers/
