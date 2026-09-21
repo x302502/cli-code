@@ -95,6 +95,11 @@ describe("OSC title prompt prefixes", () => {
     expect(resolveTabTitle({ oscTitle: "⠋ Grok", toolLabel: "Grok" })).toBe("Grok")
     expect(resolveTabTitle({ oscTitle: "* thinking", toolLabel: "X" })).toBe("thinking")
   })
+  it("Codex titles are `<task> | <folder>`: an empty task segment (spinner only) is dropped", () => {
+    expect(resolveTabTitle({ oscTitle: "⠋ | my-ai-books", toolLabel: "Codex" })).toBe("my-ai-books")
+    expect(resolveTabTitle({ oscTitle: "Reply OK | my-ai-books", toolLabel: "Codex" })).toBe("Reply OK | my-ai-books")
+    expect(resolveTabTitle({ oscTitle: "⠋ renaming... ⠋ | my-ai-books", toolLabel: "Codex" })).toBe("renaming... | my-ai-books")
+  })
   it("caps long OSC titles at 40 chars with …, but never touches a title the user typed", () => {
     const long = "Refactor the authentication flow so tokens refresh silently"
     expect(resolveTabTitle({ oscTitle: long, toolLabel: "X" })).toBe("Refactor the authentication flow so…")

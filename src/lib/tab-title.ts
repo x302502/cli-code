@@ -58,6 +58,8 @@ export function formatPromptTitle(prompt: string): string {
   return truncateTitle(candidate.replace(/\p{L}/u, (letter) => letter.toLocaleUpperCase()))
 }
 
+// Prompt markers and the status glyphs / spinners CLIs prefix (same set Orca strips).
+const GLYPH_PREFIX = /^(?:[\s✳✦⏲◇✋⠀-⣿◐-◓>❯›»$%#]+|[.*]\s)\s*/u
 const SHELL_NAMES = new Set(["sh", "bash", "zsh", "fish", "pwsh", "powershell", "powershell.exe", "cmd.exe"])
 
 /**
@@ -90,7 +92,14 @@ export function resolveTabTitle(parts: {
   // Some CLIs (Cline) mirror their input line into the title, prompt marker included, and
   // others (Claude, Gemini, Pi/OMP) prefix a status glyph or spinner — the tab shows its own
   // status glyph already. Same prefix set Orca strips, plus prompt markers.
-  const osc = parts.oscTitle?.replace(/^(?:[\s✳✦⏲◇✋⠀-⣿◐-◓>❯›»$%#]+|[.*]\s)\s*/u, "").trim()
+  // Codex writes `<task> | <folder>` and multiplexers `zsh | <title>`: clean each segment
+  // on its own and drop the ones that were only a glyph, so a working Codex with no task
+  // summary yet reads "my-ai-books", not "| my-ai-books".
+  const osc = parts.oscTitle
+    ?.split(" | ")
+    .map((seg) => seg.replace(GLYPH_PREFIX, "").replace(/\s*[⠀-⣿]\s*$/u, "").trim())
+    .filter(Boolean)
+    .join(" | ")
   if (osc && isMeaningfulOscTitle(osc)) return truncateTitle(osc)
 
   const prompt = parts.promptTitle?.trim()
