@@ -12,11 +12,13 @@
 
 Every serious coding agent ships as a terminal program. Running it in a plain terminal tab means the tab is blind: it can't tell you the agent is waiting for approval, it doesn't know which file the agent just edited, a reload kills it, and a restart forgets the conversation.
 
-CLI Code replaces that tab with one built for agents. The agent itself runs untouched — same CLI, same shell, same MCP servers and plugins — but the tab around it knows what is happening.
+CLI Code replaces that tab with an interface built for agents — its own webview terminal with an action bar, live state, clickable output and notices — while the agent itself runs untouched: same CLI, same shell, same MCP servers and plugins.
 
 ## What you get
 
 **Tabs that know the agent's state.** The tab renames itself after the task you gave and carries a mark: `⟳` working, `?` waiting for you, `●` finished while you were on another tab. An agent that needs you on a hidden tab sends a notification with an *Open tab* button. The action bar above the terminal shows the model in use.
+
+**An interface around the agent, not a bare terminal.** Above the terminal sits a quiet action bar in Claude's visual language: New Session (with the agent picker), Resume, Restart, Find, and a `…` menu (Rename, Copy Context, Quick Command). Its left side shows the model in use, a status line while the agent waits on you, and a *"… changed — restart to apply"* notice when the running agent is older than its configuration. Hovering a link shows what it opens; find has match-case and regex; an overlay with a Restart button appears when the agent exits, a *session ended* page when its process is gone. Fonts and colours follow your VS Code theme; an optional chat-style composer can sit under the terminal.
 
 **Everything the agent prints is clickable.** File paths open in the editor at the exact line and column, folders reveal in the Explorer (or Finder/Explorer when outside the workspace), URLs open in the browser, Markdown opens in the preview. Only paths that really exist are underlined. A plain click selects the whole link so `Cmd/Ctrl + C` copies it; selection and copy keep working even while Claude Code is capturing the mouse.
 

@@ -12,11 +12,13 @@
 
 Mọi agent lập trình nghiêm túc đều là một chương trình dòng lệnh. Chạy nó trong tab terminal thường thì tab đó "mù": không biết agent đang chờ bạn duyệt, không biết agent vừa sửa file nào, reload là mất, khởi động lại là quên hội thoại.
 
-CLI Code thay tab đó bằng một tab sinh ra cho agent. Bản thân agent chạy nguyên vẹn — cùng CLI, cùng shell, cùng MCP server và plugin — nhưng cái tab bao quanh nó biết chuyện gì đang xảy ra.
+CLI Code thay tab đó bằng một giao diện sinh ra cho agent — terminal webview riêng với thanh action, trạng thái sống, output bấm được và các thông báo trong khung — còn bản thân agent chạy nguyên vẹn: cùng CLI, cùng shell, cùng MCP server và plugin.
 
 ## Bạn có gì
 
 **Tab biết trạng thái agent.** Tab tự đổi tên theo việc bạn giao và mang một dấu: `⟳` đang chạy, `?` đang chờ bạn, `●` đã xong khi bạn ở tab khác. Agent cần bạn ở tab đang ẩn sẽ gửi thông báo kèm nút *Open tab*. Thanh action trên terminal hiện model đang dùng.
+
+**Một giao diện bao quanh agent, không phải terminal trần.** Trên terminal là thanh action lặng theo ngôn ngữ hình ảnh của Claude: New Session (kèm bộ chọn agent), Resume, Restart, Find và menu `…` (Rename, Copy Context, Quick Command). Bên trái hiện model đang dùng, dòng trạng thái khi agent chờ bạn, và nhắc *"… changed — restart to apply"* khi agent đang chạy cũ hơn cấu hình. Rê chuột lên link thấy nó sẽ mở gì; tìm kiếm có phân biệt hoa thường và regex; khi agent thoát có lớp phủ với nút Restart, khi tiến trình mất có trang *session ended*. Font và màu theo theme VS Code; có thể bật thêm khung nhập kiểu chat dưới terminal.
 
 **Mọi thứ agent in ra đều bấm được.** Đường dẫn file mở trong editor đúng dòng đúng cột, thư mục hiện trong Explorer (hoặc Finder/Explorer nếu ngoài workspace), URL mở trình duyệt, Markdown mở preview. Chỉ đường dẫn thật sự tồn tại mới được gạch chân. Click thường chọn trọn link để `Cmd/Ctrl + C` chép; bôi chọn và chép vẫn hoạt động cả khi Claude Code đang bắt chuột.
 
