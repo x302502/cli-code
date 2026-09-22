@@ -1,7 +1,7 @@
 /**
  * Splits the POSIX `VAR=value cmd …` prefix some tool commands carry (Claude Agent Teams,
  * Goose) into env + bare command. `sh` handles the prefix itself; PowerShell on Windows does
- * not, so the daemon applies it to the spawn env on every platform instead.
+ * not, so there the daemon applies it to the spawn env instead.
  */
 export function splitEnvPrefix(command: string): { env: Record<string, string>; command: string } {
   const env: Record<string, string> = {}

@@ -1,6 +1,7 @@
 import * as vscode from "vscode"
 import * as os from "node:os"
 import { CLI_TOOLS, type CliTool } from "./config.js"
+import { detectInstalled, extractBinary } from "./detect.js"
 import { getActiveFileReference } from "./editor.js"
 import { locateLatestSession } from "./history/locate.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
@@ -44,7 +45,9 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
   const sessions = await listSessionsForWorkspace(cwd)
   // Tools whose sessions cannot be listed (no history parser) still get a "continue latest"
   // entry: this folder's newest session from the CLI's own store when it has one, else --continue.
-  const continueEntries = CLI_TOOLS.filter((t) => !sessions.some((s) => s.toolId === t.id))
+  // Only installed CLIs are asked — the store lookups are synchronous and block the host.
+  const installed = await detectInstalled(CLI_TOOLS.map((t) => extractBinary(t.command)))
+  const continueEntries = CLI_TOOLS.filter((t) => installed.get(extractBinary(t.command)) && !sessions.some((s) => s.toolId === t.id))
     .map((tool) => ({ tool, command: continueLatestCommand(tool, locateLatestSession(tool.historyToolId ?? tool.id, cwd, 0, os.homedir())) }))
     .filter((e): e is { tool: CliTool; command: string } => e.command !== undefined)
   if (sessions.length === 0 && continueEntries.length === 0) {

@@ -21,8 +21,10 @@ void startDaemon({
     // SHELL is ignored on win32: a POSIX SHELL (e.g. from Git Bash) must not pair with the -NoLogo/-Command args below.
     const posixFallback = process.platform === "darwin" ? "/bin/zsh" : "/bin/bash"
     const shell = process.platform === "win32" ? "powershell.exe" : (process.env.SHELL ?? posixFallback)
-    // A `VAR=value cmd` prefix is POSIX shell syntax PowerShell would choke on: apply it here.
-    const { env: prefixEnv, command } = splitEnvPrefix(opts.command)
+    // A `VAR=value cmd` prefix is POSIX shell syntax PowerShell would choke on: apply it here on
+    // Windows only. A POSIX shell must keep applying it itself, after its rc files ran — an
+    // `export GOOSE_MODE=…` in .zshrc would otherwise beat the prefix.
+    const { env: prefixEnv, command } = process.platform === "win32" ? splitEnvPrefix(opts.command) : { env: {}, command: opts.command }
     const args = process.platform === "win32" ? ["-NoLogo", "-Command", command] : ["-ilc", command]
     const env = { ...process.env, ...opts.env, ...prefixEnv, TERM: "xterm-256color" } as Record<string, string>
     // The daemon itself is spawned with ELECTRON_RUN_AS_NODE=1 (so the editor's own Electron

@@ -874,21 +874,24 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
       old.dispose()
     }
     panelConnections.delete(panel)
-    const socketPath = await ensureDaemon(context)
+    // ensureDaemon throws when the daemon does not come up; treated like a refused spawn.
+    const socketPath = await ensureDaemon(context).catch(() => undefined)
     const baseCommand = await commandForRestart(panel, tool)
     // From now on the tab is a resume tab: later restarts keep landing in the same conversation.
     panelCommands.set(panel, baseCommand)
     panelSpawnedAt.set(panel, Date.now())
     panelConfigSnapshot.set(panel, configSnapshot(configPathsFor(tool.id, tool.historyToolId, usableCwd(panelCwds.get(panel)), os.homedir())))
-    const connection = await connectSession(socketPath, {
-      op: "spawn",
-      toolId: tool.id,
-      command: baseCommand,
-      cwd: usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
-      env: spawnEnv(context, tool),
-      cols: 80,
-      rows: 24,
-    })
+    const connection = socketPath
+      ? await connectSession(socketPath, {
+          op: "spawn",
+          toolId: tool.id,
+          command: baseCommand,
+          cwd: usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
+          env: spawnEnv(context, tool),
+          cols: 80,
+          rows: 24,
+        })
+      : undefined
     if (!connection) {
       void vscode.window.showErrorMessage("Could not restart: the daemon is not responding.")
       // The old session is already killed: leave the tab on the honest "gone" page (with its
