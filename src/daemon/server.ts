@@ -74,9 +74,12 @@ export async function startDaemon(args: {
             // Only the current owner may kill; a stale connection's late Kill must not
             // take down a session another connection has since taken over.
             session.detach()
-            session.kill()
+            session.dispose()
             sessions.delete(session.id)
             owners.delete(session.id)
+            // A keep-alive client (the extension holding an outdated daemon open for tabs
+            // not yet restarted) must not keep a daemon with nothing left to host.
+            if (sessions.size === 0) scheduleIdleExit()
           }
         }
       } catch {
@@ -110,7 +113,7 @@ export async function startDaemon(args: {
   function scheduleIdleExit() {
     if (idleTimer) clearTimeout(idleTimer)
     idleTimer = setTimeout(() => {
-      if (connections > 0 || closed) return
+      if (closed || (connections > 0 && sessions.size > 0)) return
       for (const session of sessions.values()) session.kill()
       sessions.clear()
       owners.clear()

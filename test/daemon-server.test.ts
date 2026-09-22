@@ -193,6 +193,24 @@ describe("startDaemon", () => {
     expect(exited).toBe(true)
   })
 
+  it("một client bám giữ (keep-alive) không cứu daemon đã hết phiên: vẫn idle-exit sau khi phiên cuối bị Kill", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    let exited = false
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty, idleMs: 30, onIdleExit: () => (exited = true) })
+    stop = daemon.close
+    const hold = connect(p)
+    const owner = connect(p)
+    owner.socket.write(encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }))
+    await owner.waitFor(MSG.HelloOk)
+    await new Promise((r) => setTimeout(r, 80))
+    expect(exited).toBe(false)
+    owner.socket.write(encodeFrame(MSG.Kill, new Uint8Array(0)))
+    await new Promise((r) => setTimeout(r, 120))
+    expect(exited).toBe(true)
+    hold.socket.destroy()
+  })
+
   it("gửi khung Exit khi PTY thoát trong lúc client đang nối", async () => {
     const p = socketPath()
     const harness = scriptedPty()

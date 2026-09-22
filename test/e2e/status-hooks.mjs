@@ -78,8 +78,7 @@ async function runOne(tool) {
   const capture = path.join(dir, "captured")
   fs.mkdirSync(cwd, { recursive: true })
   fs.mkdirSync(capture, { recursive: true })
-  const port = 40000 + Math.floor(Math.random() * 20000)
-  const command = tool.command.replace("{port}", String(port))
+  const command = tool.command
   const env = {
     ...process.env,
     ...tool.extraEnv,

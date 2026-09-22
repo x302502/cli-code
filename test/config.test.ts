@@ -17,20 +17,6 @@ describe("CLI_TOOLS", () => {
     }
   })
 
-  it("requires HTTP-aware tools to define the fields they need", () => {
-    for (const tool of CLI_TOOLS.filter((t) => t.hasHttpApi)) {
-      expect(tool.portEnvVar, `${tool.id} needs portEnvVar`).toBeDefined()
-      expect(tool.appendPromptPath, `${tool.id} needs appendPromptPath`).toBeDefined()
-      expect(tool.readyCheckPath, `${tool.id} needs readyCheckPath`).toBeDefined()
-      expect(tool.command, `${tool.id} command must template the port`).toContain("{port}")
-    }
-  })
-
-  it("does not put a {port} placeholder on non-HTTP tools", () => {
-    for (const tool of CLI_TOOLS.filter((t) => !t.hasHttpApi)) {
-      expect(tool.command).not.toContain("{port}")
-    }
-  })
 })
 
 describe("resume commands", () => {

@@ -5,14 +5,16 @@ const PASTE_END = "\x1b[201~"
 
 /**
  * Rebuilds the line the user is typing from raw terminal input. It only needs to
- * be good enough for a tab title: printable characters append, backspace deletes,
- * escape sequences are skipped, bracketed paste is taken verbatim, Enter submits.
+ * be good enough for a tab title (`feed` returns the title on Enter) and for knowing
+ * whether an unsent prompt is sitting in the input (`hasDraft`): printable characters
+ * append, backspace deletes, escape sequences are skipped, bracketed paste is taken
+ * verbatim, Enter submits.
  */
-export function createPromptTracker(): (input: string) => string | undefined {
+export function createPromptTracker(): { feed: (input: string) => string | undefined; hasDraft: () => boolean; reset: () => void } {
   let line = ""
   let pasting = false
 
-  return (input) => {
+  const feed = (input: string): string | undefined => {
     let submitted: string | undefined
     let i = 0
     while (i < input.length) {
@@ -59,4 +61,5 @@ export function createPromptTracker(): (input: string) => string | undefined {
     }
     return submitted
   }
+  return { feed, hasDraft: () => line.length > 0, reset: () => (line = "") }
 }

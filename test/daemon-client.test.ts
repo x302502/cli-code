@@ -3,7 +3,7 @@ import * as net from "node:net"
 import * as os from "node:os"
 import * as path from "node:path"
 import { startDaemon } from "../src/daemon/server.js"
-import { connectSession, daemonSocketPath } from "../src/lib/daemon-client.js"
+import { connectSession, daemonBuildStampPath, daemonSocketPath } from "../src/lib/daemon-client.js"
 import type { PtyLike } from "../src/daemon/session.js"
 import { MSG, encodeFrame, encodeJsonFrame } from "../src/lib/protocol.js"
 
@@ -37,6 +37,9 @@ describe("daemonSocketPath", () => {
     const p = daemonSocketPath("abcd1234")
     if (process.platform === "win32") expect(p).toBe("\\\\.\\pipe\\cli-code-abcd1234")
     else expect(p).toBe(path.join(os.tmpdir(), "cli-code-abcd1234.sock"))
+  })
+  it("the build stamp is a plain temp file on every platform — a Windows pipe name cannot be written as a file", () => {
+    expect(daemonBuildStampPath("abcd1234")).toBe(path.join(os.tmpdir(), "cli-code-abcd1234.build"))
   })
 })
 

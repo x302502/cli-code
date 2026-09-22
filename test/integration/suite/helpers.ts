@@ -56,7 +56,6 @@ export function makeTool(tag: string, extraEnv: Record<string, string> = {}): Cl
     icon: "claude.svg",
     themeIcon: "terminal",
     command: `sh "${fixture("echo-tool.sh")}"`,
-    hasHttpApi: false,
     extraEnv: { ITEST_OUT: outDir(), ITEST_TAG: tag, ...extraEnv },
   }
 }

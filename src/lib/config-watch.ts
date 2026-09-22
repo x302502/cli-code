@@ -100,14 +100,25 @@ function signature(p: string): string | undefined {
   return dir ? `${m}:${configEntries(p).sort().join(",")}` : String(m)
 }
 
+// Hash per file, keyed by its mtime+size: ~/.claude.json can be hundreds of KB and is
+// re-signed on every tab switch, so only a file that actually changed is re-read and parsed.
+const hashes = new Map<string, { stamp: string; hash: string }>()
+
 function hashOf(p: string, extract: (text: string) => string): string | undefined {
+  let stamp: string
   let text: string
   try {
+    const st = fs.statSync(p)
+    stamp = `${st.mtimeMs}:${st.size}`
+    const cached = hashes.get(p)
+    if (cached?.stamp === stamp) return cached.hash
     text = fs.readFileSync(p, "utf8")
   } catch {
     return undefined
   }
-  return createHash("sha256").update(extract(text)).digest("hex").slice(0, 16)
+  const hash = createHash("sha256").update(extract(text)).digest("hex").slice(0, 16)
+  hashes.set(p, { stamp, hash })
+  return hash
 }
 
 /** `mcpServers` at the top level and per project. */
@@ -134,12 +145,13 @@ function codexMcpAndHooks(text: string): string {
 
 /**
  * A stale tab restarts by itself only when nothing would be lost: its hook reported the agent
- * done and the terminal has been quiet for a moment. Otherwise the tab just shows a notice and
- * the user restarts when ready.
+ * done, nothing is typed into the prompt, and the terminal has been quiet for a moment.
+ * Otherwise the tab just shows a notice and the user restarts when ready.
  */
-export function canAutoRestart(args: { state: AgentState | undefined; lastOutputAt: number; now: number; quietMs?: number }): boolean {
+export function canAutoRestart(args: { state: AgentState | undefined; lastOutputAt: number; now: number; hasDraft?: boolean; quietMs?: number }): boolean {
   // Only a hook-reported "done" is evidence of idleness; no state at all (CLIs without hooks,
   // or before the first prompt) may be an agent at work, and a restart would kill it.
   if (args.state !== "done") return false
+  if (args.hasDraft) return false
   return args.now - args.lastOutputAt >= (args.quietMs ?? 5000)
 }

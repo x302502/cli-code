@@ -35,6 +35,12 @@ export function daemonSocketPath(id: string): string {
   return path.join(os.tmpdir(), `cli-code-${id}.sock`)
 }
 
+/** Where the daemon stamps the build it runs: a plain file on every platform, never next to
+ * the socket — on Windows that is a named-pipe name and cannot be written as a file. */
+export function daemonBuildStampPath(id: string): string {
+  return path.join(os.tmpdir(), `cli-code-${id}.build`)
+}
+
 export function connectSession(
   socketPath: string,
   hello: SpawnHello | AttachHello,

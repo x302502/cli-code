@@ -5,7 +5,7 @@ import * as net from "node:net"
 import * as os from "node:os"
 import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
-import { connectSession, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
+import { connectSession, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
 import { locateLatestSession } from "./history/locate.js"
 import { detectModel } from "./history/model.js"
@@ -15,7 +15,7 @@ import { canAutoRestart, changedPath, configPathsFor, configSnapshot } from "./c
 import { restartCommand } from "./restart-command.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
-import { buildEnv, randomPort } from "./terminal.js"
+import { buildEnv } from "./terminal.js"
 import { resolveTabTitle } from "./tab-title.js"
 
 export const VIEW_TYPE = "cliCode.terminal"
@@ -88,7 +88,7 @@ const panelOscTitles = new WeakMap<vscode.WebviewPanel, string>()
 const panelStatus = new WeakMap<vscode.WebviewPanel, { state: AgentState; prompt?: string }>()
 const panelPromptTitles = new WeakMap<vscode.WebviewPanel, string>()
 const panelUnread = new WeakSet<vscode.WebviewPanel>()
-const panelTrackers = new WeakMap<vscode.WebviewPanel, (input: string) => string | undefined>()
+const panelTrackers = new WeakMap<vscode.WebviewPanel, ReturnType<typeof createPromptTracker>>()
 
 /** Shows a completion notification for a panel that just left "working" while hidden,
  * unless the user turned notifications off. */
@@ -288,7 +288,7 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
     if (await isListening(socketPath)) {
       let stamped: string | undefined
       try {
-        stamped = fs.readFileSync(`${socketPath}.build`, "utf8").trim()
+        stamped = fs.readFileSync(daemonBuildStampPath(id), "utf8").trim()
       } catch {
         // pre-stamp daemon: treat as outdated
       }
@@ -314,7 +314,7 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
   // path — leaving it there would make the new daemon's listen() fail with EADDRINUSE.
   if (process.platform !== "win32") fs.rmSync(socketPath, { force: true })
 
-  const daemon = spawn(process.execPath, [context.asAbsolutePath("dist/daemon.js"), socketPath, build], {
+  const daemon = spawn(process.execPath, [context.asAbsolutePath("dist/daemon.js"), socketPath, build, daemonBuildStampPath(id)], {
     env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
     detached: true,
     stdio: "ignore",
@@ -342,12 +342,17 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
  */
 export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise<vscode.Disposable> {
   const sockets: net.Socket[] = []
-  // The outdated daemon (if any) still holds tabs that have not been restarted yet.
+  // The outdated daemon (if any) still holds tabs that have not been restarted yet. It exits
+  // by itself once its last session moved over (the hold does not keep an empty daemon), and
+  // its id is dropped here the next time round so nothing keeps probing a dead socket.
   for (const key of [DAEMON_ID_KEY, PREVIOUS_DAEMON_ID_KEY]) {
     const id = context.workspaceState.get<string>(key)
     if (!id) continue
     const socketPath = daemonSocketPath(id)
-    if (!(await isListening(socketPath))) continue
+    if (!(await isListening(socketPath))) {
+      if (key === PREVIOUS_DAEMON_ID_KEY) await context.workspaceState.update(key, undefined)
+      continue
+    }
     const socket = net.createConnection(socketPath)
     socket.on("error", () => {})
     socket.on("close", () => {})
@@ -360,8 +365,8 @@ export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise
  * stdout is discarded so nothing the bundle prints can be read by Claude as hook output. */
 /** Per-tool extras for a new CLI process; PATH and the rest come from the daemon's interactive
  * login shell (see daemon/entry.ts). */
-function spawnEnv(context: vscode.ExtensionContext, tool: CliTool, port: number | undefined): Record<string, string> {
-  return { ...buildEnv(tool, port), CLI_CODE_HOOK: hookCommand(context) }
+function spawnEnv(context: vscode.ExtensionContext, tool: CliTool): Record<string, string> {
+  return { ...buildEnv(tool), CLI_CODE_HOOK: hookCommand(context) }
 }
 
 function hookCommand(context: vscode.ExtensionContext): string {
@@ -398,15 +403,14 @@ export async function openTerminalPanel(
   // Not awaited: the offer is a non-modal toast, and the terminal must open right away.
   const socketPath = await ensureDaemon(context)
   const cwd = usableCwd(options.cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
-  const port = tool.hasHttpApi ? randomPort() : undefined
   const baseCommand = options.command ?? tool.command
 
   const connection = await connectSession(socketPath, {
     op: "spawn",
     toolId: tool.id,
-    command: port ? baseCommand.replace("{port}", String(port)) : baseCommand,
+    command: baseCommand,
     cwd,
-    env: spawnEnv(context, tool, port),
+    env: spawnEnv(context, tool),
     cols: 80,
     rows: 24,
   })
@@ -539,8 +543,9 @@ async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Pro
   }
   const spawnedAt = panelSpawnedAt.get(panel) ?? 0
   // Claude reports its id through its hook; every other CLI is asked via its own session store.
-  const cliSessionId = panelCliSessionIds.get(panel) ?? (cwd ? locateLatestSession(tool.historyToolId ?? tool.id, cwd, spawnedAt, os.homedir()) : undefined)
-  return restartCommand({ tool, baseCommand, cliSessionId, sessions, spawnedAt })
+  const reportedSessionId = panelCliSessionIds.get(panel)
+  const locatedSessionId = reportedSessionId || !cwd ? undefined : locateLatestSession(tool.historyToolId ?? tool.id, cwd, spawnedAt, os.homedir())
+  return restartCommand({ tool, baseCommand, reportedSessionId, locatedSessionId, sessions, spawnedAt })
 }
 
 /** Reopens a gone panel's tool in a fresh tab with the same cwd and title, resuming its conversation. */
@@ -659,6 +664,8 @@ function attachConnection(
     } else if (e.kind === "status") {
       const previous = panelStatus.get(panel)?.state
       panelStatus.set(panel, { state: e.state, prompt: e.prompt })
+      // Keys typed while the CLI waited on a dialog (y, 1, …) answered it; they are not a draft.
+      if (previous === "waiting" && e.state !== "waiting") tracker.reset()
       if (e.cliSessionId && e.cliSessionId !== panelCliSessionIds.get(panel)) {
         panelCliSessionIds.set(panel, e.cliSessionId)
         postState(panel)
@@ -678,7 +685,7 @@ function attachConnection(
   wiring.listener = panel.webview.onDidReceiveMessage((message) => {
     if (message.type === "input") {
       connection.write(message.data)
-      const title = tracker(message.data)
+      const title = tracker.feed(message.data)
       if (title) {
         panelPromptTitles.set(panel, title)
         updateTitle(panel)
@@ -830,7 +837,8 @@ export async function checkStale(context: vscode.ExtensionContext, panel: vscode
     sendTo(panel, { type: "configStale", reason: "" })
     return
   }
-  if (canAutoRestart({ state: panelStatus.get(panel)?.state, lastOutputAt: panelLastOutput.get(panel) ?? 0, now: Date.now() })) {
+  const hasDraft = panelTrackers.get(panel)?.hasDraft() ?? false
+  if (canAutoRestart({ state: panelStatus.get(panel)?.state, lastOutputAt: panelLastOutput.get(panel) ?? 0, now: Date.now(), hasDraft })) {
     await restartPanel(context, panel)
     return
   }
@@ -867,7 +875,6 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     }
     panelConnections.delete(panel)
     const socketPath = await ensureDaemon(context)
-    const port = tool.hasHttpApi ? randomPort() : undefined
     const baseCommand = await commandForRestart(panel, tool)
     // From now on the tab is a resume tab: later restarts keep landing in the same conversation.
     panelCommands.set(panel, baseCommand)
@@ -876,14 +883,17 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     const connection = await connectSession(socketPath, {
       op: "spawn",
       toolId: tool.id,
-      command: port ? baseCommand.replace("{port}", String(port)) : baseCommand,
+      command: baseCommand,
       cwd: usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
-      env: spawnEnv(context, tool, port),
+      env: spawnEnv(context, tool),
       cols: 80,
       rows: 24,
     })
     if (!connection) {
       void vscode.window.showErrorMessage("Could not restart: the daemon is not responding.")
+      // The old session is already killed: leave the tab on the honest "gone" page (with its
+      // Restart button), not a live-looking terminal whose keystrokes go into a dead socket.
+      if (activePanels.has(panel)) showGone(context, panel, tool)
       return
     }
     // The panel may have been closed while awaiting connectSession above; a disposed panel

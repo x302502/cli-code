@@ -19,6 +19,8 @@ export function modelFromText(text: string): string | undefined {
 }
 
 const CHUNK = 64 * 1024
+// Codex rollout file per (cwd, tab spawn time); see the codex case below.
+const codexRollouts = new Map<string, string>()
 
 /** Head and tail of a transcript — model records sit at the start (session setup) and in
  * every assistant turn, so both ends together cover long sessions cheaply. */
@@ -61,8 +63,15 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
         return file ? modelFromFile(file) : undefined
       }
       case "codex": {
-        const s = codexSessions(cwd, 50).find((x) => x.updatedAt >= sinceMs)
-        return s ? modelFromFile(s.source) : undefined
+        // codexSessions walks and stats all of ~/.codex/sessions; a tab's rollout file never
+        // moves once found, so remember it and only walk again until there is one.
+        const key = `${cwd}\0${sinceMs}`
+        let file = codexRollouts.get(key)
+        if (!file || !fs.existsSync(file)) {
+          file = codexSessions(cwd, 50).find((x) => x.updatedAt >= sinceMs)?.source
+          if (file) codexRollouts.set(key, file)
+        }
+        return file ? modelFromFile(file) : undefined
       }
       case "grok": {
         const s = grokSessions(cwd, 50).find((x) => x.updatedAt >= sinceMs)

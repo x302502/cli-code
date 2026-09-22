@@ -2,9 +2,6 @@ import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { detectInstalled, extractBinary } from "./detect.js"
 
-const MIN_PORT = 16384
-const MAX_PORT = 65535
-
 /** A QuickPick item carrying the tool id so we can look it up on accept. */
 type ToolPickItem = vscode.QuickPickItem & { id: string }
 
@@ -78,20 +75,7 @@ export async function pickTool(context: vscode.ExtensionContext): Promise<CliToo
   })
 }
 
-/** Env var stamped on every CLI terminal so we can identify it after a reload
- *  even when VS Code renames the tab (e.g. "Claude Code" → "Claude"). */
-export const TOOL_ID_ENV = "_CLI_CODE_TOOL_ID"
-
 /** Builds the environment variables a terminal should launch with for a tool. */
-export function buildEnv(tool: CliTool, port: number | undefined): Record<string, string> {
-  const env: Record<string, string> = { ...tool.extraEnv, [TOOL_ID_ENV]: tool.id }
-  if (port && tool.portEnvVar) {
-    env[tool.portEnvVar] = port.toString()
-  }
-  return env
-}
-
-/** Generates a random port within the ephemeral range used for HTTP-aware CLIs. */
-export function randomPort(): number {
-  return Math.floor(Math.random() * (MAX_PORT - MIN_PORT + 1)) + MIN_PORT
+export function buildEnv(tool: CliTool): Record<string, string> {
+  return { ...tool.extraEnv }
 }

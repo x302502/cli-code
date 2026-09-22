@@ -12,10 +12,6 @@ describe("extractBinary", () => {
     expect(extractBinary("GOOSE_MODE=auto goose")).toBe("goose")
   })
 
-  it("skips the {port} placeholder", () => {
-    expect(extractBinary("opencode --port {port} --auto")).toBe("opencode")
-  })
-
   it("handles commands with quoted arguments", () => {
     expect(extractBinary('cn --allow "*"')).toBe("cn")
   })

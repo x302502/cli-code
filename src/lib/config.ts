@@ -6,13 +6,8 @@ export type CliTool = {
   /** Codicon / ThemeIcon identifier for terminal tabs (persists across window reload). */
   themeIcon: string
   description?: string
-  /** Shell command to launch. Use `{port}` as a placeholder for HTTP-aware CLIs. */
+  /** Shell command to launch. */
   command: string
-  hasHttpApi: boolean
-  /** Env var the CLI reads to discover the port it should serve on. */
-  portEnvVar?: string
-  appendPromptPath?: string
-  readyCheckPath?: string
   /** Extra environment variables to set when launching the terminal. */
   extraEnv?: Record<string, string>
   /** Reopens a specific past session; `{sessionId}` is substituted. Only for CLIs verified to accept an id. */
@@ -37,7 +32,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "sparkle",
     description: "Anthropic Claude Code CLI",
     command: "claude --dangerously-skip-permissions",
-    hasHttpApi: false,
     resumeCommand: "claude --resume {sessionId} --dangerously-skip-permissions",
   },
   {
@@ -47,7 +41,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "organization",
     description: "Claude Code multi-agent teams",
     command: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --dangerously-skip-permissions",
-    hasHttpApi: false,
     resumeCommand: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 claude --resume {sessionId} --dangerously-skip-permissions",
     historyToolId: "claude",
   },
@@ -58,7 +51,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "code",
     description: "OpenAI Codex CLI",
     command: "codex --dangerously-bypass-approvals-and-sandbox",
-    hasHttpApi: false,
     resumeCommand: "codex resume {sessionId} --dangerously-bypass-approvals-and-sandbox",
   },
   {
@@ -68,7 +60,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "zap",
     description: "xAI Grok CLI",
     command: "grok --permission-mode bypassPermissions",
-    hasHttpApi: false,
     resumeCommand: "grok --permission-mode bypassPermissions --resume {sessionId}",
   },
   {
@@ -78,7 +69,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "copilot",
     description: "GitHub Copilot in the terminal",
     command: "copilot --yolo",
-    hasHttpApi: false,
     continueCommand: "copilot --yolo --continue",
     resumeCommand: "copilot --yolo --resume {sessionId}",
   },
@@ -87,15 +77,11 @@ export const CLI_TOOLS: CliTool[] = [
     label: "opencode",
     icon: "opencode.svg",
     themeIcon: "terminal",
-    description: "opencode TUI (HTTP-aware)",
-    command: "opencode --port {port} --auto",
-    hasHttpApi: true,
-    portEnvVar: "_EXTENSION_OPENCODE_PORT",
-    appendPromptPath: "/tui/append-prompt",
-    readyCheckPath: "/app",
+    description: "opencode TUI",
+    command: "opencode --auto",
     extraEnv: { OPENCODE_CALLER: "vscode" },
-    continueCommand: "opencode --port {port} --auto --continue",
-    resumeCommand: "opencode --port {port} --auto --session {sessionId}",
+    continueCommand: "opencode --auto --continue",
+    resumeCommand: "opencode --auto --session {sessionId}",
   },
   {
     id: "mimo",
@@ -104,7 +90,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "symbol-keyword",
     description: "MiMo Code coding agent",
     command: "mimo",
-    hasHttpApi: false,
     continueCommand: "mimo --continue",
     resumeCommand: "mimo --session {sessionId}",
   },
@@ -115,7 +100,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "symbol-misc",
     description: "Pi coding agent",
     command: "pi",
-    hasHttpApi: false,
     continueCommand: "pi --continue",
     resumeCommand: "pi --session-id {sessionId}",
   },
@@ -126,7 +110,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "sparkle",
     description: "Oh My Pi coding agent",
     command: "omp",
-    hasHttpApi: false,
     continueCommand: "omp --continue",
     resumeCommand: "omp --resume {sessionId}",
   },
@@ -137,7 +120,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "rocket",
     description: "Google Antigravity CLI",
     command: "agy --dangerously-skip-permissions",
-    hasHttpApi: false,
     continueCommand: "agy --dangerously-skip-permissions --continue",
     resumeCommand: "agy --dangerously-skip-permissions --conversation {sessionId}",
   },
@@ -148,7 +130,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "symbol-event",
     description: "Sourcegraph Amp coding agent",
     command: "amp --dangerously-allow-all",
-    hasHttpApi: false,
     continueCommand: "amp --dangerously-allow-all threads continue --last",
     resumeCommand: "amp --dangerously-allow-all threads continue {sessionId}",
   },
@@ -159,7 +140,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "flame",
     description: "Kilo Code coding agent (opencode fork, 500+ models)",
     command: "kilo",
-    hasHttpApi: false,
     continueCommand: "kilo --continue",
     resumeCommand: "kilo --session {sessionId}",
   },
@@ -170,7 +150,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "robot",
     description: "Cline open-source coding agent CLI",
     command: "cline --auto-approve true",
-    hasHttpApi: false,
     resumeCommand: "cline --auto-approve true --id {sessionId}",
   },
   {
@@ -180,7 +159,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "terminal-powershell",
     description: "CommandCode coding agent",
     command: "command-code --yolo",
-    hasHttpApi: false,
     continueCommand: "command-code --yolo --continue",
     resumeCommand: "command-code --yolo --resume {sessionId}",
   },
@@ -191,7 +169,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "hubot",
     description: "Factory AI Droid coding agent",
     command: "droid",
-    hasHttpApi: false,
     continueCommand: "droid --resume",
     resumeCommand: "droid --resume {sessionId}",
   },
@@ -202,7 +179,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "symbol-class",
     description: "Prime Agent coding agent",
     command: "prime-agent",
-    hasHttpApi: false,
     continueCommand: "prime-agent --continue",
     resumeCommand: "prime-agent -r {sessionId}",
   },
@@ -213,7 +189,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "git-merge",
     description: "Aider AI pair-programming CLI",
     command: "aider --yes-always",
-    hasHttpApi: false,
     continueCommand: "aider --yes-always --restore-chat-history",
   },
   {
@@ -223,7 +198,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "beaker",
     description: "Block Goose coding agent",
     command: "GOOSE_MODE=auto goose",
-    hasHttpApi: false,
     continueCommand: "GOOSE_MODE=auto goose session --resume",
     resumeCommand: "GOOSE_MODE=auto goose session --resume --session-id {sessionId}",
   },
@@ -234,7 +208,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "key",
     description: "AWS Kiro CLI coding agent",
     command: "kiro-cli --trust-all-tools",
-    hasHttpApi: false,
     continueCommand: "kiro-cli --trust-all-tools chat --resume",
   },
   {
@@ -244,7 +217,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "heart",
     description: "Charm Crush coding agent",
     command: "crush --yolo",
-    hasHttpApi: false,
     continueCommand: "crush --yolo --continue",
   },
   {
@@ -254,7 +226,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "symbol-variable",
     description: "Augment Code CLI",
     command: "auggie",
-    hasHttpApi: false,
     continueCommand: "auggie --continue",
   },
   {
@@ -264,7 +235,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "play",
     description: "Continue CLI",
     command: 'cn --allow "*"',
-    hasHttpApi: false,
     continueCommand: "cn --allow \"*\" --resume",
   },
   {
@@ -274,7 +244,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "symbol-field",
     description: "Cursor Agent CLI",
     command: "cursor-agent --yolo",
-    hasHttpApi: false,
     continueCommand: "cursor-agent --yolo --continue",
     resumeCommand: "cursor-agent --yolo --resume {sessionId}",
   },
@@ -285,7 +254,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "globe",
     description: "Kimi Code CLI",
     command: "kimi --yolo",
-    hasHttpApi: false,
     continueCommand: "kimi --yolo --continue",
     resumeCommand: "kimi --yolo --session {sessionId}",
   },
@@ -296,7 +264,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "radio-tower",
     description: "Mistral Vibe coding agent",
     command: "vibe --agent auto-approve",
-    hasHttpApi: false,
     continueCommand: "vibe --agent auto-approve --continue",
   },
   {
@@ -306,7 +273,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "circuit-board",
     description: "Qwen Code CLI",
     command: "qwen --approval-mode yolo",
-    hasHttpApi: false,
     continueCommand: "qwen --approval-mode yolo --continue",
   },
   {
@@ -316,7 +282,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "send",
     description: "Nous Research Hermes agent",
     command: "hermes --yolo",
-    hasHttpApi: false,
     continueCommand: "hermes --yolo --continue",
   },
   {
@@ -326,7 +291,6 @@ export const CLI_TOOLS: CliTool[] = [
     themeIcon: "robot",
     description: "Cognition Devin CLI",
     command: "devin --permission-mode bypass",
-    hasHttpApi: false,
     continueCommand: "devin --permission-mode bypass --continue",
   },
 ]

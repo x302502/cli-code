@@ -9,7 +9,6 @@ export function extractBinary(command: string): string {
   const tokens = command.trim().split(/\s+/)
   for (const token of tokens) {
     if (token.includes("=")) continue // env-var assignment, e.g. GOOSE_MODE=auto
-    if (token.startsWith("{")) continue // {port} placeholder
     return token
   }
   return tokens[0] ?? command

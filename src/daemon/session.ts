@@ -42,6 +42,7 @@ export class Session {
   status: { state: AgentState; prompt?: string; cliSessionId?: string } | undefined
   private metaListener: ((e: MetaEvent) => void) | undefined
   private readonly scan = createOscScanner()
+  private disposed = false
 
   constructor(
     readonly id: string,
@@ -57,7 +58,7 @@ export class Session {
       for (const osc of this.scan(data)) this.applyOsc(osc)
       // The headless mirror is always fed, even when nobody is attached — this
       // is what lets a snapshot be rebuilt correctly after a reload.
-      this.mirror.write(data)
+      if (!this.disposed) this.mirror.write(data)
       const chunk = new TextEncoder().encode(data)
       // Backpressure only tracks bytes owed to an actual listener: a detached
       // session (client gone during Reload Window) must never pause its PTY,
@@ -179,6 +180,13 @@ export class Session {
 
   kill(): void {
     if (!this.exit) this.pty.kill()
+  }
+
+  /** Kill and release the mirror's 5000-line buffer: a removed session must not wait for GC. */
+  dispose(): void {
+    this.kill()
+    this.disposed = true
+    this.mirror.dispose()
   }
 
   /**

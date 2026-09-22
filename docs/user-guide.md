@@ -381,7 +381,7 @@ palette or the right-click entry.
 | GitHub Copilot CLI | `copilot --yolo` | ✓ | ✓ | ✓ |
 | Droid (Factory) | `droid` | ✓ | ✓ | ✓ |
 | Grok | `grok --permission-mode bypassPermissions` | ✓ | ✓ | ✓ |
-| opencode | `opencode --port <port> --auto` | ✓ | ✓ | ✓ |
+| opencode | `opencode --auto` | ✓ | ✓ | ✓ |
 | Kilocode | `kilo` | ✓ | ✓ | ✓ |
 | MiMo Code | `mimo` | ✓ | ✓ | ✓ |
 | Pi | `pi` | ✓ | ✓ | ✓ |

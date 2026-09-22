@@ -83,4 +83,7 @@ describe("canAutoRestart", () => {
     expect(canAutoRestart({ state: "waiting", lastOutputAt: 0, now: 10_000 })).toBe(false)
     expect(canAutoRestart({ state: "done", lastOutputAt: 9_000, now: 10_000 })).toBe(false)
   })
+  it("never while a prompt is typed but not yet sent — a restart would throw it away", () => {
+    expect(canAutoRestart({ state: "done", lastOutputAt: 0, now: 10_000, hasDraft: true })).toBe(false)
+  })
 })
