@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import * as fs from "node:fs"
 import * as path from "node:path"
 import type { AgentState } from "./protocol.js"
@@ -34,7 +35,11 @@ export function configPathsFor(toolId: string, historyToolId: string | undefined
   return [...p.home.map((r) => path.join(home, r)), ...(cwd ? p.project.map((r) => path.join(cwd, r)) : [])]
 }
 
-/** Newest mtime under `p` (a file, or a directory scanned two levels deep); undefined if absent. */
+/**
+ * Newest mtime under `p`: a file's own, or the newest of a directory's entries two levels deep.
+ * A directory's own mtime is ignored — it moves whenever anything is created next to the
+ * config (our `.cli-code.bak`, an editor's swap file) and says nothing about the config.
+ */
 export function newestMtime(p: string, depth = 2): number | undefined {
   let st: fs.Stats
   try {
@@ -42,40 +47,101 @@ export function newestMtime(p: string, depth = 2): number | undefined {
   } catch {
     return undefined
   }
-  let newest = st.mtimeMs
-  if (st.isDirectory() && depth > 0) {
-    let entries: string[] = []
-    try {
-      entries = fs.readdirSync(p)
-    } catch {
-      return newest
-    }
-    for (const name of entries) {
-      // Our own backups and staging files are not configuration.
-      if (name.endsWith(".cli-code.bak") || name.endsWith(".tmp")) continue
-      const m = newestMtime(path.join(p, name), depth - 1)
-      if (m !== undefined && m > newest) newest = m
-    }
+  if (!st.isDirectory()) return st.mtimeMs
+  let newest = 0
+  for (const name of configEntries(p)) {
+    const m = depth > 0 ? newestMtime(path.join(p, name), depth - 1) : undefined
+    if (m !== undefined && m > newest) newest = m
   }
   return newest
 }
 
-/** The config path that changed after `sinceMs` (the tab's spawn), or undefined when none did. */
-export function configChangedSince(paths: string[], sinceMs: number): string | undefined {
-  let hit: { p: string; m: number } | undefined
-  for (const p of paths) {
-    const m = newestMtime(p)
-    if (m !== undefined && m > sinceMs && (!hit || m > hit.m)) hit = { p, m }
+/** Directory entries that are configuration — not our backups or staging files. */
+function configEntries(dir: string): string[] {
+  try {
+    return fs.readdirSync(dir).filter((n) => !n.endsWith(".cli-code.bak") && !n.endsWith(".tmp"))
+  } catch {
+    return []
   }
-  return hit?.p
 }
 
 /**
- * A stale tab restarts by itself only when nothing would be lost: the agent is not working
- * and not waiting on the user, and the terminal has been quiet for a moment. Otherwise the
- * tab just shows a notice and the user restarts when ready.
+ * Per-path signature. Most files: newest mtime. Files the CLI itself rewrites while running —
+ * `~/.claude.json` (Claude stores its state there) and Codex's `config.toml` (notices, trust
+ * entries, model availability) — would otherwise look "changed" all the time, so for those only
+ * the parts that matter (MCP servers, hooks) are hashed.
+ */
+export function configSnapshot(paths: string[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const p of paths) {
+    const sig = signature(p)
+    if (sig !== undefined) out[p] = sig
+  }
+  return out
+}
+
+/** The first path whose signature differs between two snapshots (added or removed counts too). */
+export function changedPath(before: Record<string, string>, after: Record<string, string>): string | undefined {
+  for (const p of new Set([...Object.keys(before), ...Object.keys(after)])) if (before[p] !== after[p]) return p
+  return undefined
+}
+
+function signature(p: string): string | undefined {
+  const base = path.basename(p)
+  if (base === ".claude.json") return hashOf(p, claudeMcp)
+  if (base === "config.toml" && path.basename(path.dirname(p)) === ".codex") return hashOf(p, codexMcpAndHooks)
+  const m = newestMtime(p)
+  if (m === undefined) return undefined
+  // A directory also lists its entries, so a removed plugin file counts as a change.
+  let dir = false
+  try {
+    dir = fs.statSync(p).isDirectory()
+  } catch {
+    return undefined
+  }
+  return dir ? `${m}:${configEntries(p).sort().join(",")}` : String(m)
+}
+
+function hashOf(p: string, extract: (text: string) => string): string | undefined {
+  let text: string
+  try {
+    text = fs.readFileSync(p, "utf8")
+  } catch {
+    return undefined
+  }
+  return createHash("sha256").update(extract(text)).digest("hex").slice(0, 16)
+}
+
+/** `mcpServers` at the top level and per project. */
+function claudeMcp(text: string): string {
+  try {
+    const j = JSON.parse(text) as { mcpServers?: unknown; projects?: Record<string, { mcpServers?: unknown }> }
+    const projects = Object.fromEntries(Object.entries(j.projects ?? {}).map(([k, v]) => [k, v?.mcpServers]))
+    return JSON.stringify({ mcpServers: j.mcpServers, projects })
+  } catch {
+    return text
+  }
+}
+
+/** Lines of the `[mcp_servers.*]` and `[hooks.*]` tables (a table runs until the next header). */
+function codexMcpAndHooks(text: string): string {
+  const kept: string[] = []
+  let keep = false
+  for (const line of text.split("\n")) {
+    if (/^\s*\[/.test(line)) keep = /^\s*\[(mcp_servers|hooks)\b/.test(line)
+    if (keep) kept.push(line)
+  }
+  return kept.join("\n")
+}
+
+/**
+ * A stale tab restarts by itself only when nothing would be lost: its hook reported the agent
+ * done and the terminal has been quiet for a moment. Otherwise the tab just shows a notice and
+ * the user restarts when ready.
  */
 export function canAutoRestart(args: { state: AgentState | undefined; lastOutputAt: number; now: number; quietMs?: number }): boolean {
-  if (args.state === "working" || args.state === "waiting" || args.state === "blocked") return false
+  // Only a hook-reported "done" is evidence of idleness; no state at all (CLIs without hooks,
+  // or before the first prompt) may be an agent at work, and a restart would kill it.
+  if (args.state !== "done") return false
   return args.now - args.lastOutputAt >= (args.quietMs ?? 5000)
 }

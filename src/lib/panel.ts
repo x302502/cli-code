@@ -11,7 +11,7 @@ import { locateLatestSession } from "./history/locate.js"
 import { detectModel } from "./history/model.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
 import { createPromptTracker } from "./prompt-tracker.js"
-import { canAutoRestart, configChangedSince, configPathsFor } from "./config-watch.js"
+import { canAutoRestart, changedPath, configPathsFor, configSnapshot } from "./config-watch.js"
 import { restartCommand } from "./restart-command.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
@@ -22,7 +22,7 @@ export const VIEW_TYPE = "cliCode.terminal"
 const DAEMON_ID_KEY = "cliCode.daemonId"
 const FONT_ZOOM_KEY = "cliCode.fontZoom"
 
-export type PanelState = { sessionId: string; toolId: string; customTitle?: string; promptTitle?: string; quickCommandLabel?: string; spawnedAt?: number }
+export type PanelState = { sessionId: string; toolId: string; customTitle?: string; promptTitle?: string; quickCommandLabel?: string; spawnedAt?: number; configSnapshot?: Record<string, string> }
 
 // Registries for rename (Task 10) and Task 11 (focus tracking, writing at-mentions
 // into the active session).
@@ -37,6 +37,8 @@ const panelCommands = new WeakMap<vscode.WebviewPanel, string>()
 // When the tab's CLI was spawned, and the CLI's own session id (Claude reports it through its
 // hook) — together they let a restart resume the same conversation instead of starting over.
 const panelSpawnedAt = new WeakMap<vscode.WebviewPanel, number>()
+// Signatures of the CLI's config files as they were when its process started.
+const panelConfigSnapshot = new WeakMap<vscode.WebviewPanel, Record<string, string>>()
 // When the PTY last produced output — a quiet terminal is one that can be restarted safely.
 const panelLastOutput = new WeakMap<vscode.WebviewPanel, number>()
 // Set by markActivation: sessions spawned before an extension update run stale hooks.
@@ -398,6 +400,7 @@ export async function openTerminalPanel(
   })
   panelCommands.set(panel, baseCommand)
   panelSpawnedAt.set(panel, Date.now())
+  panelConfigSnapshot.set(panel, configSnapshot(configPathsFor(tool.id, tool.historyToolId, cwd, os.homedir())))
   if (options.title) customTitles.set(panel, options.title)
   if (options.quickCommandLabel) panelQuickLabels.set(panel, options.quickCommandLabel)
   if (options.initialInput) panelInitialInputs.set(panel, options.initialInput)
@@ -433,6 +436,7 @@ export async function restoreTerminalPanel(
   if (state.promptTitle) panelPromptTitles.set(panel, state.promptTitle)
   if (state.quickCommandLabel) panelQuickLabels.set(panel, state.quickCommandLabel)
   if (state.spawnedAt) panelSpawnedAt.set(panel, state.spawnedAt)
+  if (state.configSnapshot) panelConfigSnapshot.set(panel, state.configSnapshot)
   wirePanel(context, panel, tool, connection)
   void checkStale(context, panel)
 }
@@ -778,12 +782,13 @@ export async function checkStale(context: vscode.ExtensionContext, panel: vscode
   const tool = panelTools.get(panel)
   const spawnedAt = panelSpawnedAt.get(panel)
   if (!tool || !spawnedAt || !activePanels.has(panel) || !panelConnections.has(panel)) return
-  const cwd = usableCwd(panelCwds.get(panel))
+  const before = panelConfigSnapshot.get(panel)
   const reason =
     extensionUpdated && spawnedAt < activatedAt
       ? "CLI Code was updated"
       : (() => {
-          const changed = configChangedSince(configPathsFor(tool.id, tool.historyToolId, cwd, os.homedir()), spawnedAt)
+          if (!before) return undefined
+          const changed = changedPath(before, configSnapshot(Object.keys(before)))
           return changed ? `${vscode.workspace.asRelativePath(changed)} changed` : undefined
         })()
   if (!reason) {
@@ -832,6 +837,7 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     // From now on the tab is a resume tab: later restarts keep landing in the same conversation.
     panelCommands.set(panel, baseCommand)
     panelSpawnedAt.set(panel, Date.now())
+    panelConfigSnapshot.set(panel, configSnapshot(configPathsFor(tool.id, tool.historyToolId, usableCwd(panelCwds.get(panel)), os.homedir())))
     const connection = await connectSession(socketPath, {
       op: "spawn",
       toolId: tool.id,
@@ -885,6 +891,7 @@ function postState(panel: vscode.WebviewPanel): void {
       promptTitle: panelPromptTitles.get(panel),
       quickCommandLabel: panelQuickLabels.get(panel),
       spawnedAt: panelSpawnedAt.get(panel),
+      configSnapshot: panelConfigSnapshot.get(panel),
     },
   })
 }

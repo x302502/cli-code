@@ -98,6 +98,14 @@ export async function openReady(tag: string, extraEnv: Record<string, string> = 
   try {
     await waitFor(() => a.inspectPanel(panel).ready, 15_000, `webview ready for ${tag}`)
     const env = await waitFor(() => readEnvFile(tag), 15_000, `${tag}.env`)
+    // The fake tool prints `?2004h` (bracketed paste) then OSC 7 before it reads input. Wait
+    // for the daemon to have parsed that OSC 7 — it sits after `?2004h` in the same stream —
+    // and give the webview a moment to render the same bytes, so a paste sent right after
+    // openReady is bracketed. A tool that exits on purpose never gets there; don't wait on it.
+    if (!extraEnv.ITEST_EXIT_CODE) {
+      await waitFor(() => a.inspectPanel(panel).cwd === "/tmp", 15_000, `OSC 7 from ${tag}`)
+      await new Promise((r) => setTimeout(r, 300))
+    }
     return { a, tool, panel, env }
   } catch (err) {
     // The panel was already found above; a failure past this point must not leak it (and
