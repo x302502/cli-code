@@ -1,7 +1,7 @@
 {
   "name": "cli-code",
   "displayName": "CLI Code",
-  "description": "Launch and switch between AI coding CLIs (Claude, Codex, Antigravity, opencode, Cline, and more) from a VS Code terminal.",
+  "description": "The agent terminal for VS Code: run Claude Code, Codex, Copilot, opencode, Pi, Grok and 22 more coding agents in tabs that show the agent's state, open what it prints, survive reloads and restart into the same conversation.",
   "version": "0.2.0",
   "publisher": "x302502",
   "license": "MIT",
@@ -18,11 +18,14 @@
     "url": "https://github.com/x302502/cli-code/issues"
   },
   "keywords": [
-    "cli",
-    "terminal",
     "ai",
-    "claude",
-    "coding-agent"
+    "coding-agent",
+    "terminal",
+    "claude-code",
+    "codex",
+    "copilot",
+    "opencode",
+    "cli"
   ],
   "engines": {
     "vscode": "^1.94.0"

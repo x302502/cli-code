@@ -2,212 +2,140 @@
 
 [English](README.md) · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · **日本語**
 
-📖 詳細マニュアル: [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
+📖 [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
 
-> Claude Code、Codex、Copilot、opencode、Pi など 28 種類のコーディングアシスタントを VS Code で。各アシスタントは、エージェントの状態がわかり、言及したファイルを開け、リロードを生き延び、同じ会話に再起動できるターミナルタブで動きます。
+> **VS Code のためのエージェント用ターミナル。** Claude Code、Codex、Copilot、opencode、Pi、Grok、Droid など 28 のコーディングエージェントを、エージェントを理解するタブで動かします：何をしているかを表示し、言及したものを開き、リロードしてもセッションを保ち、同じ会話に再起動します。
 
 ![複数の AI CLI を VS Code で横に並べて実行](images/screenshots/terminals.png)
 
-## これは何をするもの？
+## なぜ
 
-- **ショートカット一つでどのアシスタントへも。** `Cmd/Ctrl + Esc` → 28 の CLI から選ぶ → エディタの隣、プロジェクトフォルダで、本物のシェル（`PATH`、nvm、MCP サーバー — ターミナルと同じ）で起動します。
-- **見ているファイルを送る**：`Cmd/Ctrl + Alt + K` で `@src/app.ts#L10-20` がアシスタントに渡ります。コピペ不要。
-- **状況を教えてくれるタブ。** 依頼した内容でタブ名が変わり、`⟳` 作業中 / `?` あなた待ち / `●` 見ていない間に完了 を表示。非表示タブのエージェントがあなたを必要とすると通知が届きます。
-- **エージェントが出力したパスやリンクはすべてクリック可能。** `Cmd/Ctrl + click` でファイルを該当行に、フォルダはエクスプローラーに、URL はブラウザに。ただのクリックでリンク全体が選択され `Cmd/Ctrl + C` でコピー。Claude Code がマウスを掴んでいても選択とコピーが動きます。
-- **Reload Window で何も失わない。** セッションはバックグラウンドのデーモン下で動き、スクロールバック・タブ名・状態ごと再接続します。
-- **同じ会話に再起動。** MCP サーバーやプラグインを変えたら、タブを再起動するだけで 19 のアシスタントが元の場所に戻ります — 設定が変わるとアイドルなタブは自動で再起動。
-- **過去セッションの再開、クイックコマンド、コンテキストのコピー、検索、ズーム**、そして使用中のモデルを示すモデル表示。
+本格的なコーディングエージェントはどれもターミナルプログラムです。普通のターミナルタブで動かすと、そのタブは何も知りません：エージェントが承認待ちなのか分からず、どのファイルを直したのかも知らず、リロードで死に、再起動すれば会話を忘れます。
 
-状態・セッション単位の再起動・モデル表示は、CLI Code が各アシスタント自身の設定に入れる小さな状態フック（Claude Code、Codex、Copilot、Droid、Grok、opencode、Kilo、MiMo、Pi、OMP）から来ます — バックアップ付き、削除可能、CLI Code の外では何もしません。詳細は [User Guide](docs/user-guide.md)。
+CLI Code はそのタブを、エージェントのために作られたタブに置き換えます。エージェント自体はそのまま — 同じ CLI、同じシェル、同じ MCP サーバーとプラグイン — ですが、周りのタブが何が起きているかを知っています。
 
-## はじめに
+## 得られるもの
 
-### 1. インストール
+**エージェントの状態を知るタブ。** 依頼した内容でタブ名が変わり、印が付きます：`⟳` 作業中、`?` あなた待ち、`●` 別タブにいる間に完了。非表示タブのエージェントがあなたを必要とすると、*Open tab* ボタン付きの通知が届きます。ターミナル上のアクションバーには使用中のモデルが表示されます。
 
-VS Code で**拡張機能**ビュー（`Cmd/Ctrl + Shift + X`）を開き、**CLI Code** を検索して **Install** をクリックします。
+**エージェントが出力したものはすべてクリック可能。** ファイルパスはエディタで正確な行・列に、フォルダはエクスプローラー（ワークスペース外なら Finder/Explorer）に、URL はブラウザに、Markdown はプレビューに開きます。実在するパスだけが下線付きになります。ただのクリックでリンク全体が選択され `Cmd/Ctrl + C` でコピー。Claude Code がマウスを掴んでいる間も選択とコピーは動きます。
 
-![VS Code マーケットプレイスの CLI Code](images/screenshots/marketplace.png)
+**生き残るセッション。** エージェントはバックグラウンドのデーモン下で動くため、*Reload Window* は各タブをスクロールバック・タイトル・状態ごと再接続します。新しいプロセスが本当に必要なとき — MCP サーバー追加、プラグイン、アップデート — は *Restart Session* が 28 のうち 19 のエージェントを正確に同じ会話へ戻し、設定が変わったタブはアイドル時に自動で再起動します。
 
-### 2. 使いたいアシスタントをインストール
+**ショートカット一つ、本物のシェル。** `Cmd/Ctrl + Esc` で 28 のエージェントのどれでも、エディタの隣、プロジェクトフォルダで、対話型ログインシェルの中に開きます — `PATH`、nvm、pnpm、MCP サーバー、すべてターミナルと同じ。`Cmd/Ctrl + Alt + K` で今見ているファイルが `@src/app.ts#L10-20` としてプロンプトに入ります。
 
-CLI Code はアシスタントを**起動するだけ**で、インストールはしません。使いたいアシスタントがインストール済みで、ターミナルから実行できることを確認してください。標準で以下を認識します：
+**そして細かいこと。** 過去セッションの再開、クイックコマンド（設定から、または選択範囲から保存）、最後の 200 行をコンテキストとしてコピー、ターミナル内検索、タブごとのズーム、`Shift + Enter` で改行、文脈に応じた右クリックメニュー、色付きのエージェントアイコン。
 
-| アシスタント                                                                                           | ターミナルコマンド           |
-| ------------------------------------------------------------------------------------------------ | ------------------- |
-| [Claude Code](https://code.claude.com/docs/en/setup)                                             | `claude`            |
-| [Claude Agent Teams](https://code.claude.com/docs/en/agent-teams)                                | `claude`              |
-| [Codex CLI](https://developers.openai.com/codex/cli)                                             | `codex`             |
-| [Grok](https://x.ai/cli)                                                                         | `grok`              |
-| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli)       | `copilot`           |
-| [opencode](https://opencode.ai)                                                                  | `opencode`          |
-| [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code)                                             | `mimo`              |
-| [Pi](https://pi.dev)                                                                             | `pi`                |
-| [OMP](https://omp.sh)                                                                            | `omp`               |
-| [Antigravity](https://antigravity.google)                                                        | `agy`               |
-| [Amp](https://ampcode.com)                                                                       | `amp`               |
-| [Kilocode](https://kilo.ai)                                                                      | `kilo`              |
-| [Cline](https://cline.bot)                                                                       | `cline`             |
-| [Command Code](https://github.com/just-every/code)                                               | `command-code`      |
-| [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                                  | `droid`             |
-| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent)                                  | `prime-agent`       |
-| [Aider](https://aider.chat/docs/)                                                                | `aider`             |
-| [Goose](https://block.github.io/goose/docs/quickstart/)                                          | `goose`             |
-| [Kiro](https://kiro.dev)                                                                         | `kiro-cli`          |
-| [Charm / Crush](https://github.com/charmbracelet/crush)                                          | `crush`             |
-| [Auggie](https://docs.augmentcode.com/cli/overview)                                              | `auggie`            |
-| [Continue](https://docs.continue.dev/guides/cli)                                                 | `cn`                |
-| [Cursor](https://cursor.com/cli)                                                                 | `cursor-agent`      |
-| [Kimi](https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html)                     | `kimi`              |
-| [Mistral Vibe](https://github.com/mistralai/mistral-vibe)                                        | `vibe`              |
-| [Qwen Code](https://github.com/QwenLM/qwen-code)                                                 | `qwen`              |
-| [Hermes](https://hermes-agent.nousresearch.com/docs/)                                            | `hermes`            |
-| [Devin](https://devin.ai/cli)                                                                    | `devin`             |
+仕組み：CLI Code は各エージェント自身の設定に小さな*状態フック*を入れます（Claude Code、Codex、Copilot、Droid、Grok、opencode、Kilo、MiMo、Pi、OMP）。CLI Code の外では何もしないシェル 1 行を実行し、ファイルは先にバックアップされ、設定一つで全部削除できます。詳細は [User Guide](docs/user-guide.md#16-status-hooks-what-lets-a-tab-know-what-the-agent-is-doing)。
 
-> ⚠️ **インストール*して*、先にログインを。** ほとんどのアシスタントは実行前に
-> 認証が必要です —— `claude`（Anthropic アカウントにログイン）、`codex`（OpenAI
-> ログイン / API キー）など。各ツールを通常の
-> ターミナルで一度実行し、ログインを済ませ、起動できることを確認してください。
->
-> 💡 ヒント：通常のターミナルで打って動くコマンドなら、ここでも動きます。
+## クイックスタート
 
-### 🚨 アシスタントは承認プロンプトを無効化した状態で起動します
+1. Marketplace から**インストール**（`Cmd/Ctrl + Shift + X` → *CLI Code*）。VS Code 1.94 以上、全機能は macOS / Linux。
+2. 使うエージェントを普通のターミナルで**インストールしてログイン**（`claude`、`codex`、`copilot`、`opencode`…）。CLI Code は起動するだけで、インストールはしません。ターミナルで動くコマンドはここでも動きます。
+3. **`Cmd/Ctrl + Esc`** を押してエージェントを選び、入力を始めます。エディタで `Cmd/Ctrl + Alt + K` を押すと現在のファイルを渡せます。
 
-各 CLI はそれぞれの権限バイパスフラグ付きで起動されます（`claude --dangerously-skip-permissions`、
-`codex --dangerously-bypass-approvals-and-sandbox` など）。そのためアシスタントは
-**確認を求めずに**コマンドを実行し、ファイルを編集します。高速ですが、信頼できない
-リポジトリがアシスタントを破壊的な操作やデータ漏洩に誘導できることを意味します。
-信頼できるコードでのみ CLI Code を使うか、通常のターミナルから自分で起動してください。
+> ⚠️ エージェントは承認プロンプトを**無効化**して起動されます（`claude --dangerously-skip-permissions`、`codex --dangerously-bypass-approvals-and-sandbox`、`copilot --yolo` …）。ファイル編集やコマンド実行を確認なしに行います — 信頼できるリポジトリで使うか、プロンプトが欲しいときは普通のターミナルから起動してください。
 
-## 使い方
+## 対応エージェント
 
-### アシスタントを開く
+| エージェント | コマンド | タブの状態 | 再起動 → 同じ会話 | モデル表示 |
+| --- | --- | :-: | :-: | :-: |
+| [Claude Code](https://code.claude.com/docs/en/setup) | `claude` | ✓ | ✓ | ✓ |
+| [Claude Agent Teams](https://code.claude.com/docs/en/agent-teams) | `claude` | ✓ | ✓ | ✓ |
+| [Codex CLI](https://developers.openai.com/codex/cli) | `codex` | ✓ | ✓ | ✓ |
+| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot` | ✓ | ✓ | ✓ |
+| [Droid](https://docs.factory.ai/cli/getting-started/quickstart) | `droid` | ✓ | ✓ | ✓ |
+| [Grok](https://x.ai/cli) | `grok` | ✓ | ✓ | ✓ |
+| [opencode](https://opencode.ai) | `opencode` | ✓ | ✓ | ✓ |
+| [Kilocode](https://kilo.ai) | `kilo` | ✓ | ✓ | ✓ |
+| [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code) | `mimo` | ✓ | ✓ | ✓ |
+| [Pi](https://pi.dev) | `pi` | ✓ | ✓ | ✓ |
+| [OMP](https://omp.sh) | `omp` | ✓ | ✓ | ✓ |
+| [Command Code](https://github.com/just-every/code) | `command-code` | — | ✓ | ✓ |
+| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` | — | ✓ | ✓ |
+| [Cline](https://cline.bot) | `cline` | — | ✓ | ✓ |
+| [Kimi](https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html) | `kimi` | — | ✓ | — |
+| [Cursor](https://cursor.com/cli) | `cursor-agent` | — | ✓ | — |
+| [Amp](https://ampcode.com) | `amp` | — | ✓ | — |
+| [Antigravity](https://antigravity.google) | `agy` | — | ✓ | — |
+| [Goose](https://block.github.io/goose/docs/quickstart/) | `goose` | — | ✓ | — |
+| [Aider](https://aider.chat/docs/) | `aider` | — | `--continue` | — |
+| [Kiro](https://kiro.dev) | `kiro-cli` | — | `--continue` | — |
+| [Charm / Crush](https://github.com/charmbracelet/crush) | `crush` | — | `--continue` | — |
+| [Auggie](https://docs.augmentcode.com/cli/overview) | `auggie` | — | `--continue` | — |
+| [Continue](https://docs.continue.dev/guides/cli) | `cn` | — | `--continue` | — |
+| [Mistral Vibe](https://github.com/mistralai/mistral-vibe) | `vibe` | — | `--continue` | — |
+| [Qwen Code](https://github.com/QwenLM/qwen-code) | `qwen` | — | `--continue` | — |
+| [Hermes](https://hermes-agent.nousresearch.com/docs/) | `hermes` | — | `--continue` | — |
+| [Devin](https://devin.ai/cli) | `devin` | — | `--continue` | — |
 
-**`Cmd + Esc`**（macOS）または **`Ctrl + Esc`**（Windows / Linux）を押します。
+*タブの状態*には状態フックが必要で、最初の 11 に存在します。*再起動 → 同じ会話* ✓ は正確に同じセッションを再開、`--continue` はエージェント自身の「最新セッション」フラグを使用。*モデル表示*：アクションバーがエージェントのセッションファイルからモデルを読めます。ピッカーは `PATH` 上のエージェントを先に表示します。
 
-すべてのアシスタントを並べたメニューが開きます。1 つ選ぶと、隣のターミナルで開いて実行を始めます。そのアシスタントが既に開いている場合、ショートカットはそのターミナルに戻るだけです。
+## 日々の使い方
 
-![すべてのアシスタントを並べた CLI ピッカー](images/screenshots/picker-highlighted.png)
+**開く、ファイルを渡す。** `Cmd/Ctrl + Esc` でエージェントを開く／フォーカス、`Cmd/Ctrl + Shift + Esc` でもう一つのタブ、*New Session* ボタンで現在のタブのフォルダに開く。`Cmd/Ctrl + Alt + K` はエディタのファイルと選択範囲に応じて `@path`、`@path#L10`、`@path#L10-20` を挿入します。
 
-> 開いているものを再利用せず、まっさらなセッションが欲しい？ **`Cmd/Ctrl + Shift + Esc`** を使ってください。
+**タブを読む。** タイトル = 自分で付けた名前（`F2`）› 開いたクイックコマンド › エージェント自身のタイトル（整形済み）› 最後のプロンプト（40 文字、語の境界で切断）› エージェント名。印：`⟳` 作業中 · `?` あなた待ち · `●` 非表示中に完了。
 
-エディタのツールバーからも開けます —— CLI Code アイコン（丸で囲んだもの）を探してください：
+**出力をクリック。** `Cmd/Ctrl + click` でファイル（`行:列`）、フォルダ、URL を開く；`Shift + Cmd/Ctrl + click` で既定アプリ；ホバーで対象を表示。右クリックには *Open File / Open Folder / Open Link*、*Open with Default App*、*Insert @path into CLI*、*Copy Link / Path*、*Find Selection*、および *Copy / Paste / Select All / Find in Terminal*。
 
-![エディタのツールバーにある CLI Code アイコン](images/screenshots/toolbar-highlighted.png)
+**会話を保つ。** *Reload Window* はすべて保持。*Restart Session*（↻）は同じ会話に再起動 — フックが報告したセッション ID、なければこのフォルダのエージェント自身のストアの最新セッション、なければエージェントの `--continue`。*Resume Session* は過去セッション（Claude Code、Codex、Grok）を一覧し、残りには *Continue latest session* を提供。MCP/プラグイン/フックのファイルが変わるとアイドルなタブは自動再起動し、作業中のタブは ↻ を押すまで *"… changed — restart to apply"* を表示。*Restart All Sessions* で全タブ。
 
-### 作業中のファイルを送る
+**クイックコマンド。** `cliCode.quickCommands`（User または Workspace 設定）にプロンプトを保存するか、テキストを選択して *Save as Quick Command*；アクションバーの `…` メニューから実行。一つのペーストとして届き、`"submit": false` でなければ Enter が続きます。
 
-1. ファイル内をクリック（任意で**数行を選択**）。
-2. アシスタントのターミナルをクリックしてフォーカス。
-3. **`Cmd + Alt + K`**（macOS）または **`Ctrl + Alt + K`**（Windows / Linux）を押します。
+## ショートカット・コマンド・設定
 
-CLI Code がファイルへの参照をプロンプトに挿入します：
+| 操作 | macOS | Windows / Linux |
+| --- | --- | --- |
+| エージェントを開く / フォーカス | `Cmd + Esc` | `Ctrl + Esc` |
+| 新しいタブで開く | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
+| 現在のファイルを `@path` として挿入 | `Cmd + Alt + K` | `Ctrl + Alt + K` |
+| プロンプト内で改行 | `Shift + Enter` | `Shift + Enter` |
+| ターミナル内検索 | `Cmd + F` | `Ctrl + F` \* |
+| ズームイン / アウト / リセット | `Cmd + =` / `-` / `0` | `Ctrl + =` / `-` / `0` |
+| タブ名を変更 | `F2` | `F2` |
 
-| あなたの操作     | 挿入される内容       |
-| ---------------- | -------------------- |
-| ファイルを開いた | `@src/app.ts`        |
-| 1 行を選択した   | `@src/app.ts#L10`    |
-| 複数行を選択した | `@src/app.ts#L10-20` |
+\* Windows/Linux ではターミナルが `Ctrl + F` をエージェントに渡します — パレットか右クリックを使ってください。ターミナルのショートカットは CLI Code のタブでのみ有効です。
 
-あとは質問を入力するだけ —— アシスタントはどのファイル（とどの行）の話か既に分かっています。
+コマンドパレット（`CLI Code:`）：New Session · Resume Session · Restart Session · Restart All Sessions · Quick Command · Save as Quick Command · Rename Tab · Find in Terminal · Copy Context · Copy · Paste · Select All · Zoom In / Out / Reset · Install Status Hooks · Remove Status Hooks — さらに *Open CLI*、*Open CLI in new tab*、*CLI: Insert At-Mentioned*。
 
-## CLI Code のターミナル
+| 設定 | 既定 | 意味 |
+| --- | --- | --- |
+| `cliCode.statusHooks` | `true` | `PATH` 上の対応エージェント全部に状態フックを常駐；`false` で削除。 |
+| `cliCode.notifications` | `true` | 見ていないタブでエージェントが完了／待機し始めたら通知。 |
+| `cliCode.quickCommands` | `[]` | `{ "label", "text", "submit"? }` の配列；User 設定 = 全体、Workspace 設定 = プロジェクト。 |
+| `cliCode.composer` | `false` | ターミナル下のチャット風入力（実験的；新しいタブに適用）。 |
 
-アシスタントは VS Code の統合ターミナルではなく**拡張機能専用のターミナル** —— バックグラウンドの PTY デーモンに接続された webview パネル —— で動きます。それが残りすべてを可能にしています：
+## CLI Code が触れるもの
 
-- 各アシスタントのターミナルタブに**カラーアイコン**が付きます。
-- **タブのタイトルが自動更新**され、直前に入力したプロンプトが反映されます（手動リネーム不要）。Orca と同じ上限：URL を除き、最大 40 文字、語の境界で切って `…` を付けます。
-- タブのタイトルに**エージェントの状態**（実行中 / 応答待ち / 完了）がそのまま表示されます。
-- セッションは**ウィンドウの再読み込みをまたいで生き続けます**：再読み込み後、ターミナルは実行中の CLI セッションへ自動的に再接続され、何も失われません。
+- **書き込み**：各エージェント自身の設定への状態フック（`~/.claude/settings.json`、`~/.factory/settings.json`、`~/.codex/hooks.json` + `config.toml` の信頼エントリ、`~/.copilot/hooks/cli-code.json`、`~/.grok/hooks/cli-code.json`、opencode/Kilo/MiMo 用の生成プラグインと Pi/OMP 用の拡張 `cli-code-status.ts`）。各ファイルは `<file>.cli-code.bak` として一度バックアップ。自分のフックはそのまま；`cliCode.statusHooks: false` ですべて削除。
+- **読み取り**：セッション ID・タイトル・モデルを探すためのエージェントのセッションストア、古いタブを検出するための MCP/プラグイン/フックファイルの更新時刻。
+- **ネットワークなし**：CLI Code 経由でデータが外に出ることはありません。
 
-### 制限
+## 制限
 
-- **タブを閉じる＝その CLI の終了。** VS Code は拡張機能に「タブを閉じる前に確認する」ことを許さないため、タブを閉じると中の CLI プロセスは警告なく即座に停止します。
-- **VS Code を終了する＝すべてのセッションの終了。** CLI Code 配下で動いているすべての CLI が一緒に停止します。
-- **状態フックは POSIX（macOS、Linux）でのみ動作します** —— Windows ではインストールできません。
+- タブを閉じるとその中のエージェントが終了します（VS Code は事前に確認できません）；VS Code の終了で全セッションが終了。Reload Window は終了しません。
+- 状態フックと対話型シェル起動は POSIX（macOS、Linux）のみ。Windows ではタブは動きますが状態の印は出ません。
+- 9 つのエージェントにはアドレス可能なセッションがなく、`--continue` フラグで再起動します（表を参照）。
 
-### 状態フック
+## FAQ
 
-CLI Code は対応する各 CLI に小さなフックを常駐させ、タブがタイトルからの推測ではなく正確な状態（作業中 / 待機中 / 完了）を表示し、非表示タブの「完了」通知が届き、**Restart Session** が戻るべき会話を正確に把握できるようにします。Orca と同じく**自動**です：起動時に `PATH` 上にある対応 CLI にフックが無ければインストールし、`cliCode.statusHooks` をオフにすると全て削除します。
+**エージェントにログインを求められる。** 想定どおり — CLI Code は起動するだけです。任意のターミナルで一度ログインしてください。
 
-| CLI | フックの場所 |
-| --- | --- |
-| Claude Code | `~/.claude/settings.json` → `hooks`（UserPromptSubmit, Stop, Notification, PermissionRequest） |
-| Droid | `~/.factory/settings.json` → `hooks` |
-| Codex | `~/.codex/hooks.json` → `hooks`、および対応する `[hooks.state.…]` の信頼エントリ（`~/.codex/config.toml`。Codex は信頼済みフックしか実行しません） |
-| GitHub Copilot | `~/.copilot/hooks/cli-code.json`（専用ファイル） |
-| Grok | `~/.grok/hooks/cli-code.json`（専用ファイル） |
-| opencode / Kilo / MiMo | `~/.config/opencode|kilo|mimocode/plugins/cli-code-status.ts`（生成されたプラグイン） |
-| Pi / OMP | `~/.pi/agent/extensions/cli-code-status.ts`、`~/.omp/agent/extensions/cli-code-status.ts`（生成された拡張） |
+**`Cmd + Alt + K` で何も起きない。** エディタでファイルが開いていて、エージェントのタブにフォーカスがある必要があります。
 
-- 既存ファイルへの最初の書き込み前に `<file>.cli-code.bak` としてバックアップします。自分で設定したフックはそのまま、CLI Code 自身のエントリだけを追加・削除します。生成ファイルは `// @cli-code-managed` で始まり、そのヘッダーが無ければ決して上書きしません。
-- どのエントリも同じシェル行を実行し、CLI Code の外で動く CLI では no-op です（`CLI_CODE_HOOK` 変数が存在しないため）：
+**ショートカットが他の拡張機能と衝突する。** *Preferences → Keyboard Shortcuts* で「CLI Code」を検索して変更してください。
 
-  ```sh
-  [ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true
-  ```
+**VS Code のターミナルは使い続けられる？** はい — CLI Code は自分が開いたタブだけを管理します。
 
-  生成プラグインはシェルフックが受け取るのと同じ JSON ペイロードを組み立て、その行にパイプします。
-- フックはその CLI の次回起動から有効です。CLI Code はタブの CLI がその設定（MCP サーバー・プラグイン・フック。上表のファイルと各 CLI の MCP 設定を、Reload Window 後・タブ表示時・拡張機能更新後に確認）より古いことを検知します：アイドルなタブは自動で同じ会話に再起動し、作業中のタブはアクションバーに *"… changed — restart to apply"* を表示して再起動を待ちます。**「CLI Code: Restart All Sessions」** で全タブを一度に再起動できます。
-- コマンドパレットの **「CLI Code: Install Status Hooks」** / **「Remove Status Hooks」** で手動でも実行でき、結果の要約を表示します。
-- POSIX のみ（macOS、Linux）：Windows にはフック行を評価する `sh` が無いため何もインストールしません。
-- 既知の制限：フックコマンドはシェルで `eval` されるため、VS Code のインストールパスに `"` や `$` が含まれると動きません。
+## 開発
 
-### 設定
+- `bun test` — ユニットテスト。
+- `bun run test:integration` — 本物の VS Code Extension Host（`.vscode-test/` に一度だけダウンロード）：開く/入力/閉じる、gone/再起動、フック → 状態、resume とクイックコマンド、二段階リロード。macOS/Linux；本物のフックファイルには決して書きません — ランナーがスナップショットを取り、変化すれば失敗します。
+- `node test/e2e/status-hooks.mjs [agent…]` — マシンにインストール済みのエージェントに対するエンドツーエンド（各 1 回のモデル呼び出し）。
+- `bun run package:target <platform>` — 一つのターゲットの VSIX；`bun run package:all` で全 6 ターゲット。
 
-| 設定                          | 型                          | デフォルト | 説明                                                                                    |
-| ------------------------------ | ---------------------------- | ---------- | ------------------------------------------------------------------------------------------ |
-| `cliCode.statusHooks`          | `boolean`                    | `true`     | 対応する全 CLI に状態フックを常駐させる（「状態フック」参照）。オフで全て削除。 |
-| `cliCode.notifications`        | `boolean`                    | `true`     | 非表示のタブでエージェントが作業を終えたときに通知する。                                    |
-| `cliCode.quickCommands`        | オブジェクトの配列           | `[]`       | 再利用するコマンドやプロンプト。User settings = グローバル、Workspace settings = プロジェクト。 |
-
-`cliCode.quickCommands` の例：
-
-```json
-"cliCode.quickCommands": [
-  { "label": "テスト実行", "text": "npm test" },
-  { "label": "PR を要約", "text": "この PR の変更点を要約して", "submit": true }
-]
-```
-
-### パスリンク
-
-CLI が出力したパス（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`file://…`）は、ディスク上に存在する場合のみリンクになります。`Cmd/Ctrl + クリック` でファイルはエディタ（Markdown はプレビュー、HTML はブラウザ）、**フォルダ**はワークスペース内なら VS Code のエクスプローラーで、外なら Finder / Explorer で開き、`Shift + Cmd/Ctrl + クリック` は既定のアプリで開きます。通常のクリックはリンク全体を選択するので、そのまま `Cmd/Ctrl + C` でコピーできます。 ドラッグは CLI がマウスを捕捉していても常にテキストを選択します（Claude Code などの TUI）。CLI にマウスを渡したい場合は `Option`（macOS）／`Shift`（その他）を押しながらドラッグします。
-
-### ターミナルの右クリックメニュー
-
-**Restart Session**（再起動）はタブを*同じ会話*に戻します：状態フックのある CLI（Claude Code・Codex・Copilot・Droid・Grok・opencode・Kilo・MiMo・Pi・OMP）はフックが報告するセッション ID、Command Code・Prime Agent・Cline・Kimi・Cursor・Amp・Antigravity・goose は各 CLI 自身のセッションストアにあるこのディレクトリの最新セッション、残りの CLI は `--continue` 形式で。何も分からない場合のみ新規セッションになります。
-
-右クリックはポインタ下の内容や選択範囲に対して働きます：**Copy**（コピー、選択時）・**Paste**（貼り付け）・**Select All**（すべて選択）・URL 上では **Open Link**（リンクを開く）／ファイル上では **Open File**（ファイルを開く）、**Open with Default App**（既定アプリで開く）、**Insert @path into CLI**（@パスを CLI に挿入）／フォルダ上では **Open Folder**（フォルダを開く）・**Copy Link / Path**（リンク/パスをコピー）・**Find Selection**（選択範囲を検索）・**Find in Terminal**（ターミナル内検索）。タブ操作はターミナル上部の静かなバー（同じ背景色、アイコンは右端）にあります：**New Session**（新しいセッション — CLI を選んでこのタブのディレクトリで開く）、**Resume Session**（履歴）、**Restart Session**（再起動）、**Find**（検索）、**…** に **Rename Tab**（タブ名変更、`F2`）、**Copy Context**（コンテキストをコピー）、**Quick Command**（クイックコマンド）。バーの左側はエージェントが確認を求めるときだけ文言が出ます。 左側には CLI が使用中の**モデル**（各 CLI のセッションストアから読み取り — Claude Code、Codex、Grok、Copilot、Pi、OMP、Command Code、Prime Agent、Droid、Cline、opencode/MiMo/Kilo。記録しない CLI では非表示）と、確認待ちのときの状態行が表示されます。 実験的なチャット風**入力欄**（入力・貼り付け、`Enter` で一括送信、`Shift + Enter` で改行）は `cliCode.composer: true` で有効化できます。既定では無効で、CLI 自身の入力欄の `/` や `@` メニューをそのまま使えます。リンクにホバーすると `Cmd/Ctrl + クリック` で何が開くかと解決済みパスが表示されます。
-
-### コマンドパレットのコマンド
-
-`CLI Code:` **New Session**（新しいセッション）、**Restart All Sessions**（全セッションを再起動）、**Resume Session**（過去のセッションを再開）、**Quick Command**（クイックコマンド）、**Save as Quick Command**（クイックコマンドとして保存）、**Rename Tab**（タブ名を変更）、**Restart Session**（セッションを再起動）、**Zoom In**（文字を拡大）、**Zoom Out**（文字を縮小）、**Reset Zoom**（文字サイズをリセット）、**Find in Terminal**（ターミナル内検索）、**Copy Context**（コンテキストをコピー）、**Paste**（貼り付け）、**Copy**（コピー）、**Install Status Hooks**（Claude 状態フックをインストール）、**Remove Status Hooks**（Claude 状態フックを削除）。
-
-## キーボードショートカット
-
-| 操作                             | macOS                | Windows / Linux        |
-| ---------------------------------- | --------------------- | ------------------------ |
-| アシスタントを開く / フォーカス    | `Cmd + Esc`           | `Ctrl + Esc`             |
-| 新しいターミナルで開く             | `Cmd + Shift + Esc`   | `Ctrl + Shift + Esc`     |
-| 現在のファイルを送る               | `Cmd + Alt + K`       | `Ctrl + Alt + K`         |
-| プロンプトで改行                   | `Shift + Enter`       | `Shift + Enter`         |
-| ターミナル内検索                   | `Cmd + F`             | `Ctrl + F` \*           |
-| 文字を拡大                         | `Cmd + =`             | `Ctrl + =`               |
-| 文字を縮小                         | `Cmd + -`             | `Ctrl + -`               |
-| 文字サイズをリセット               | `Cmd + 0`             | `Ctrl + 0`               |
-
-\* Windows / Linux ではフォーカス中のターミナルが `Ctrl + F` を消費します（xterm が `^F` として CLI に送ります）。代わりにコマンドパレットの **「CLI Code: Find in Terminal」** か右クリックの **Find in Terminal** を使ってください。
-
-## よくある質問
-
-**アシスタントは開くが、ログインを求められる。**
-これは想定どおりです —— CLI Code はツールを起動するだけで、認証は扱いません。そのアシスタント自身のログインを一度（どのターミナルでも）完了してください。以降は記憶されます。
-
-**`Cmd + Alt + K` を押しても何も起きない。**
-（1）エディタにファイルが開いていること、（2）アシスタントのターミナルがフォーカスされていることを確認してください。ファイル参照はアクティブな CLI ターミナルに入ります。
-
-**ショートカットが他の機能と衝突する。**
-VS Code で再割り当てします：**Preferences → Keyboard Shortcuts** で "CLI" を検索し、好きなキーを設定してください。
+エージェントのアイコンは [Orca](https://github.com/stablyai/orca) 由来です。
 
 ## ライセンス
 

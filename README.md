@@ -2,224 +2,140 @@
 
 **English** · [Tiếng Việt](README.vi.md) · [中文](README.zh.md) · [日本語](README.ja.md)
 
-📖 Full manual: [User Guide](docs/user-guide.md) · [Hướng dẫn sử dụng](docs/user-guide.vi.md) · [Changelog](CHANGELOG.md)
+📖 [User Guide](docs/user-guide.md) · [Hướng dẫn sử dụng](docs/user-guide.vi.md) · [Changelog](CHANGELOG.md)
 
-> Run Claude Code, Codex, Copilot, opencode, Pi and 23 other coding assistants in VS Code — each in a terminal tab that knows what the agent is doing, opens every file it mentions, survives a reload, and restarts into the same conversation.
+> **The agent terminal for VS Code.** Claude Code, Codex, Copilot, opencode, Pi, Grok, Droid and 21 more coding agents, each in a tab that understands the agent: it shows what the agent is doing, opens what it mentions, keeps the session through reloads, and restarts back into the same conversation.
 
 ![Multiple AI CLIs running side by side in VS Code](images/screenshots/terminals.png)
 
-## What it does
+## Why
 
-- **One shortcut to any assistant.** `Cmd/Ctrl + Esc` → pick from 28 CLIs → it opens beside your editor, in your project folder, in your real shell (`PATH`, nvm, MCP servers — all as in a terminal).
-- **Send the file you're looking at** with `Cmd/Ctrl + Alt + K`: the assistant gets `@src/app.ts#L10-20`, no copy-paste.
-- **Tabs that tell you what's going on.** The tab renames itself after the task you gave, shows `⟳` working / `?` waiting for you / `●` done while you were away, and you get a notification when an agent on a hidden tab needs you.
-- **Every path and link the agent prints is clickable.** `Cmd/Ctrl + click` opens the file at the exact line, folders in the Explorer, URLs in the browser; a plain click selects the link so `Cmd/Ctrl + C` copies it. Selection and copy work even while Claude Code captures the mouse.
-- **Nothing lost on Reload Window.** Sessions run under a background daemon and re-attach with scrollback, title and state.
-- **Restart into the same conversation.** Changed an MCP server or a plugin? Restart the tab and 19 assistants come back exactly where you were — idle tabs even restart themselves when their config changes.
-- **Resume past sessions, quick commands, copy context, find, zoom**, and a model pill showing what the assistant is running on.
+Every serious coding agent ships as a terminal program. Running it in a plain terminal tab means the tab is blind: it can't tell you the agent is waiting for approval, it doesn't know which file the agent just edited, a reload kills it, and a restart forgets the conversation.
 
-Status, restart-by-session and the model pill come from a small status hook CLI Code installs into each assistant's own config (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP) — backed up, removable, and a no-op outside CLI Code. Details in the [User Guide](docs/user-guide.md).
+CLI Code replaces that tab with one built for agents. The agent itself runs untouched — same CLI, same shell, same MCP servers and plugins — but the tab around it knows what is happening.
 
-## Getting started
+## What you get
 
-### 1. Install
+**Tabs that know the agent's state.** The tab renames itself after the task you gave and carries a mark: `⟳` working, `?` waiting for you, `●` finished while you were on another tab. An agent that needs you on a hidden tab sends a notification with an *Open tab* button. The action bar above the terminal shows the model in use.
 
-Open the **Extensions** view in VS Code (`Cmd/Ctrl + Shift + X`), search for **CLI Code**, and click **Install**.
+**Everything the agent prints is clickable.** File paths open in the editor at the exact line and column, folders reveal in the Explorer (or Finder/Explorer when outside the workspace), URLs open in the browser, Markdown opens in the preview. Only paths that really exist are underlined. A plain click selects the whole link so `Cmd/Ctrl + C` copies it; selection and copy keep working even while Claude Code is capturing the mouse.
 
-![CLI Code in the VS Code Marketplace](images/screenshots/marketplace.png)
+**Sessions that survive.** Agents run under a background daemon, so *Reload Window* re-attaches every tab with its scrollback, title and state. When you do need a fresh process — a new MCP server, a plugin, an update — *Restart Session* brings 19 of the 28 agents back into the exact conversation, and tabs whose configuration changed restart themselves when idle.
 
-### 2. Install the assistants you want
+**One shortcut, your real shell.** `Cmd/Ctrl + Esc` opens any of 28 agents beside your editor, in your project folder, inside your interactive login shell — `PATH`, nvm, pnpm, MCP servers, all exactly as in a terminal. `Cmd/Ctrl + Alt + K` drops the file you are looking at into the prompt as `@src/app.ts#L10-20`.
 
-CLI Code _launches_ the assistants — it doesn't install them. Make sure the ones you want are installed and runnable from your terminal. Out of the box it knows about:
+**And the small things.** Resume past sessions, quick commands (from settings or saved from a selection), copy the last 200 lines as context, in-terminal find, per-tab zoom, `Shift + Enter` for newlines, a context-aware right-click menu, coloured agent icons.
 
-| Assistant                                                                                        | Terminal command    |
-| ------------------------------------------------------------------------------------------------ | ------------------- |
-| [Claude Code](https://code.claude.com/docs/en/setup)                                             | `claude`            |
-| [Claude Agent Teams](https://code.claude.com/docs/en/agent-teams)                                | `claude`              |
-| [Codex CLI](https://developers.openai.com/codex/cli)                                             | `codex`             |
-| [Grok](https://x.ai/cli)                                                                         | `grok`              |
-| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli)       | `copilot`           |
-| [opencode](https://opencode.ai)                                                                  | `opencode`          |
-| [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code)                                             | `mimo`              |
-| [Pi](https://pi.dev)                                                                             | `pi`                |
-| [OMP](https://omp.sh)                                                                            | `omp`               |
-| [Antigravity](https://antigravity.google)                                                        | `agy`               |
-| [Amp](https://ampcode.com)                                                                       | `amp`               |
-| [Kilocode](https://kilo.ai)                                                                      | `kilo`              |
-| [Cline](https://cline.bot)                                                                       | `cline`             |
-| [Command Code](https://github.com/just-every/code)                                               | `command-code`      |
-| [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                                  | `droid`             |
-| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent)                                  | `prime-agent`       |
-| [Aider](https://aider.chat/docs/)                                                                | `aider`             |
-| [Goose](https://block.github.io/goose/docs/quickstart/)                                          | `goose`             |
-| [Kiro](https://kiro.dev)                                                                         | `kiro-cli`          |
-| [Charm / Crush](https://github.com/charmbracelet/crush)                                          | `crush`             |
-| [Auggie](https://docs.augmentcode.com/cli/overview)                                              | `auggie`            |
-| [Continue](https://docs.continue.dev/guides/cli)                                                 | `cn`                |
-| [Cursor](https://cursor.com/cli)                                                                 | `cursor-agent`      |
-| [Kimi](https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html)                     | `kimi`              |
-| [Mistral Vibe](https://github.com/mistralai/mistral-vibe)                                        | `vibe`              |
-| [Qwen Code](https://github.com/QwenLM/qwen-code)                                                 | `qwen`              |
-| [Hermes](https://hermes-agent.nousresearch.com/docs/)                                            | `hermes`            |
-| [Devin](https://devin.ai/cli)                                                                    | `devin`             |
+How it knows: CLI Code installs a small *status hook* into each agent's own configuration (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP). It runs one shell line that does nothing outside CLI Code, your files are backed up first, and one setting removes everything. Details in the [User Guide](docs/user-guide.md#16-status-hooks-what-lets-a-tab-know-what-the-agent-is-doing).
 
-> ⚠️ **Install _and_ sign in first.** Most assistants need to be authenticated
-> before they'll run — `claude` (log in to your Anthropic account), `codex`
-> (OpenAI login / API key), and so on. Run each tool
-> once in a normal terminal, complete its login flow, and confirm it starts.
->
-> 💡 Tip: if a command works when you type it in a normal terminal, it'll work here.
+## Quick start
 
-### 🚨 Assistants launch with approval prompts disabled
+1. **Install** from the Marketplace (`Cmd/Ctrl + Shift + X` → *CLI Code*). VS Code 1.94+, macOS or Linux for the full feature set.
+2. **Install and sign in** to the agents you use, in a normal terminal (`claude`, `codex`, `copilot`, `opencode`…). CLI Code launches them; it doesn't install them. If a command works in your terminal, it works here.
+3. **Press `Cmd/Ctrl + Esc`**, pick an agent, start typing. Press `Cmd/Ctrl + Alt + K` in the editor to hand it the current file.
 
-Each CLI is started with its own bypass flag (`claude --dangerously-skip-permissions`,
-`codex --dangerously-bypass-approvals-and-sandbox`, and so on), so the agent runs
-commands and edits files **without asking you first**. That's fast, but it means a
-repository you don't trust can steer the agent into destructive or data-leaking
-actions. Only use CLI Code on code you trust, or launch the assistants yourself from
-a plain terminal instead.
+> ⚠️ Agents are launched with their approval prompts **disabled** (`claude --dangerously-skip-permissions`, `codex --dangerously-bypass-approvals-and-sandbox`, `copilot --yolo`, …) so they can work without interruption. They will edit files and run commands without asking — use CLI Code on repositories you trust, or start the agent from a plain terminal when you want its prompts back.
 
-## How to use it
+## Supported agents
 
-### Open an assistant
+| Agent | Command | State on tab | Restart → same conversation | Model shown |
+| --- | --- | :-: | :-: | :-: |
+| [Claude Code](https://code.claude.com/docs/en/setup) | `claude` | ✓ | ✓ | ✓ |
+| [Claude Agent Teams](https://code.claude.com/docs/en/agent-teams) | `claude` | ✓ | ✓ | ✓ |
+| [Codex CLI](https://developers.openai.com/codex/cli) | `codex` | ✓ | ✓ | ✓ |
+| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot` | ✓ | ✓ | ✓ |
+| [Droid](https://docs.factory.ai/cli/getting-started/quickstart) | `droid` | ✓ | ✓ | ✓ |
+| [Grok](https://x.ai/cli) | `grok` | ✓ | ✓ | ✓ |
+| [opencode](https://opencode.ai) | `opencode` | ✓ | ✓ | ✓ |
+| [Kilocode](https://kilo.ai) | `kilo` | ✓ | ✓ | ✓ |
+| [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code) | `mimo` | ✓ | ✓ | ✓ |
+| [Pi](https://pi.dev) | `pi` | ✓ | ✓ | ✓ |
+| [OMP](https://omp.sh) | `omp` | ✓ | ✓ | ✓ |
+| [Command Code](https://github.com/just-every/code) | `command-code` | — | ✓ | ✓ |
+| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` | — | ✓ | ✓ |
+| [Cline](https://cline.bot) | `cline` | — | ✓ | ✓ |
+| [Kimi](https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html) | `kimi` | — | ✓ | — |
+| [Cursor](https://cursor.com/cli) | `cursor-agent` | — | ✓ | — |
+| [Amp](https://ampcode.com) | `amp` | — | ✓ | — |
+| [Antigravity](https://antigravity.google) | `agy` | — | ✓ | — |
+| [Goose](https://block.github.io/goose/docs/quickstart/) | `goose` | — | ✓ | — |
+| [Aider](https://aider.chat/docs/) | `aider` | — | `--continue` | — |
+| [Kiro](https://kiro.dev) | `kiro-cli` | — | `--continue` | — |
+| [Charm / Crush](https://github.com/charmbracelet/crush) | `crush` | — | `--continue` | — |
+| [Auggie](https://docs.augmentcode.com/cli/overview) | `auggie` | — | `--continue` | — |
+| [Continue](https://docs.continue.dev/guides/cli) | `cn` | — | `--continue` | — |
+| [Mistral Vibe](https://github.com/mistralai/mistral-vibe) | `vibe` | — | `--continue` | — |
+| [Qwen Code](https://github.com/QwenLM/qwen-code) | `qwen` | — | `--continue` | — |
+| [Hermes](https://hermes-agent.nousresearch.com/docs/) | `hermes` | — | `--continue` | — |
+| [Devin](https://devin.ai/cli) | `devin` | — | `--continue` | — |
 
-Press **`Cmd + Esc`** (macOS) or **`Ctrl + Esc`** (Windows / Linux).
+*State on tab* needs a status hook, which exists for the first 11. *Restart → same conversation* ✓ reopens the exact session; `--continue` uses the agent's own "latest session" flag. *Model shown*: the action bar can read the model from the agent's session files. The picker shows agents found on `PATH` first.
 
-A menu pops up listing every assistant. Pick one — it opens in a terminal to the side and starts running. If that assistant is already open, the shortcut just jumps back to it.
+## In daily use
 
-![The CLI picker listing all assistants](images/screenshots/picker-highlighted.png)
+**Open and hand over files.** `Cmd/Ctrl + Esc` opens or focuses an agent; `Cmd/Ctrl + Shift + Esc` opens another tab of it; the *New Session* button opens one in the current tab's folder. `Cmd/Ctrl + Alt + K` inserts `@path`, `@path#L10` or `@path#L10-20` for the editor's file and selection.
 
-> Want a fresh session instead of reusing the open one? Use **`Cmd/Ctrl + Shift + Esc`**.
+**Read the tab.** Title = your name (`F2`) › the quick command that opened it › the agent's own title, cleaned › your last prompt (40 chars, cut at a word) › the agent's name. Marks: `⟳` working · `?` waiting for you · `●` done while hidden.
 
-You can also open it from the editor toolbar — look for the CLI Code icon (circled):
+**Click what the agent prints.** `Cmd/Ctrl + click` opens files (at `line:col`), folders and URLs; `Shift + Cmd/Ctrl + click` opens with the default app; hover shows the target. Right-click offers *Open File / Open Folder / Open Link*, *Open with Default App*, *Insert @path into CLI*, *Copy Link / Path*, *Find Selection*, plus *Copy / Paste / Select All / Find in Terminal*.
 
-![CLI Code icon on the editor toolbar](images/screenshots/toolbar-highlighted.png)
+**Keep the conversation.** *Reload Window* keeps everything. *Restart Session* (↻) relaunches into the same conversation — by the session id the hook reported, else the newest session in the agent's own store for this folder, else the agent's `--continue`. *Resume Session* lists past sessions (Claude Code, Codex, Grok) and offers *Continue latest session* for the rest. When an MCP/plugin/hook file changes, idle tabs restart themselves; busy ones show *"… changed — restart to apply"* until you press ↻. *Restart All Sessions* does every tab.
 
-### Send the file you're working on
+**Quick commands.** Store prompts in `cliCode.quickCommands` (User or Workspace settings) or select text and run *Save as Quick Command*; run them from the action bar's `…` menu. They arrive as one paste, followed by Enter unless `"submit": false`.
 
-1. Click into a file (optionally **select a few lines**).
-2. Click the assistant's terminal to focus it.
-3. Press **`Cmd + Alt + K`** (macOS) or **`Ctrl + Alt + K`** (Windows / Linux).
+## Shortcuts, commands, settings
 
-CLI Code drops a reference to your file into the prompt:
+| Action | macOS | Windows / Linux |
+| --- | --- | --- |
+| Open / focus an agent | `Cmd + Esc` | `Ctrl + Esc` |
+| Open an agent in a new tab | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
+| Insert the current file as `@path` | `Cmd + Alt + K` | `Ctrl + Alt + K` |
+| Newline in the prompt | `Shift + Enter` | `Shift + Enter` |
+| Find in terminal | `Cmd + F` | `Ctrl + F` \* |
+| Zoom in / out / reset | `Cmd + =` / `-` / `0` | `Ctrl + =` / `-` / `0` |
+| Rename tab | `F2` | `F2` |
 
-| You did this           | It inserts           |
-| ---------------------- | -------------------- |
-| Just opened a file     | `@src/app.ts`        |
-| Selected one line      | `@src/app.ts#L10`    |
-| Selected several lines | `@src/app.ts#L10-20` |
+\* On Windows/Linux the terminal keeps `Ctrl + F` for the agent — use the palette or the right-click entry. Terminal shortcuts are active only in a CLI Code tab.
 
-Now just type your question — the assistant already knows which file (and lines) you mean.
+Command Palette (`CLI Code:`): New Session · Resume Session · Restart Session · Restart All Sessions · Quick Command · Save as Quick Command · Rename Tab · Find in Terminal · Copy Context · Copy · Paste · Select All · Zoom In / Out / Reset · Install Status Hooks · Remove Status Hooks — plus *Open CLI*, *Open CLI in new tab* and *CLI: Insert At-Mentioned*.
 
-## The CLI Code terminal
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `cliCode.statusHooks` | `true` | Keep status hooks installed in every supported agent on `PATH`; `false` removes them. |
+| `cliCode.notifications` | `true` | Notify when an agent finishes or starts waiting on a tab you are not looking at. |
+| `cliCode.quickCommands` | `[]` | `{ "label", "text", "submit"? }` entries; User settings = global, Workspace settings = project. |
+| `cliCode.composer` | `false` | Experimental chat-style input under the terminal (applies to new tabs). |
 
-Assistants don't run in VS Code's integrated terminal but in the **extension's own terminal** — a webview panel connected to a background PTY daemon. That is what makes the rest possible:
+## What CLI Code touches
 
-- A **coloured icon** on the terminal tab for each assistant.
-- **Automatic tab titles** that update from the prompt you just typed (no manual renaming needed) — Orca's budget: URLs dropped, at most 40 characters, cut at a word boundary with `…`.
-- **Agent status** shown right on the tab title — working, waiting on you, or done.
-- Sessions that **survive Reload Window**: after a reload, the terminal reconnects to the running CLI session automatically, with nothing lost.
+- **Writes** the status hook into each agent's own config (`~/.claude/settings.json`, `~/.factory/settings.json`, `~/.codex/hooks.json` + trust entries in `config.toml`, `~/.copilot/hooks/cli-code.json`, `~/.grok/hooks/cli-code.json`, a generated `cli-code-status.ts` plugin for opencode/Kilo/MiMo and extension for Pi/OMP), backing each file up once as `<file>.cli-code.bak`. Your own hooks are kept; `cliCode.statusHooks: false` removes everything.
+- **Reads** the agents' session stores to find session ids, titles and models, and the modification times of their MCP/plugin/hook files to spot stale tabs.
+- **No network** of its own; no data leaves your machine through CLI Code.
 
-### Limits
+## Limits
 
-- **Closing a tab ends that CLI.** VS Code doesn't let an extension "ask before closing" a tab, so closing one stops the CLI process inside it immediately — no warning.
-- **Quitting VS Code ends all sessions.** Every CLI running under CLI Code stops with it.
-- **Status hooks only work on POSIX** (macOS, Linux) — Windows can't install them.
-
-### Status hooks
-
-CLI Code keeps a small hook installed in each supported CLI so the tab shows accurate status (working / waiting / done) instead of guessing from the title, the "finished" toast fires for hidden tabs, and **Restart Session** knows the exact conversation to return to. Like Orca, this happens **automatically**: on activation, every supported CLI found on `PATH` gets the hook if it is missing; turn `cliCode.statusHooks` off and they are all removed again.
-
-| CLI | Where the hook lives |
-| --- | --- |
-| Claude Code | `~/.claude/settings.json` → `hooks` (UserPromptSubmit, Stop, Notification, PermissionRequest) |
-| Droid | `~/.factory/settings.json` → `hooks` |
-| Codex | `~/.codex/hooks.json` → `hooks`, plus the matching `[hooks.state.…]` trust entries in `~/.codex/config.toml` (Codex only runs trusted hooks) |
-| GitHub Copilot | `~/.copilot/hooks/cli-code.json` (a file of its own) |
-| Grok | `~/.grok/hooks/cli-code.json` (a file of its own) |
-| opencode / Kilo / MiMo | `~/.config/opencode|kilo|mimocode/plugins/cli-code-status.ts` (a generated plugin) |
-| Pi / OMP | `~/.pi/agent/extensions/cli-code-status.ts`, `~/.omp/agent/extensions/cli-code-status.ts` (a generated extension) |
-
-- Before the first write to a file you already had, it is backed up next to itself as `<file>.cli-code.bak`; hooks you configured yourself are kept, only CLI Code's own entries are added or removed. Generated files start with `// @cli-code-managed` and are never overwritten if that header is missing.
-- Every entry runs the same shell line, which is a no-op when the CLI runs outside CLI Code (the `CLI_CODE_HOOK` variable doesn't exist):
-
-  ```sh
-  [ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true
-  ```
-
-  The generated plugins build the same JSON payload the shell hooks receive and pipe it into that line.
-- A hook takes effect from the next start of that CLI. CLI Code notices when a tab's CLI is older than its config (MCP servers, plugins, hooks — the files listed above plus each CLI's MCP config, checked after a Reload Window, when a tab becomes visible, and after an extension update): an idle tab restarts into the same conversation by itself; a busy one shows *"… changed — restart to apply"* in the action bar until you restart it. **"CLI Code: Restart All Sessions"** restarts every tab at once.
-- **"CLI Code: Install Status Hooks"** / **"Remove Status Hooks"** in the Command Palette do the same by hand and show a summary.
-- POSIX only (macOS, Linux): Windows has no `sh` to evaluate the hook line, so nothing is installed there.
-- Known limit: the hook command is evaluated by the shell, so a VS Code install path containing `"` or `$` breaks it.
-
-### Settings
-
-| Setting                     | Type                       | Default | Description                                                                                 |
-| ---------------------------- | --------------------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| `cliCode.statusHooks`        | `boolean`                   | `true`  | Keep status hooks installed in every supported CLI (see "Status hooks"); off removes them.     |
-| `cliCode.notifications`      | `boolean`                   | `true`  | Notify when an agent finishes work on a hidden tab.                                           |
-| `cliCode.quickCommands`      | array of objects            | `[]`    | Reusable commands or prompts. Set in User settings = Global, Workspace settings = Project.     |
-
-Example `cliCode.quickCommands`:
-
-```json
-"cliCode.quickCommands": [
-  { "label": "Run tests", "text": "npm test" },
-  { "label": "Summarize PR", "text": "Summarize the changes in this PR", "submit": true }
-]
-```
-
-### Path links
-
-Paths the CLI prints (`src/x.ts:12:3`, `./dir`, `~/notes.md`, `README`, `file://…`) become links once they exist on disk — a truncated or missing path is never underlined. `Cmd/Ctrl + click` opens a file in the editor (Markdown in the preview, HTML in the browser) and a **folder** in VS Code's Explorer (inside the workspace) or in Finder / Explorer (outside it); `Shift + Cmd/Ctrl + click` opens a file with its default app. A plain click selects the whole link (URL or path) so a normal `Cmd/Ctrl + C` copies it. Dragging always selects text, even while the CLI captures the mouse (Claude Code's TUI does) — a bare click still reaches the CLI, so its caret follows the mouse; hold `Option` (macOS) / `Shift` (elsewhere) while dragging to send the drag to the CLI instead.
-
-### Restart and resume
-
-**Restart Session** brings the tab back into the *same conversation*: CLIs with a status hook (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP) via the session id the hook reports; Command Code, Prime Agent, Cline, Kimi, Cursor, Amp, Antigravity and goose via the newest session their own store shows for this directory since the tab was opened; the remaining CLIs via their `--continue` form. Only when nothing is known does it start fresh. **Resume Session** lists past sessions (Claude Code, Codex, Grok) and offers *Continue latest session* for every other CLI — this folder's newest session when the CLI's store has one. **Restart All Sessions** restarts every tab (see "Status hooks" for the automatic restart of stale tabs).
-
-### Action bar and right-click menu
-
-A quiet bar sits at the top of every terminal (same background, icons flush right): **New Session** (pick a CLI, opens in this tab's directory), **Resume Session**, **Restart Session**, **Find**, and under **…**: **Rename Tab** (`F2`), **Copy Context**, **Quick Command**. Its left side shows the **model** the CLI is using — read from the CLI's own session store (Claude Code, Codex, Grok, Copilot, Pi, OMP, Command Code, Prime Agent, Droid, Cline, opencode, MiMo, Kilo; hidden for CLIs that do not record it) — plus a status line while the agent waits on you and a *"… changed — restart to apply"* notice when the tab is stale. Hovering a link shows what `Cmd/Ctrl + click` will open and the resolved path.
-
-Right-click acts on what is under the pointer or selected: **Copy** · **Paste** · **Select All** · on a URL **Open Link** / on a file **Open File**, **Open with Default App**, **Insert @path into CLI** / on a folder **Open Folder** · **Copy Link / Path** · **Find Selection** · **Find in Terminal**.
-
-An experimental chat-style **composer** under the terminal (type or paste, `Enter` sends as one block, `Shift + Enter` breaks a line) can be enabled with `cliCode.composer: true`; it is off by default so the CLI's own input keeps its `/` and `@` menus.
-
-### Command Palette commands
-
-`CLI Code:` **New Session**, **Resume Session**, **Restart Session**, **Restart All Sessions**, **Quick Command**, **Save as Quick Command**, **Rename Tab**, **Find in Terminal**, **Copy Context**, **Copy**, **Paste**, **Select All**, **Zoom In**, **Zoom Out**, **Reset Zoom**, **Install Status Hooks**, **Remove Status Hooks** — plus **Open CLI**, **Open CLI in new tab** and **CLI: Insert At-Mentioned** from earlier releases.
-
-## Keyboard shortcuts
-
-| Action                               | macOS                | Windows / Linux        |
-| -------------------------------------- | --------------------- | ------------------------ |
-| Open / focus an assistant              | `Cmd + Esc`           | `Ctrl + Esc`             |
-| Open an assistant in a new terminal    | `Cmd + Shift + Esc`   | `Ctrl + Shift + Esc`     |
-| Send the current file to it            | `Cmd + Alt + K`       | `Ctrl + Alt + K`         |
-| Newline in the prompt                  | `Shift + Enter`       | `Shift + Enter`         |
-| Find in terminal                       | `Cmd + F`             | `Ctrl + F` \*           |
-| Font zoom in                           | `Cmd + =`             | `Ctrl + =`               |
-| Font zoom out                          | `Cmd + -`             | `Ctrl + -`               |
-| Reset font zoom                        | `Cmd + 0`             | `Ctrl + 0`               |
-
-\* On Windows / Linux the focused terminal consumes `Ctrl + F` (xterm sends it to the CLI as `^F`). Use the Command Palette command **"CLI Code: Find in Terminal"** or the right-click entry **Find in Terminal** instead.
+- Closing a tab ends the agent inside it (VS Code cannot ask first); quitting VS Code ends every session. Reload Window does not.
+- Status hooks and the interactive-shell launch are POSIX only (macOS, Linux). On Windows tabs work but show no state marks.
+- Nine agents have no addressable sessions and restart with their `--continue` flag (see the table).
 
 ## FAQ
 
-**The assistant opens but asks me to log in.**
-That's expected — CLI Code only launches the tool, it doesn't handle authentication. Complete the assistant's own login flow once (in any terminal); it will remember you afterwards.
+**The agent asks me to log in.** Expected — CLI Code only launches it. Complete the login once in any terminal.
 
-**Nothing happens when I press `Cmd + Alt + K`.**
-Make sure (1) a file is open in the editor, and (2) the assistant's terminal is focused. The file reference goes into whichever CLI terminal is active.
+**Nothing happens on `Cmd + Alt + K`.** A file must be open in the editor and an agent tab focused.
 
-**The shortcut conflicts with something else.**
-Rebind it in VS Code: **Preferences → Keyboard Shortcuts**, search for "CLI", and set your own keys.
+**A shortcut collides with another extension.** Rebind it under *Preferences → Keyboard Shortcuts* (search "CLI Code").
+
+**Can I keep using VS Code's own terminal?** Yes — CLI Code only manages the tabs it opens.
 
 ## Development
 
 - `bun test` — unit tests.
-- `bun run test:integration` — launches a real VS Code (downloaded once into `.vscode-test/`) and runs the suites in `test/integration/suite/` inside the extension host: open/type/close, gone/restart, hook → status glyph, resume/quick commands, and a two-stage reload that re-attaches a session across a restart. macOS/Linux only; opens a test window; tests never write your real `~/.claude/settings.json` or any other hook file — the runner snapshots them and fails the run if one changes. VS Code's own invocation of the webview serializer on a real Reload Window can't be exercised this way (extension-test mode uses in-memory storage, so it never fires between the two launches) and stays a manual check.
+- `bun run test:integration` — a real VS Code Extension Host (downloaded once into `.vscode-test/`): open/type/close, gone/restart, hook → state, resume and quick commands, two-stage reload. macOS/Linux; never writes your real hook files — the runner snapshots them and fails if one changes.
+- `node test/e2e/status-hooks.mjs [agent…]` — end-to-end against the agents installed on your machine (one model call each).
+- `bun run package:target <platform>` — VSIX for one target; `bun run package:all` for all six.
+
+Agent icons are sourced from [Orca](https://github.com/stablyai/orca).
 
 ## License
 

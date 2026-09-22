@@ -2,213 +2,140 @@
 
 [English](README.md) · **Tiếng Việt** · [中文](README.zh.md) · [日本語](README.ja.md)
 
-📖 Tài liệu đầy đủ: [Hướng dẫn sử dụng](docs/user-guide.vi.md) · [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
+📖 [Hướng dẫn sử dụng](docs/user-guide.vi.md) · [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
 
-> Chạy Claude Code, Codex, Copilot, opencode, Pi và 23 trợ lý lập trình khác ngay trong VS Code — mỗi trợ lý một tab terminal biết agent đang làm gì, mở được mọi file nó nhắc tới, sống qua reload, và khởi động lại về đúng hội thoại.
+> **Terminal dành cho agent, ngay trong VS Code.** Claude Code, Codex, Copilot, opencode, Pi, Grok, Droid và 21 agent lập trình khác, mỗi agent một tab hiểu nó: hiện agent đang làm gì, mở được thứ nó nhắc tới, giữ phiên qua reload, và khởi động lại về đúng hội thoại.
 
 ![Nhiều AI CLI chạy song song trong VS Code](images/screenshots/terminals.png)
 
-## Nó làm gì?
+## Vì sao
 
-- **Một phím tắt tới mọi trợ lý.** `Cmd/Ctrl + Esc` → chọn trong 28 CLI → mở ngay cạnh editor, trong thư mục dự án, bằng shell thật của bạn (`PATH`, nvm, MCP server — y như terminal).
-- **Gửi file đang xem** bằng `Cmd/Ctrl + Alt + K`: trợ lý nhận `@src/app.ts#L10-20`, không copy-paste.
-- **Tab cho biết chuyện gì đang xảy ra.** Tab tự đổi tên theo việc bạn giao, hiện `⟳` đang chạy / `?` đang chờ bạn / `●` đã xong khi bạn ở tab khác, và có thông báo khi agent ở tab ẩn cần bạn.
-- **Mọi đường dẫn và link agent in ra đều bấm được.** `Cmd/Ctrl + click` mở file đúng dòng, thư mục trong Explorer, URL trong trình duyệt; click thường chọn trọn link để `Cmd/Ctrl + C`. Bôi chọn và chép vẫn hoạt động khi Claude Code bắt chuột.
-- **Reload Window không mất gì.** Phiên chạy dưới daemon nền, nối lại với đủ scrollback, tên tab, trạng thái.
-- **Khởi động lại về đúng hội thoại.** Vừa đổi MCP server hay plugin? Restart tab, 19 trợ lý quay về đúng chỗ đang dở — tab rảnh còn tự restart khi config đổi.
-- **Mở lại phiên cũ, lệnh nhanh, chép ngữ cảnh, tìm, zoom**, và ô model cho biết trợ lý đang chạy model nào.
+Mọi agent lập trình nghiêm túc đều là một chương trình dòng lệnh. Chạy nó trong tab terminal thường thì tab đó "mù": không biết agent đang chờ bạn duyệt, không biết agent vừa sửa file nào, reload là mất, khởi động lại là quên hội thoại.
 
-Trạng thái, restart theo phiên và ô model đến từ một hook trạng thái nhỏ mà CLI Code cài vào config của từng trợ lý (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP) — có sao lưu, gỡ được, và không làm gì khi chạy ngoài CLI Code. Chi tiết trong [Hướng dẫn sử dụng](docs/user-guide.vi.md).
+CLI Code thay tab đó bằng một tab sinh ra cho agent. Bản thân agent chạy nguyên vẹn — cùng CLI, cùng shell, cùng MCP server và plugin — nhưng cái tab bao quanh nó biết chuyện gì đang xảy ra.
 
-## Bắt đầu
+## Bạn có gì
 
-### 1. Cài đặt
+**Tab biết trạng thái agent.** Tab tự đổi tên theo việc bạn giao và mang một dấu: `⟳` đang chạy, `?` đang chờ bạn, `●` đã xong khi bạn ở tab khác. Agent cần bạn ở tab đang ẩn sẽ gửi thông báo kèm nút *Open tab*. Thanh action trên terminal hiện model đang dùng.
 
-Mở tab **Extensions** trong VS Code (`Cmd/Ctrl + Shift + X`), tìm **CLI Code**, và bấm **Install**.
+**Mọi thứ agent in ra đều bấm được.** Đường dẫn file mở trong editor đúng dòng đúng cột, thư mục hiện trong Explorer (hoặc Finder/Explorer nếu ngoài workspace), URL mở trình duyệt, Markdown mở preview. Chỉ đường dẫn thật sự tồn tại mới được gạch chân. Click thường chọn trọn link để `Cmd/Ctrl + C` chép; bôi chọn và chép vẫn hoạt động cả khi Claude Code đang bắt chuột.
 
-![CLI Code trên VS Code Marketplace](images/screenshots/marketplace.png)
+**Phiên không mất.** Agent chạy dưới một daemon nền, nên *Reload Window* nối lại mọi tab với đủ scrollback, tên và trạng thái. Khi thật sự cần tiến trình mới — thêm MCP server, cài plugin, cập nhật — *Restart Session* đưa 19 trong 28 agent về đúng hội thoại, và tab có cấu hình vừa đổi tự khởi động lại khi rảnh.
 
-### 2. Cài các trợ lý bạn muốn dùng
+**Một phím tắt, shell thật của bạn.** `Cmd/Ctrl + Esc` mở bất kỳ agent nào trong 28 cạnh editor, trong thư mục dự án, bên trong shell login tương tác của bạn — `PATH`, nvm, pnpm, MCP server, y hệt terminal. `Cmd/Ctrl + Alt + K` thả file bạn đang xem vào prompt dưới dạng `@src/app.ts#L10-20`.
 
-CLI Code chỉ _khởi chạy_ trợ lý — nó không cài chúng. Hãy chắc rằng các trợ lý bạn muốn đã được cài và chạy được từ terminal. Mặc định nó biết các trợ lý sau:
+**Và những thứ nhỏ.** Mở lại phiên cũ, lệnh nhanh (từ settings hoặc lưu từ vùng chọn), chép 200 dòng cuối làm ngữ cảnh, tìm trong terminal, zoom theo tab, `Shift + Enter` xuống dòng, menu chuột phải theo ngữ cảnh, icon màu cho từng agent.
 
-| Trợ lý                                                                                           | Lệnh terminal       |
-| ------------------------------------------------------------------------------------------------ | ------------------- |
-| [Claude Code](https://code.claude.com/docs/en/setup)                                             | `claude`            |
-| [Claude Agent Teams](https://code.claude.com/docs/en/agent-teams)                                | `claude`              |
-| [Codex CLI](https://developers.openai.com/codex/cli)                                             | `codex`             |
-| [Grok](https://x.ai/cli)                                                                         | `grok`              |
-| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli)       | `copilot`           |
-| [opencode](https://opencode.ai)                                                                  | `opencode`          |
-| [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code)                                             | `mimo`              |
-| [Pi](https://pi.dev)                                                                             | `pi`                |
-| [OMP](https://omp.sh)                                                                            | `omp`               |
-| [Antigravity](https://antigravity.google)                                                        | `agy`               |
-| [Amp](https://ampcode.com)                                                                       | `amp`               |
-| [Kilocode](https://kilo.ai)                                                                      | `kilo`              |
-| [Cline](https://cline.bot)                                                                       | `cline`             |
-| [Command Code](https://github.com/just-every/code)                                               | `command-code`      |
-| [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                                  | `droid`             |
-| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent)                                  | `prime-agent`       |
-| [Aider](https://aider.chat/docs/)                                                                | `aider`             |
-| [Goose](https://block.github.io/goose/docs/quickstart/)                                          | `goose`             |
-| [Kiro](https://kiro.dev)                                                                         | `kiro-cli`          |
-| [Charm / Crush](https://github.com/charmbracelet/crush)                                          | `crush`             |
-| [Auggie](https://docs.augmentcode.com/cli/overview)                                              | `auggie`            |
-| [Continue](https://docs.continue.dev/guides/cli)                                                 | `cn`                |
-| [Cursor](https://cursor.com/cli)                                                                 | `cursor-agent`      |
-| [Kimi](https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html)                     | `kimi`              |
-| [Mistral Vibe](https://github.com/mistralai/mistral-vibe)                                        | `vibe`              |
-| [Qwen Code](https://github.com/QwenLM/qwen-code)                                                 | `qwen`              |
-| [Hermes](https://hermes-agent.nousresearch.com/docs/)                                            | `hermes`            |
-| [Devin](https://devin.ai/cli)                                                                    | `devin`             |
+Nó biết bằng cách nào: CLI Code cài một *hook trạng thái* nhỏ vào cấu hình của chính agent (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP). Hook chạy một dòng shell không làm gì khi ở ngoài CLI Code, file của bạn được sao lưu trước, và một setting gỡ sạch tất cả. Chi tiết trong [Hướng dẫn sử dụng](docs/user-guide.vi.md#16-hook-trạng-thái-thứ-làm-cho-tab-biết-agent-đang-làm-gì).
 
-> ⚠️ **Cài đặt _và_ đăng nhập trước.** Hầu hết trợ lý cần được xác thực trước
-> khi chạy — `claude` (đăng nhập tài khoản Anthropic), `codex` (đăng nhập
-> OpenAI / API key), v.v. Hãy chạy từng công cụ
-> một lần trong terminal thường, hoàn tất bước đăng nhập, và xác nhận nó khởi
-> động được.
->
-> 💡 Mẹo: nếu một lệnh chạy được khi bạn gõ trong terminal thường, thì nó cũng chạy được ở đây.
+## Bắt đầu nhanh
 
-### 🚨 Các trợ lý được khởi chạy với chế độ bỏ qua hỏi quyền
+1. **Cài** từ Marketplace (`Cmd/Ctrl + Shift + X` → *CLI Code*). VS Code 1.94+, macOS hoặc Linux để có đủ tính năng.
+2. **Cài và đăng nhập** các agent bạn dùng, trong terminal thường (`claude`, `codex`, `copilot`, `opencode`…). CLI Code khởi chạy chúng chứ không cài. Lệnh chạy được trong terminal là chạy được ở đây.
+3. **Bấm `Cmd/Ctrl + Esc`**, chọn agent, gõ. Trong editor bấm `Cmd/Ctrl + Alt + K` để đưa file hiện tại cho agent.
 
-Mỗi CLI được khởi chạy kèm cờ bỏ qua quyền của riêng nó (`claude --dangerously-skip-permissions`,
-`codex --dangerously-bypass-approvals-and-sandbox`, v.v.), nên trợ lý sẽ chạy lệnh và
-sửa file **mà không hỏi bạn trước**. Cách này nhanh, nhưng đồng nghĩa một repository
-bạn không tin tưởng có thể điều khiển trợ lý thực hiện hành vi phá hoại hoặc rò rỉ dữ
-liệu. Chỉ dùng CLI Code với mã nguồn bạn tin tưởng, hoặc tự mở trợ lý từ terminal thường.
+> ⚠️ Agent được khởi chạy với chế độ **tắt hỏi quyền** (`claude --dangerously-skip-permissions`, `codex --dangerously-bypass-approvals-and-sandbox`, `copilot --yolo`, …) để làm việc không bị ngắt. Chúng sẽ sửa file và chạy lệnh mà không hỏi — chỉ dùng CLI Code trên repository bạn tin, hoặc mở agent từ terminal thường khi muốn có lại hộp thoại xác nhận.
 
-## Cách sử dụng
+## Agent được hỗ trợ
 
-### Mở một trợ lý
+| Agent | Lệnh | Trạng thái trên tab | Restart → đúng hội thoại | Hiện model |
+| --- | --- | :-: | :-: | :-: |
+| [Claude Code](https://code.claude.com/docs/en/setup) | `claude` | ✓ | ✓ | ✓ |
+| [Claude Agent Teams](https://code.claude.com/docs/en/agent-teams) | `claude` | ✓ | ✓ | ✓ |
+| [Codex CLI](https://developers.openai.com/codex/cli) | `codex` | ✓ | ✓ | ✓ |
+| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot` | ✓ | ✓ | ✓ |
+| [Droid](https://docs.factory.ai/cli/getting-started/quickstart) | `droid` | ✓ | ✓ | ✓ |
+| [Grok](https://x.ai/cli) | `grok` | ✓ | ✓ | ✓ |
+| [opencode](https://opencode.ai) | `opencode` | ✓ | ✓ | ✓ |
+| [Kilocode](https://kilo.ai) | `kilo` | ✓ | ✓ | ✓ |
+| [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code) | `mimo` | ✓ | ✓ | ✓ |
+| [Pi](https://pi.dev) | `pi` | ✓ | ✓ | ✓ |
+| [OMP](https://omp.sh) | `omp` | ✓ | ✓ | ✓ |
+| [Command Code](https://github.com/just-every/code) | `command-code` | — | ✓ | ✓ |
+| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` | — | ✓ | ✓ |
+| [Cline](https://cline.bot) | `cline` | — | ✓ | ✓ |
+| [Kimi](https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html) | `kimi` | — | ✓ | — |
+| [Cursor](https://cursor.com/cli) | `cursor-agent` | — | ✓ | — |
+| [Amp](https://ampcode.com) | `amp` | — | ✓ | — |
+| [Antigravity](https://antigravity.google) | `agy` | — | ✓ | — |
+| [Goose](https://block.github.io/goose/docs/quickstart/) | `goose` | — | ✓ | — |
+| [Aider](https://aider.chat/docs/) | `aider` | — | `--continue` | — |
+| [Kiro](https://kiro.dev) | `kiro-cli` | — | `--continue` | — |
+| [Charm / Crush](https://github.com/charmbracelet/crush) | `crush` | — | `--continue` | — |
+| [Auggie](https://docs.augmentcode.com/cli/overview) | `auggie` | — | `--continue` | — |
+| [Continue](https://docs.continue.dev/guides/cli) | `cn` | — | `--continue` | — |
+| [Mistral Vibe](https://github.com/mistralai/mistral-vibe) | `vibe` | — | `--continue` | — |
+| [Qwen Code](https://github.com/QwenLM/qwen-code) | `qwen` | — | `--continue` | — |
+| [Hermes](https://hermes-agent.nousresearch.com/docs/) | `hermes` | — | `--continue` | — |
+| [Devin](https://devin.ai/cli) | `devin` | — | `--continue` | — |
 
-Nhấn **`Cmd + Esc`** (macOS) hoặc **`Ctrl + Esc`** (Windows / Linux).
+*Trạng thái trên tab* cần hook trạng thái, hiện có cho 11 agent đầu. *Restart → đúng hội thoại* ✓ = mở lại đúng phiên; `--continue` = dùng cờ "phiên gần nhất" của chính agent. *Hiện model*: thanh action đọc được model từ file phiên của agent. Bộ chọn xếp agent có trên `PATH` lên đầu.
 
-Một menu hiện ra liệt kê tất cả trợ lý. Chọn một cái — nó mở trong terminal bên cạnh và bắt đầu chạy. Nếu trợ lý đó đang mở rồi, phím tắt chỉ nhảy về terminal đó.
+## Dùng hằng ngày
 
-![Bảng chọn CLI liệt kê tất cả trợ lý](images/screenshots/picker-highlighted.png)
+**Mở và đưa file.** `Cmd/Ctrl + Esc` mở hoặc focus một agent; `Cmd/Ctrl + Shift + Esc` mở thêm tab của nó; nút *New Session* mở tab trong thư mục của tab hiện tại. `Cmd/Ctrl + Alt + K` chèn `@path`, `@path#L10` hoặc `@path#L10-20` theo file và vùng chọn trong editor.
 
-> Muốn một phiên hoàn toàn mới thay vì dùng lại cái đang mở? Dùng **`Cmd/Ctrl + Shift + Esc`**.
+**Đọc tab.** Tên = tên bạn đặt (`F2`) › lệnh nhanh đã mở tab › tiêu đề của chính agent, đã làm sạch › prompt cuối của bạn (40 ký tự, cắt ở ranh giới từ) › tên agent. Dấu: `⟳` đang chạy · `?` chờ bạn · `●` xong khi tab ẩn.
 
-Bạn cũng có thể mở từ thanh công cụ của editor — tìm icon CLI Code (đã khoanh tròn):
+**Bấm vào thứ agent in ra.** `Cmd/Ctrl + click` mở file (đúng `dòng:cột`), thư mục và URL; `Shift + Cmd/Ctrl + click` mở bằng app mặc định; rê chuột thấy đích. Chuột phải có *Open File / Open Folder / Open Link*, *Open with Default App*, *Insert @path into CLI*, *Copy Link / Path*, *Find Selection*, cùng *Copy / Paste / Select All / Find in Terminal*.
 
-![Icon CLI Code trên thanh công cụ editor](images/screenshots/toolbar-highlighted.png)
+**Giữ hội thoại.** *Reload Window* giữ tất cả. *Restart Session* (↻) chạy lại trong cùng hội thoại — theo session id hook báo, nếu không thì phiên mới nhất trong kho của agent cho thư mục này, nếu không nữa thì `--continue` của agent. *Resume Session* liệt kê phiên cũ (Claude Code, Codex, Grok) và có *Continue latest session* cho các agent còn lại. Khi file MCP/plugin/hook đổi, tab rảnh tự khởi động lại; tab bận hiện *"… changed — restart to apply"* cho tới khi bạn bấm ↻. *Restart All Sessions* làm cho mọi tab.
 
-### Gửi file bạn đang làm việc
+**Lệnh nhanh.** Lưu prompt trong `cliCode.quickCommands` (User hoặc Workspace settings) hoặc bôi chọn rồi chạy *Save as Quick Command*; chạy từ menu `…` trên thanh action. Chúng được dán thành một khối rồi Enter, trừ khi `"submit": false`.
 
-1. Bấm vào một file (tùy chọn **bôi đen vài dòng**).
-2. Bấm vào terminal của trợ lý để focus.
-3. Nhấn **`Cmd + Alt + K`** (macOS) hoặc **`Ctrl + Alt + K`** (Windows / Linux).
+## Phím tắt, lệnh, cài đặt
 
-CLI Code chèn một tham chiếu tới file của bạn vào prompt:
+| Việc | macOS | Windows / Linux |
+| --- | --- | --- |
+| Mở / focus agent | `Cmd + Esc` | `Ctrl + Esc` |
+| Mở agent trong tab mới | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
+| Chèn file hiện tại dạng `@path` | `Cmd + Alt + K` | `Ctrl + Alt + K` |
+| Xuống dòng trong prompt | `Shift + Enter` | `Shift + Enter` |
+| Tìm trong terminal | `Cmd + F` | `Ctrl + F` \* |
+| Zoom to / nhỏ / mặc định | `Cmd + =` / `-` / `0` | `Ctrl + =` / `-` / `0` |
+| Đổi tên tab | `F2` | `F2` |
 
-| Bạn làm gì         | Nó chèn vào          |
-| ------------------ | -------------------- |
-| Chỉ mở một file    | `@src/app.ts`        |
-| Bôi đen một dòng   | `@src/app.ts#L10`    |
-| Bôi đen nhiều dòng | `@src/app.ts#L10-20` |
+\* Trên Windows/Linux terminal giữ `Ctrl + F` cho agent — dùng palette hoặc menu chuột phải. Phím tắt terminal chỉ có hiệu lực trong tab CLI Code.
 
-Giờ chỉ cần gõ câu hỏi — trợ lý đã biết bạn đang nói về file (và dòng) nào.
+Command Palette (`CLI Code:`): New Session · Resume Session · Restart Session · Restart All Sessions · Quick Command · Save as Quick Command · Rename Tab · Find in Terminal · Copy Context · Copy · Paste · Select All · Zoom In / Out / Reset · Install Status Hooks · Remove Status Hooks — cộng *Open CLI*, *Open CLI in new tab* và *CLI: Insert At-Mentioned*.
 
-## Terminal riêng của CLI Code
+| Setting | Mặc định | Ý nghĩa |
+| --- | --- | --- |
+| `cliCode.statusHooks` | `true` | Giữ hook trạng thái trong mọi agent được hỗ trợ có trên `PATH`; `false` gỡ hết. |
+| `cliCode.notifications` | `true` | Thông báo khi agent xong hoặc bắt đầu chờ ở tab bạn không nhìn. |
+| `cliCode.quickCommands` | `[]` | Các mục `{ "label", "text", "submit"? }`; User settings = toàn cục, Workspace settings = dự án. |
+| `cliCode.composer` | `false` | Khung nhập kiểu chat dưới terminal (thử nghiệm; áp dụng cho tab mới). |
 
-Trợ lý không chạy trong terminal tích hợp của VS Code mà trong **terminal riêng của extension** — một webview panel nối tới một daemon PTY chạy nền. Đó là thứ làm nên phần còn lại:
+## CLI Code đụng vào gì
 
-- Tab terminal có **icon màu** riêng cho từng trợ lý.
-- **Tên tab tự cập nhật** theo prompt bạn vừa gõ (không cần đặt tên tay) — theo giới hạn của Orca: bỏ URL, tối đa 40 ký tự, cắt tại ranh giới từ và thêm `…`.
-- Tab hiển thị **trạng thái agent** — đang chạy, đang chờ bạn, hay đã xong — ngay trên tiêu đề.
-- Phiên **sống qua Reload Window**: reload cửa sổ xong, terminal tự nối lại vào đúng phiên CLI đang chạy, không mất ngữ cảnh.
+- **Ghi** hook trạng thái vào cấu hình của chính agent (`~/.claude/settings.json`, `~/.factory/settings.json`, `~/.codex/hooks.json` + mục trust trong `config.toml`, `~/.copilot/hooks/cli-code.json`, `~/.grok/hooks/cli-code.json`, plugin `cli-code-status.ts` sinh tự động cho opencode/Kilo/MiMo và extension cho Pi/OMP), sao lưu mỗi file một lần thành `<file>.cli-code.bak`. Hook của bạn giữ nguyên; `cliCode.statusHooks: false` gỡ sạch.
+- **Đọc** kho phiên của agent để tìm session id, tên phiên, model, và thời gian sửa file MCP/plugin/hook để phát hiện tab cũ.
+- **Không có mạng** riêng; không dữ liệu nào rời máy bạn qua CLI Code.
 
-### Giới hạn
+## Giới hạn
 
-- **Đóng tab = kết thúc CLI đó.** VS Code không cho extension "hỏi trước khi đóng" một tab, nên đóng tab sẽ dừng luôn tiến trình CLI trong đó — không có cảnh báo.
-- **Thoát hẳn VS Code = kết thúc mọi phiên.** Tất cả các CLI đang chạy trong CLI Code sẽ dừng theo.
-- **Hook trạng thái chỉ hoạt động trên POSIX** (macOS, Linux) — Windows không cài được.
+- Đóng tab là kết thúc agent trong tab (VS Code không cho hỏi trước); thoát VS Code là kết thúc mọi phiên. Reload Window thì không.
+- Hook trạng thái và shell tương tác chỉ có trên POSIX (macOS, Linux). Trên Windows tab vẫn chạy nhưng không có dấu trạng thái.
+- Chín agent không có phiên định danh được nên khởi động lại bằng cờ `--continue` (xem bảng).
 
-### Hook trạng thái
+## Hỏi đáp
 
-CLI Code giữ một hook nhỏ trong mỗi CLI được hỗ trợ để tab hiển thị đúng trạng thái (đang chạy / đang chờ / xong) thay vì đoán từ tiêu đề, thông báo "xong việc" bật cho tab đang ẩn, và **Restart Session** biết chính xác hội thoại cần quay về. Giống Orca, việc này diễn ra **tự động**: khi extension khởi động, CLI nào có trên `PATH` mà thiếu hook thì được cài; tắt `cliCode.statusHooks` là gỡ hết.
+**Agent bắt tôi đăng nhập.** Đúng — CLI Code chỉ khởi chạy nó. Đăng nhập một lần trong bất kỳ terminal nào.
 
-| CLI | Hook nằm ở đâu |
-| --- | --- |
-| Claude Code | `~/.claude/settings.json` → `hooks` (UserPromptSubmit, Stop, Notification, PermissionRequest) |
-| Droid | `~/.factory/settings.json` → `hooks` |
-| Codex | `~/.codex/hooks.json` → `hooks`, kèm các mục trust `[hooks.state.…]` tương ứng trong `~/.codex/config.toml` (Codex chỉ chạy hook đã được tin cậy) |
-| GitHub Copilot | `~/.copilot/hooks/cli-code.json` (file riêng) |
-| Grok | `~/.grok/hooks/cli-code.json` (file riêng) |
-| opencode / Kilo / MiMo | `~/.config/opencode|kilo|mimocode/plugins/cli-code-status.ts` (plugin sinh tự động) |
-| Pi / OMP | `~/.pi/agent/extensions/cli-code-status.ts`, `~/.omp/agent/extensions/cli-code-status.ts` (extension sinh tự động) |
+**Bấm `Cmd + Alt + K` không thấy gì.** Cần có file đang mở trong editor và một tab agent đang focus.
 
-- Trước lần ghi đầu tiên vào file bạn đã có, file được sao lưu ngay cạnh thành `<file>.cli-code.bak`; hook bạn tự cấu hình được giữ nguyên, chỉ mục của CLI Code được thêm/bớt. File sinh tự động bắt đầu bằng `// @cli-code-managed` và không bao giờ bị ghi đè nếu thiếu header đó.
-- Mọi mục đều chạy cùng một dòng shell, là no-op khi CLI chạy ngoài CLI Code (không có biến `CLI_CODE_HOOK`):
+**Phím tắt đụng extension khác.** Đổi trong *Preferences → Keyboard Shortcuts* (tìm "CLI Code").
 
-  ```sh
-  [ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true
-  ```
+**Vẫn dùng terminal của VS Code được chứ?** Được — CLI Code chỉ quản lý tab do nó mở.
 
-  Plugin sinh tự động dựng đúng payload JSON như hook shell nhận, rồi pipe vào dòng đó.
-- Hook có hiệu lực từ lần khởi động tiếp theo của CLI. CLI Code tự nhận ra khi CLI của một tab cũ hơn config của nó (MCP, plugin, hook — các file ở bảng trên cộng file MCP của từng CLI; kiểm tra sau Reload Window, khi tab hiện ra, và sau khi extension được cập nhật): tab đang rảnh tự khởi động lại vào đúng hội thoại; tab đang bận hiện *"… changed — restart to apply"* trên thanh action cho tới khi bạn restart. **"CLI Code: Restart All Sessions"** khởi động lại mọi tab một lượt.
-- **"CLI Code: Install Status Hooks"** / **"Remove Status Hooks"** trong Command Palette làm việc tương tự bằng tay và hiện tóm tắt.
-- Chỉ POSIX (macOS, Linux): Windows không có `sh` để chạy dòng hook nên không cài gì.
-- Giới hạn đã biết: lệnh hook được shell `eval`, nên đường dẫn cài VS Code có `"` hoặc `$` sẽ hỏng.
+## Phát triển
 
-### Settings
+- `bun test` — unit test.
+- `bun run test:integration` — Extension Host VS Code thật (tải một lần vào `.vscode-test/`): mở/gõ/đóng, gone/restart, hook → trạng thái, resume và lệnh nhanh, reload hai giai đoạn. macOS/Linux; không bao giờ ghi file hook thật — runner chụp snapshot và fail nếu file đổi.
+- `node test/e2e/status-hooks.mjs [agent…]` — đầu-cuối với agent cài trên máy (mỗi agent một lượt gọi model).
+- `bun run package:target <platform>` — VSIX cho một nền tảng; `bun run package:all` cho cả sáu.
 
-| Setting                     | Kiểu                     | Mặc định | Mô tả                                                                                       |
-| ---------------------------- | ------------------------- | -------- | --------------------------------------------------------------------------------------------- |
-| `cliCode.statusHooks`        | `boolean`                   | `true`   | Giữ hook trạng thái trong mọi CLI được hỗ trợ (xem "Hook trạng thái"); tắt là gỡ hết. |
-| `cliCode.notifications`      | `boolean`                  | `true`   | Thông báo khi agent xong việc ở một tab đang ẩn.                                              |
-| `cliCode.quickCommands`      | mảng object                | `[]`     | Lệnh hoặc prompt dùng lại. Đặt trong User settings = Global, Workspace settings = Project.    |
-
-Ví dụ `cliCode.quickCommands`:
-
-```json
-"cliCode.quickCommands": [
-  { "label": "Chạy test", "text": "npm test" },
-  { "label": "Tóm tắt PR", "text": "Tóm tắt các thay đổi trong PR này", "submit": true }
-]
-```
-
-### Liên kết đường dẫn
-
-Đường dẫn CLI in ra (`src/x.ts:12:3`, `./thư-mục`, `~/ghi-chú.md`, `README`, `file://…`) thành liên kết khi tồn tại trên đĩa — path bị cắt hoặc không có thì không gạch chân. `Cmd/Ctrl + click` mở tệp trong editor (Markdown ở preview, HTML ở trình duyệt) và **thư mục** trong cây Explorer của VS Code (nếu thuộc workspace) hoặc Finder / Explorer (nếu ngoài); `Shift + Cmd/Ctrl + click` mở tệp bằng app mặc định. Click thường vào link (URL hoặc path) sẽ bôi đen trọn link để `Cmd/Ctrl + C` sao chép đủ. Kéo chuột luôn bôi đen văn bản, kể cả khi CLI đang bắt chuột (Claude Code và các TUI khác); giữ `Option` (macOS) / `Shift` (nơi khác) khi kéo nếu muốn gửi chuột cho CLI.
-
-### Menu chuột phải trong terminal
-
-**Restart Session** (khởi động lại phiên) đưa tab về *đúng hội thoại cũ*: CLI có hook trạng thái (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP) theo session id mà hook báo; Command Code, Prime Agent, Cline, Kimi, Cursor, Amp, Antigravity, goose theo phiên mới nhất trong kho phiên của chính CLI cho thư mục này kể từ lúc mở tab; các CLI còn lại theo dạng `--continue`. Chỉ khi không biết gì mới mở phiên mới.
-
-Chuột phải làm việc với nội dung dưới con trỏ / vùng bôi: **Copy** (sao chép, khi có vùng bôi) · **Paste** (dán) · **Select All** (chọn tất cả) · trỏ vào URL: **Open Link** / vào tệp: **Open File**, **Open with Default App** (mở bằng app mặc định), **Insert @path into CLI** (chèn @đường-dẫn vào CLI) / vào thư mục: **Open Folder** · **Copy Link / Path** · **Find Selection** (tìm vùng đã bôi) · **Find in Terminal**. Các thao tác với tab nằm ở thanh lặng trên đầu terminal (cùng màu nền, icon sát mép phải): **New Session** (phiên mới — chọn CLI, mở trong thư mục của tab này), **Resume Session** (mở lại phiên cũ), **Restart Session** (khởi động lại phiên), **Find** (tìm), và trong **…**: Rename Tab (đổi tên tab, `F2`), Copy Context (sao chép ngữ cảnh), Quick Command (lệnh nhanh). Bên trái thanh để trống, chỉ hiện chữ khi agent cần anh (“Waiting for your confirmation”). Bên trái thanh hiện **model** CLI đang dùng (đọc từ kho phiên của chính CLI — Claude Code, Codex, Grok, Copilot, Pi, OMP, Command Code, Prime Agent, Droid, Cline, opencode/MiMo/Kilo; ẩn với CLI không ghi model) và, khi agent chờ anh, một dòng trạng thái. **Khung nhập chat** (thử nghiệm) dưới terminal — gõ/dán, `Enter` gửi nguyên khối, `Shift + Enter` xuống dòng — bật bằng `cliCode.composer: true`; mặc định tắt để giữ nguyên menu `/` và `@` trong ô nhập của chính CLI. Rê chuột lên link sẽ hiện gợi ý `Cmd/Ctrl + click` mở gì kèm đường dẫn đã resolve.
-
-### Lệnh Command Palette
-
-`CLI Code:` **New Session** (phiên mới), **Restart All Sessions** (khởi động lại mọi phiên), **Resume Session** (mở lại phiên cũ), **Quick Command** (lệnh nhanh), **Save as Quick Command** (lưu thành lệnh nhanh), **Rename Tab** (đổi tên tab), **Restart Session** (khởi động lại phiên), **Zoom In** / **Zoom Out** / **Reset Zoom** (cỡ chữ), **Find in Terminal** (tìm trong terminal), **Copy Context** (sao chép ngữ cảnh), **Paste** (dán), **Copy** (sao chép), **Install Status Hooks** / **Remove Status Hooks** (cài / gỡ hook trạng thái Claude).
-
-## Phím tắt
-
-| Thao tác                      | macOS                | Windows / Linux       |
-| ------------------------------ | --------------------- | ----------------------- |
-| Mở / focus một trợ lý          | `Cmd + Esc`           | `Ctrl + Esc`             |
-| Mở trợ lý trong terminal mới   | `Cmd + Shift + Esc`   | `Ctrl + Shift + Esc`     |
-| Gửi file hiện tại vào trợ lý   | `Cmd + Alt + K`       | `Ctrl + Alt + K`         |
-| Xuống dòng trong prompt        | `Shift + Enter`       | `Shift + Enter`         |
-| Tìm trong terminal             | `Cmd + F`             | `Ctrl + F` \*           |
-| Phóng to chữ                   | `Cmd + =`             | `Ctrl + =`               |
-| Thu nhỏ chữ                    | `Cmd + -`             | `Ctrl + -`               |
-| Cỡ chữ mặc định                | `Cmd + 0`             | `Ctrl + 0`               |
-
-\* Trên Windows / Linux, terminal đang focus nuốt `Ctrl + F` (xterm gửi xuống CLI dưới dạng `^F`). Dùng lệnh Command Palette **"CLI Code: Find in Terminal"** hoặc mục chuột phải **Find in Terminal** thay thế.
-
-## Câu hỏi thường gặp
-
-**Trợ lý mở lên nhưng yêu cầu đăng nhập.**
-Đó là điều bình thường — CLI Code chỉ khởi chạy công cụ, không lo phần xác thực. Hãy hoàn tất bước đăng nhập của chính trợ lý đó một lần (ở bất kỳ terminal nào); sau đó nó sẽ nhớ bạn.
-
-**Nhấn `Cmd + Alt + K` mà không có gì xảy ra.**
-Hãy chắc rằng (1) có một file đang mở trong editor, và (2) terminal của trợ lý đang được focus. Tham chiếu file sẽ đi vào terminal CLI nào đang active.
-
-**Phím tắt bị trùng với thứ khác.**
-Đổi lại trong VS Code: **Preferences → Keyboard Shortcuts**, tìm "CLI", và đặt phím riêng của bạn.
+Icon agent lấy từ [Orca](https://github.com/stablyai/orca).
 
 ## Giấy phép
 

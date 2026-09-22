@@ -2,209 +2,140 @@
 
 [English](README.md) · [Tiếng Việt](README.vi.md) · **中文** · [日本語](README.ja.md)
 
-📖 完整手册: [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
+📖 [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
 
-> 在 VS Code 中运行 Claude Code、Codex、Copilot、opencode、Pi 等 28 个编程助手——每个助手都有一个知道智能体在做什么、能打开它提到的每个文件、经得住重载、并能重启回同一会话的终端标签。
+> **VS Code 的智能体终端。** Claude Code、Codex、Copilot、opencode、Pi、Grok、Droid 等 28 个编程智能体，每个都运行在一个懂它的标签里：显示智能体在做什么，打开它提到的东西，重载后保留会话，并能重启回同一会话。
 
 ![多个 AI CLI 在 VS Code 中并排运行](images/screenshots/terminals.png)
 
-## 它能做什么？
+## 为什么
 
-- **一个快捷键直达任何助手。** `Cmd/Ctrl + Esc` → 从 28 个 CLI 中选择 → 在编辑器旁、项目目录里、用你真正的 shell 启动（`PATH`、nvm、MCP 服务器——与终端完全一致）。
-- **把正在看的文件发过去**：`Cmd/Ctrl + Alt + K`，助手收到 `@src/app.ts#L10-20`，无需复制粘贴。
-- **标签告诉你正在发生什么。** 标签按你交代的任务自动改名，显示 `⟳` 工作中 / `?` 等你 / `●` 你不在时已完成；隐藏标签上的智能体需要你时会有通知。
-- **智能体打印的每个路径和链接都可点击。** `Cmd/Ctrl + click` 在准确行打开文件、在资源管理器中打开文件夹、在浏览器中打开 URL；普通点击选中整个链接，`Cmd/Ctrl + C` 即可复制。即使 Claude Code 捕获了鼠标，选择和复制照样可用。
-- **Reload Window 不丢任何东西。** 会话运行在后台守护进程下，连同回滚缓冲、标签名和状态一起重新接上。
-- **重启回同一会话。** 改了 MCP 服务器或插件？重启标签，19 个助手回到你原来的位置——配置变化时空闲标签甚至会自动重启。
-- **恢复历史会话、快捷命令、复制上下文、查找、缩放**，以及显示助手当前所用模型的标识。
+每个正经的编程智能体都是终端程序。放在普通终端标签里运行，那个标签是"瞎"的：它不知道智能体在等你批准，不知道智能体刚改了哪个文件，重载就没了，重启就忘了会话。
 
-状态、按会话重启和模型标识来自 CLI Code 写入每个助手自身配置的一个小状态钩子（Claude Code、Codex、Copilot、Droid、Grok、opencode、Kilo、MiMo、Pi、OMP）——有备份、可移除、在 CLI Code 之外不做任何事。详见 [User Guide](docs/user-guide.md)。
+CLI Code 用一个为智能体而生的标签取而代之。智能体本身原封不动——同样的 CLI、同样的 shell、同样的 MCP 服务器和插件——但包着它的标签知道正在发生什么。
+
+## 你得到什么
+
+**知道智能体状态的标签。** 标签按你交代的任务自动改名，并带一个标记：`⟳` 工作中，`?` 等你，`●` 你在别的标签时已完成。隐藏标签上的智能体需要你时会发出带 *Open tab* 按钮的通知。终端上方的操作栏显示正在使用的模型。
+
+**智能体打印的一切都可点击。** 文件路径在编辑器中精确到行列打开，文件夹在资源管理器中显示（工作区之外则用 Finder/Explorer），URL 在浏览器打开，Markdown 打开预览。只有真实存在的路径才会加下划线。普通点击选中整个链接，`Cmd/Ctrl + C` 即可复制；即使 Claude Code 正捕获鼠标，选择与复制照样可用。
+
+**会话不会丢。** 智能体运行在后台守护进程下，*Reload Window* 会把每个标签连同回滚缓冲、标题、状态一起重新接上。真需要新进程时——新增 MCP 服务器、装插件、更新——*Restart Session* 让 28 个智能体中的 19 个回到完全相同的会话，配置变化的标签会在空闲时自动重启。
+
+**一个快捷键，你真正的 shell。** `Cmd/Ctrl + Esc` 在编辑器旁、项目目录里、你的交互式登录 shell 中打开 28 个智能体中的任何一个——`PATH`、nvm、pnpm、MCP 服务器，与终端完全一致。`Cmd/Ctrl + Alt + K` 把正在看的文件以 `@src/app.ts#L10-20` 的形式放进提示词。
+
+**以及那些小事。** 恢复历史会话、快捷命令（来自设置或从选区保存）、复制最后 200 行作为上下文、终端内查找、按标签缩放、`Shift + Enter` 换行、随上下文变化的右键菜单、彩色智能体图标。
+
+它是怎么知道的：CLI Code 在每个智能体自己的配置里装一个小*状态钩子*（Claude Code、Codex、Copilot、Droid、Grok、opencode、Kilo、MiMo、Pi、OMP）。它只运行一行在 CLI Code 之外什么都不做的 shell，文件先备份，一个设置即可全部移除。详见 [User Guide](docs/user-guide.md#16-status-hooks-what-lets-a-tab-know-what-the-agent-is-doing)。
 
 ## 快速开始
 
-### 1. 安装
+1. 从应用市场**安装**（`Cmd/Ctrl + Shift + X` → *CLI Code*）。VS Code 1.94+，macOS 或 Linux 可获得全部功能。
+2. 在普通终端里**安装并登录**你要用的智能体（`claude`、`codex`、`copilot`、`opencode`…）。CLI Code 只负责启动，不负责安装。终端里能跑的命令这里就能跑。
+3. **按 `Cmd/Ctrl + Esc`**，选一个智能体，开始输入。在编辑器里按 `Cmd/Ctrl + Alt + K` 把当前文件交给它。
 
-在 VS Code 中打开**扩展**视图（`Cmd/Ctrl + Shift + X`），搜索 **CLI Code**，点击 **Install**。
+> ⚠️ 智能体启动时**关闭了审批提示**（`claude --dangerously-skip-permissions`、`codex --dangerously-bypass-approvals-and-sandbox`、`copilot --yolo` …），以便不间断工作。它们会不经询问地改文件、跑命令——只在你信任的仓库上使用 CLI Code，想要审批提示时请从普通终端启动智能体。
 
-![CLI Code 在 VS Code 应用市场](images/screenshots/marketplace.png)
+## 支持的智能体
 
-### 2. 安装你想用的助手
+| 智能体 | 命令 | 标签状态 | 重启 → 同一会话 | 显示模型 |
+| --- | --- | :-: | :-: | :-: |
+| [Claude Code](https://code.claude.com/docs/en/setup) | `claude` | ✓ | ✓ | ✓ |
+| [Claude Agent Teams](https://code.claude.com/docs/en/agent-teams) | `claude` | ✓ | ✓ | ✓ |
+| [Codex CLI](https://developers.openai.com/codex/cli) | `codex` | ✓ | ✓ | ✓ |
+| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli) | `copilot` | ✓ | ✓ | ✓ |
+| [Droid](https://docs.factory.ai/cli/getting-started/quickstart) | `droid` | ✓ | ✓ | ✓ |
+| [Grok](https://x.ai/cli) | `grok` | ✓ | ✓ | ✓ |
+| [opencode](https://opencode.ai) | `opencode` | ✓ | ✓ | ✓ |
+| [Kilocode](https://kilo.ai) | `kilo` | ✓ | ✓ | ✓ |
+| [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code) | `mimo` | ✓ | ✓ | ✓ |
+| [Pi](https://pi.dev) | `pi` | ✓ | ✓ | ✓ |
+| [OMP](https://omp.sh) | `omp` | ✓ | ✓ | ✓ |
+| [Command Code](https://github.com/just-every/code) | `command-code` | — | ✓ | ✓ |
+| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent) | `prime-agent` | — | ✓ | ✓ |
+| [Cline](https://cline.bot) | `cline` | — | ✓ | ✓ |
+| [Kimi](https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html) | `kimi` | — | ✓ | — |
+| [Cursor](https://cursor.com/cli) | `cursor-agent` | — | ✓ | — |
+| [Amp](https://ampcode.com) | `amp` | — | ✓ | — |
+| [Antigravity](https://antigravity.google) | `agy` | — | ✓ | — |
+| [Goose](https://block.github.io/goose/docs/quickstart/) | `goose` | — | ✓ | — |
+| [Aider](https://aider.chat/docs/) | `aider` | — | `--continue` | — |
+| [Kiro](https://kiro.dev) | `kiro-cli` | — | `--continue` | — |
+| [Charm / Crush](https://github.com/charmbracelet/crush) | `crush` | — | `--continue` | — |
+| [Auggie](https://docs.augmentcode.com/cli/overview) | `auggie` | — | `--continue` | — |
+| [Continue](https://docs.continue.dev/guides/cli) | `cn` | — | `--continue` | — |
+| [Mistral Vibe](https://github.com/mistralai/mistral-vibe) | `vibe` | — | `--continue` | — |
+| [Qwen Code](https://github.com/QwenLM/qwen-code) | `qwen` | — | `--continue` | — |
+| [Hermes](https://hermes-agent.nousresearch.com/docs/) | `hermes` | — | `--continue` | — |
+| [Devin](https://devin.ai/cli) | `devin` | — | `--continue` | — |
 
-CLI Code 只负责**启动**助手 —— 它不会安装它们。请确保你想用的助手已安装并能从终端运行。开箱即支持以下助手：
+*标签状态*需要状态钩子，前 11 个已有。*重启 → 同一会话* ✓ 重新打开完全相同的会话；`--continue` 使用智能体自己的"最近会话"标志。*显示模型*：操作栏能从智能体的会话文件中读到模型。选择器把 `PATH` 上找到的智能体排在前面。
 
-| 助手                                                                                               | 终端命令                |
-| ------------------------------------------------------------------------------------------------ | ------------------- |
-| [Claude Code](https://code.claude.com/docs/en/setup)                                             | `claude`            |
-| [Claude Agent Teams](https://code.claude.com/docs/en/agent-teams)                                | `claude`              |
-| [Codex CLI](https://developers.openai.com/codex/cli)                                             | `codex`             |
-| [Grok](https://x.ai/cli)                                                                         | `grok`              |
-| [GitHub Copilot CLI](https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli)       | `copilot`           |
-| [opencode](https://opencode.ai)                                                                  | `opencode`          |
-| [MiMo Code](https://github.com/XiaomiMiMo/MiMo-Code)                                             | `mimo`              |
-| [Pi](https://pi.dev)                                                                             | `pi`                |
-| [OMP](https://omp.sh)                                                                            | `omp`               |
-| [Antigravity](https://antigravity.google)                                                        | `agy`               |
-| [Amp](https://ampcode.com)                                                                       | `amp`               |
-| [Kilocode](https://kilo.ai)                                                                      | `kilo`              |
-| [Cline](https://cline.bot)                                                                       | `cline`             |
-| [Command Code](https://github.com/just-every/code)                                               | `command-code`      |
-| [Droid](https://docs.factory.ai/cli/getting-started/quickstart)                                  | `droid`             |
-| [Prime Agent](https://github.com/PrimeIntellect-ai/prime-agent)                                  | `prime-agent`       |
-| [Aider](https://aider.chat/docs/)                                                                | `aider`             |
-| [Goose](https://block.github.io/goose/docs/quickstart/)                                          | `goose`             |
-| [Kiro](https://kiro.dev)                                                                         | `kiro-cli`          |
-| [Charm / Crush](https://github.com/charmbracelet/crush)                                          | `crush`             |
-| [Auggie](https://docs.augmentcode.com/cli/overview)                                              | `auggie`            |
-| [Continue](https://docs.continue.dev/guides/cli)                                                 | `cn`                |
-| [Cursor](https://cursor.com/cli)                                                                 | `cursor-agent`      |
-| [Kimi](https://www.kimi.com/code/docs/en/kimi-code-cli/getting-started.html)                     | `kimi`              |
-| [Mistral Vibe](https://github.com/mistralai/mistral-vibe)                                        | `vibe`              |
-| [Qwen Code](https://github.com/QwenLM/qwen-code)                                                 | `qwen`              |
-| [Hermes](https://hermes-agent.nousresearch.com/docs/)                                            | `hermes`            |
-| [Devin](https://devin.ai/cli)                                                                    | `devin`             |
+## 日常使用
 
-> ⚠️ **先安装*并*登录。** 大多数助手在运行前需要先完成身份验证 —— `claude`
-> （登录 Anthropic 账号）、`codex`（OpenAI 登录 / API key）等等。请在普通终端中先运行每个工具一次，完成其登录流程，并确认它能启动。
->
-> 💡 提示：如果某个命令在普通终端里能运行，那它在这里也能运行。
+**打开并交出文件。** `Cmd/Ctrl + Esc` 打开或聚焦一个智能体；`Cmd/Ctrl + Shift + Esc` 再开一个它的标签；*New Session* 按钮在当前标签的目录里再开一个。`Cmd/Ctrl + Alt + K` 按编辑器的文件和选区插入 `@path`、`@path#L10` 或 `@path#L10-20`。
 
-### 🚨 助手启动时已禁用授权确认
+**读标签。** 标题 = 你起的名字（`F2`）› 打开它的快捷命令 › 智能体自己的标题（已清理）› 你的最后一条提示词（40 字符，按词截断）› 智能体名。标记：`⟳` 工作中 · `?` 等你 · `●` 隐藏时已完成。
 
-每个 CLI 都会带上各自的绕过权限参数启动（`claude --dangerously-skip-permissions`、
-`codex --dangerously-bypass-approvals-and-sandbox` 等），因此助手执行命令和修改文件时
-**不会先征求你的同意**。这样很快，但也意味着不受信任的代码仓库可能诱导助手执行破坏性或
-泄露数据的操作。请只在你信任的代码上使用 CLI Code，或者自己在普通终端中启动这些助手。
+**点击智能体打印的内容。** `Cmd/Ctrl + click` 打开文件（到 `行:列`）、文件夹和 URL；`Shift + Cmd/Ctrl + click` 用默认应用打开；悬停显示目标。右键提供 *Open File / Open Folder / Open Link*、*Open with Default App*、*Insert @path into CLI*、*Copy Link / Path*、*Find Selection*，以及 *Copy / Paste / Select All / Find in Terminal*。
 
-## 如何使用
+**保住会话。** *Reload Window* 保留一切。*Restart Session*（↻）重启回同一会话——按钩子上报的会话 ID，否则按智能体自己存储中该目录的最新会话，再否则用智能体的 `--continue`。*Resume Session* 列出历史会话（Claude Code、Codex、Grok），其余智能体提供 *Continue latest session*。MCP/插件/钩子文件变化时，空闲标签自动重启，忙碌标签显示 *"… changed — restart to apply"* 直到你按 ↻。*Restart All Sessions* 重启所有标签。
 
-### 打开一个助手
+**快捷命令。** 把提示词存进 `cliCode.quickCommands`（User 或 Workspace 设置），或选中文本后运行 *Save as Quick Command*；从操作栏的 `…` 菜单运行。它们作为一次粘贴送达，随后 Enter，除非 `"submit": false`。
 
-按 **`Cmd + Esc`**（macOS）或 **`Ctrl + Esc`**（Windows / Linux）。
+## 快捷键、命令、设置
 
-弹出的菜单会列出所有助手。选择其一 —— 它会在旁边的终端中打开并开始运行。如果该助手已经打开，快捷键只会跳回到它。
+| 操作 | macOS | Windows / Linux |
+| --- | --- | --- |
+| 打开 / 聚焦智能体 | `Cmd + Esc` | `Ctrl + Esc` |
+| 在新标签中打开智能体 | `Cmd + Shift + Esc` | `Ctrl + Shift + Esc` |
+| 以 `@path` 插入当前文件 | `Cmd + Alt + K` | `Ctrl + Alt + K` |
+| 提示词内换行 | `Shift + Enter` | `Shift + Enter` |
+| 终端内查找 | `Cmd + F` | `Ctrl + F` \* |
+| 放大 / 缩小 / 重置 | `Cmd + =` / `-` / `0` | `Ctrl + =` / `-` / `0` |
+| 重命名标签 | `F2` | `F2` |
 
-![列出所有助手的 CLI 选择器](images/screenshots/picker-highlighted.png)
+\* Windows/Linux 上终端把 `Ctrl + F` 留给智能体——请用命令面板或右键菜单。终端快捷键只在 CLI Code 标签内生效。
 
-> 想要一个全新会话而不是复用已打开的？使用 **`Cmd/Ctrl + Shift + Esc`**。
+命令面板（`CLI Code:`）：New Session · Resume Session · Restart Session · Restart All Sessions · Quick Command · Save as Quick Command · Rename Tab · Find in Terminal · Copy Context · Copy · Paste · Select All · Zoom In / Out / Reset · Install Status Hooks · Remove Status Hooks——外加 *Open CLI*、*Open CLI in new tab* 和 *CLI: Insert At-Mentioned*。
 
-你也可以从编辑器工具栏打开 —— 找到 CLI Code 图标（已圈出）：
+| 设置 | 默认 | 含义 |
+| --- | --- | --- |
+| `cliCode.statusHooks` | `true` | 在 `PATH` 上的所有受支持智能体中保持状态钩子；`false` 则全部移除。 |
+| `cliCode.notifications` | `true` | 你没在看的标签上智能体完成或开始等待时通知。 |
+| `cliCode.quickCommands` | `[]` | `{ "label", "text", "submit"? }` 条目；User 设置 = 全局，Workspace 设置 = 项目。 |
+| `cliCode.composer` | `false` | 终端下方的聊天式输入框（实验性；对新标签生效）。 |
 
-![编辑器工具栏上的 CLI Code 图标](images/screenshots/toolbar-highlighted.png)
+## CLI Code 会触碰什么
 
-### 发送你正在处理的文件
+- **写入**：每个智能体自身配置中的状态钩子（`~/.claude/settings.json`、`~/.factory/settings.json`、`~/.codex/hooks.json` + `config.toml` 中的信任条目、`~/.copilot/hooks/cli-code.json`、`~/.grok/hooks/cli-code.json`、为 opencode/Kilo/MiMo 生成的 `cli-code-status.ts` 插件和为 Pi/OMP 生成的扩展），每个文件备份一次为 `<file>.cli-code.bak`。你自己的钩子保持不变；`cliCode.statusHooks: false` 移除全部。
+- **读取**：智能体的会话存储（查找会话 ID、标题、模型），以及 MCP/插件/钩子文件的修改时间（发现过期标签）。
+- **无自身网络**；没有数据通过 CLI Code 离开你的机器。
 
-1. 点击进入某个文件（可选地**选中几行**）。
-2. 点击助手的终端使其获得焦点。
-3. 按 **`Cmd + Alt + K`**（macOS）或 **`Ctrl + Alt + K`**（Windows / Linux）。
+## 限制
 
-CLI Code 会把对你文件的引用插入到提示词中：
+- 关闭标签会结束其中的智能体（VS Code 无法先询问）；退出 VS Code 会结束所有会话。Reload Window 不会。
+- 状态钩子和交互式 shell 启动仅限 POSIX（macOS、Linux）。Windows 上标签可用但无状态标记。
+- 九个智能体没有可寻址的会话，用它们的 `--continue` 标志重启（见表）。
 
-| 你做了什么     | 它插入               |
-| -------------- | -------------------- |
-| 刚打开一个文件 | `@src/app.ts`        |
-| 选中了一行     | `@src/app.ts#L10`    |
-| 选中了多行     | `@src/app.ts#L10-20` |
+## FAQ
 
-现在只需输入你的问题 —— 助手已经知道你指的是哪个文件（和哪些行）。
+**智能体让我登录。** 正常——CLI Code 只负责启动。在任意终端登录一次即可。
 
-## CLI Code 的终端
+**按 `Cmd + Alt + K` 没反应。** 编辑器里必须打开着文件，且有一个智能体标签处于聚焦状态。
 
-助手不在 VS Code 的集成终端中运行，而是在**扩展自己的终端**里——一个连接到后台 PTY 守护进程的 webview 面板。其余一切都建立在这之上：
+**快捷键与其他扩展冲突。** 在 *Preferences → Keyboard Shortcuts* 中搜索 "CLI Code" 重新绑定。
 
-- 每个助手的终端标签都有**彩色图标**。
-- **标签标题自动更新**，根据你刚输入的提示词变化（无需手动改名）——与 Orca 相同的上限：去掉 URL，最多 40 个字符，在词边界截断并加 `…`。
-- 标签标题上直接显示**助手状态** —— 运行中、等待你、或已完成。
-- 会话**在 Reload Window 后依然存活**：重新加载窗口后，终端会自动重新连接到正在运行的 CLI 会话，不会丢失任何内容。
+**还能用 VS Code 自己的终端吗？** 能——CLI Code 只管理它自己打开的标签。
 
-### 限制
+## 开发
 
-- **关闭标签＝结束该 CLI。** VS Code 不允许扩展在关闭标签前"询问确认"，所以关闭标签会立即终止其中的 CLI 进程 —— 没有警告。
-- **退出 VS Code＝结束所有会话。** CLI Code 下运行的所有 CLI 都会随之停止。
-- **状态钩子仅支持 POSIX**（macOS、Linux） —— Windows 无法安装。
+- `bun test` —— 单元测试。
+- `bun run test:integration` —— 真实的 VS Code Extension Host（一次性下载到 `.vscode-test/`）：打开/输入/关闭、gone/重启、钩子 → 状态、恢复与快捷命令、两阶段重载。macOS/Linux；绝不写入你真实的钩子文件——运行器会为它们做快照，若有变化即失败。
+- `node test/e2e/status-hooks.mjs [agent…]` —— 针对本机已安装智能体的端到端测试（每个一次模型调用）。
+- `bun run package:target <platform>` —— 单一平台的 VSIX；`bun run package:all` 生成全部六个。
 
-### 状态钩子
-
-CLI Code 会在每个受支持的 CLI 中保持一个小钩子，让标签显示准确状态（工作中 / 等待中 / 完成）而不是从标题猜测，隐藏标签的"已完成"提示能弹出，**Restart Session** 也能准确回到原会话。与 Orca 一样，这是**自动**的：扩展激活时，`PATH` 上找到的受支持 CLI 若缺少钩子就会安装；关闭 `cliCode.statusHooks` 则全部移除。
-
-| CLI | 钩子位置 |
-| --- | --- |
-| Claude Code | `~/.claude/settings.json` → `hooks`（UserPromptSubmit、Stop、Notification、PermissionRequest） |
-| Droid | `~/.factory/settings.json` → `hooks` |
-| Codex | `~/.codex/hooks.json` → `hooks`，以及 `~/.codex/config.toml` 中对应的 `[hooks.state.…]` 信任条目（Codex 只运行已信任的钩子） |
-| GitHub Copilot | `~/.copilot/hooks/cli-code.json`（独立文件） |
-| Grok | `~/.grok/hooks/cli-code.json`（独立文件） |
-| opencode / Kilo / MiMo | `~/.config/opencode|kilo|mimocode/plugins/cli-code-status.ts`（生成的插件） |
-| Pi / OMP | `~/.pi/agent/extensions/cli-code-status.ts`、`~/.omp/agent/extensions/cli-code-status.ts`（生成的扩展） |
-
-- 首次写入你已有的文件前，会在旁边备份为 `<file>.cli-code.bak`；你自己配置的钩子保持不变，只增删 CLI Code 自己的条目。生成的文件以 `// @cli-code-managed` 开头，缺少该头部时绝不覆盖。
-- 每个条目运行同一行 shell，在 CLI Code 之外运行 CLI 时是空操作（`CLI_CODE_HOOK` 变量不存在）：
-
-  ```sh
-  [ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true
-  ```
-
-  生成的插件构造与 shell 钩子相同的 JSON 载荷，再通过管道送入该行。
-- 钩子从该 CLI 下一次启动起生效。CLI Code 会察觉标签里的 CLI 比其配置更旧（MCP 服务器、插件、钩子——上表文件加各 CLI 的 MCP 配置；在 Reload Window 后、标签显示时、扩展更新后检查）：空闲标签自动重启回同一会话；忙碌标签在操作栏显示 *"… changed — restart to apply"* 直到你重启。**"CLI Code: Restart All Sessions"** 一次重启所有标签。
-- 命令面板中的 **"CLI Code: Install Status Hooks"** / **"Remove Status Hooks"** 可手动执行并显示摘要。
-- 仅 POSIX（macOS、Linux）：Windows 没有 `sh` 来执行钩子行，因此不会安装任何东西。
-- 已知限制：钩子命令由 shell `eval`，VS Code 安装路径含 `"` 或 `$` 时会失效。
-
-### 设置项
-
-| 设置项                       | 类型                        | 默认值   | 说明                                                                          |
-| ------------------------------ | ---------------------------- | -------- | -------------------------------------------------------------------------------- |
-| `cliCode.statusHooks`          | `boolean`                    | `true`   | 在所有受支持的 CLI 中保持状态钩子（见"状态钩子"）；关闭即全部移除。 |
-| `cliCode.notifications`        | `boolean`                    | `true`   | 当隐藏标签中的助手完成工作时发出通知。                                          |
-| `cliCode.quickCommands`        | 对象数组                     | `[]`     | 可复用的命令或提示词。设置在 User settings = 全局，Workspace settings = 项目。   |
-
-`cliCode.quickCommands` 示例：
-
-```json
-"cliCode.quickCommands": [
-  { "label": "运行测试", "text": "npm test" },
-  { "label": "总结 PR", "text": "总结这个 PR 中的改动", "submit": true }
-]
-```
-
-### 路径链接
-
-CLI 输出的路径（`src/x.ts:12:3`、`./dir`、`~/notes.md`、`README`、`file://…`）仅在磁盘上存在时才变成链接。`Cmd/Ctrl + 点击` 在编辑器中打开文件（Markdown 为预览，HTML 为浏览器），**文件夹**在工作区内时定位到 VS Code 资源管理器，否则在 Finder / 资源管理器中打开；`Shift + Cmd/Ctrl + 点击` 用默认应用打开。普通点击会选中整个链接，随后 `Cmd/Ctrl + C` 即可完整复制。 拖动始终选中文本，即使 CLI 正在捕获鼠标（Claude Code 等 TUI）；按住 `Option`（macOS）/`Shift`（其他平台）拖动则把鼠标交给 CLI。
-
-### 终端右键菜单
-
-**Restart Session**（重启）会把标签带回*同一个会话*：带状态钩子的 CLI（Claude Code、Codex、Copilot、Droid、Grok、opencode、Kilo、MiMo、Pi、OMP）使用钩子上报的会话 ID；Command Code、Prime Agent、Cline、Kimi、Cursor、Amp、Antigravity、goose 使用各自会话存储中该目录自标签打开以来的最新会话；其余 CLI 使用 `--continue` 形式。只有在一无所知时才会新开会话。
-
-右键作用于指针下的内容或选区：**Copy**（复制，有选区时）、**Paste**（粘贴）、**Select All**（全选）、指向 URL 时 **Open Link**（打开链接）／指向文件时 **Open File**（打开文件）、**Open with Default App**（用默认应用打开）、**Insert @path into CLI**（把 @路径插入 CLI）／指向文件夹时 **Open Folder**（打开文件夹）、**Copy Link / Path**（复制链接/路径）、**Find Selection**（查找选区）、**Find in Terminal**（在终端中查找）。标签级操作位于终端顶部的安静工具条（同色背景，图标靠右）：**New Session**（新会话 — 先选择 CLI，在当前标签目录打开）、**Resume Session**（历史）、**Restart Session**（重启会话）、**Find**（查找），以及 **…** 中的 **Rename Tab**（重命名标签，`F2`）、**Copy Context**（复制上下文）、**Quick Command**（快捷命令）。工具条左侧仅在代理需要你确认时显示文字。 左侧显示 CLI 正在使用的**模型**（从各 CLI 自身的会话存储读取 — Claude Code、Codex、Grok、Copilot、Pi、OMP、Command Code、Prime Agent、Droid、Cline、opencode/MiMo/Kilo；不记录模型的 CLI 则隐藏），以及代理等待你时的状态行。 实验性的聊天式**输入框**（输入或粘贴，`Enter` 整体发送，`Shift + Enter` 换行）可通过 `cliCode.composer: true` 启用；默认关闭，以保留 CLI 自身输入框的 `/` 和 `@` 菜单。悬停链接会提示 `Cmd/Ctrl + 点击` 将打开什么及解析后的路径。
-
-### 命令面板命令
-
-`CLI Code:` **New Session**（新会话）、**Restart All Sessions**（重启所有会话）、**Resume Session**（恢复历史会话）、**Quick Command**（快捷命令）、**Save as Quick Command**（保存为快捷命令）、**Rename Tab**（重命名标签）、**Restart Session**（重启会话）、**Zoom In**（放大字体）、**Zoom Out**（缩小字体）、**Reset Zoom**（重置字体大小）、**Find in Terminal**（在终端中查找）、**Copy Context**（复制上下文）、**Paste**（粘贴）、**Copy**（复制）、**Install Status Hooks**（安装 Claude 状态钩子）、**Remove Status Hooks**（卸载 Claude 状态钩子）。
-
-## 快捷键
-
-| 操作                  | macOS                | Windows / Linux        |
-| ----------------------- | --------------------- | ------------------------ |
-| 打开 / 聚焦一个助手     | `Cmd + Esc`           | `Ctrl + Esc`             |
-| 在新终端中打开助手      | `Cmd + Shift + Esc`   | `Ctrl + Shift + Esc`     |
-| 把当前文件发送给它      | `Cmd + Alt + K`       | `Ctrl + Alt + K`         |
-| 在提示词中换行          | `Shift + Enter`       | `Shift + Enter`         |
-| 在终端中查找            | `Cmd + F`             | `Ctrl + F` \*           |
-| 放大字体                | `Cmd + =`             | `Ctrl + =`               |
-| 缩小字体                | `Cmd + -`             | `Ctrl + -`               |
-| 重置字体大小            | `Cmd + 0`             | `Ctrl + 0`               |
-
-\* 在 Windows / Linux 上，聚焦的终端会吃掉 `Ctrl + F`（xterm 把它作为 `^F` 发给 CLI）。请改用命令面板中的 **"CLI Code: Find in Terminal"** 或右键菜单的 **Find in Terminal**。
-
-## 常见问题
-
-**助手打开了，但要求我登录。**
-这是正常的 —— CLI Code 只负责启动工具，不处理身份验证。在任意终端中完成该助手自己的登录流程一次，之后它会记住你。
-
-**按 `Cmd + Alt + K` 没有反应。**
-请确保（1）编辑器中有打开的文件，并且（2）助手的终端处于焦点状态。文件引用会进入当前活动的 CLI 终端。
-
-**快捷键与其他功能冲突。**
-在 VS Code 中重新绑定：**Preferences → Keyboard Shortcuts**，搜索 "CLI"，设置你自己的按键。
+智能体图标来自 [Orca](https://github.com/stablyai/orca)。
 
 ## 许可证
 
