@@ -30,6 +30,16 @@ CLI Code replaces that tab with an interface built for agents — its own webvie
 
 How it knows: CLI Code installs a small *status hook* into each agent's own configuration (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP). It runs one shell line that does nothing outside CLI Code, your files are backed up first, and one setting removes everything. Details in the [User Guide](docs/user-guide.md#16-status-hooks-what-lets-a-tab-know-what-the-agent-is-doing).
 
+## How it works
+
+CLI Code does **not** use VS Code's integrated terminal. Each agent opens in a **webview panel of the extension's own** — an editor tab that renders a terminal (xterm.js) and, around it, the action bar, state marks, link tooltips, search bar and notices. The agent process itself runs in a **background daemon** that belongs to the VS Code window, which is why *Reload Window* re-attaches instead of killing it.
+
+What that means for you:
+
+- The tab behaves like an editor tab: drag it to any column, split it, pin it, keep several per agent. It does not appear in the Terminal panel.
+- VS Code's `terminal.*` settings and terminal shortcuts do not apply; CLI Code uses your `editor.fontFamily` / `editor.fontSize`, your colour theme, and its own shortcuts (below), which are active only while a CLI Code tab is focused.
+- The agent runs unchanged, in your interactive login shell, with your real `PATH`, MCP servers and plugins.
+
 ## Quick start
 
 1. **Install** from the Marketplace (`Cmd/Ctrl + Shift + X` → *CLI Code*). VS Code 1.94+, macOS or Linux for the full feature set.

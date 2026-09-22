@@ -30,6 +30,16 @@ CLI Code 用一个为智能体而生的界面取而代之——自带操作栏�
 
 它是怎么知道的：CLI Code 在每个智能体自己的配置里装一个小*状态钩子*（Claude Code、Codex、Copilot、Droid、Grok、opencode、Kilo、MiMo、Pi、OMP）。它只运行一行在 CLI Code 之外什么都不做的 shell，文件先备份，一个设置即可全部移除。详见 [User Guide](docs/user-guide.md#16-status-hooks-what-lets-a-tab-know-what-the-agent-is-doing)。
 
+## 工作原理
+
+CLI Code **不**使用 VS Code 的集成终端。每个智能体都在一个**扩展自己的 webview 面板**中打开——一个渲染终端（xterm.js）的编辑器标签，周围是操作栏、状态标记、链接提示、搜索栏和各种提示。智能体进程本身运行在属于该 VS Code 窗口的**后台守护进程**中，所以 *Reload Window* 是重新接上而不是杀掉它。
+
+这对你意味着：
+
+- 标签的行为和编辑器标签一样：拖到任意列、拆分、固定、每个智能体开多个。它不会出现在终端面板里。
+- VS Code 的 `terminal.*` 设置和终端快捷键不适用；CLI Code 使用你的 `editor.fontFamily` / `editor.fontSize`、你的颜色主题，以及只在 CLI Code 标签聚焦时生效的自有快捷键（见下文）。
+- 智能体原样运行，在你的交互式登录 shell 里，带着你真正的 `PATH`、MCP 服务器和插件。
+
 ## 快速开始
 
 1. 从应用市场**安装**（`Cmd/Ctrl + Shift + X` → *CLI Code*）。VS Code 1.94+，macOS 或 Linux 可获得全部功能。

@@ -30,6 +30,16 @@ CLI Code thay tab đó bằng một giao diện sinh ra cho agent — terminal w
 
 Nó biết bằng cách nào: CLI Code cài một *hook trạng thái* nhỏ vào cấu hình của chính agent (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP). Hook chạy một dòng shell không làm gì khi ở ngoài CLI Code, file của bạn được sao lưu trước, và một setting gỡ sạch tất cả. Chi tiết trong [Hướng dẫn sử dụng](docs/user-guide.vi.md#16-hook-trạng-thái-thứ-làm-cho-tab-biết-agent-đang-làm-gì).
 
+## Nó hoạt động thế nào
+
+CLI Code **không** dùng terminal tích hợp của VS Code. Mỗi agent mở trong một **webview panel của riêng extension** — một tab editor vẽ terminal (xterm.js) và bao quanh nó là thanh action, dấu trạng thái, tooltip link, thanh tìm kiếm và các thông báo. Tiến trình agent chạy trong một **daemon nền** thuộc cửa sổ VS Code, vì thế *Reload Window* nối lại thay vì giết nó.
+
+Điều đó có nghĩa gì với bạn:
+
+- Tab hành xử như tab editor: kéo sang cột bất kỳ, chia đôi, ghim, mở nhiều tab cho một agent. Nó không nằm trong panel Terminal.
+- Các setting `terminal.*` và phím tắt terminal của VS Code không áp dụng; CLI Code dùng `editor.fontFamily` / `editor.fontSize`, theme màu của bạn, và bộ phím tắt riêng (bên dưới) chỉ có hiệu lực khi tab CLI Code đang focus.
+- Agent chạy nguyên vẹn, trong shell login tương tác của bạn, với `PATH`, MCP server và plugin thật.
+
 ## Bắt đầu nhanh
 
 1. **Cài** từ Marketplace (`Cmd/Ctrl + Shift + X` → *CLI Code*). VS Code 1.94+, macOS hoặc Linux để có đủ tính năng.

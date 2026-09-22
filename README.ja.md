@@ -30,6 +30,16 @@ CLI Code はそのタブを、エージェントのために作られたイン�
 
 仕組み：CLI Code は各エージェント自身の設定に小さな*状態フック*を入れます（Claude Code、Codex、Copilot、Droid、Grok、opencode、Kilo、MiMo、Pi、OMP）。CLI Code の外では何もしないシェル 1 行を実行し、ファイルは先にバックアップされ、設定一つで全部削除できます。詳細は [User Guide](docs/user-guide.md#16-status-hooks-what-lets-a-tab-know-what-the-agent-is-doing)。
 
+## 仕組み
+
+CLI Code は VS Code の統合ターミナルを**使いません**。各エージェントは**拡張機能独自の webview パネル**で開きます — ターミナル（xterm.js）を描画し、その周りにアクションバー、状態の印、リンクのツールチップ、検索バー、通知を配置したエディタタブです。エージェントのプロセス自体は VS Code ウィンドウに属する**バックグラウンドのデーモン**で動くため、*Reload Window* は殺さずに再接続します。
+
+あなたにとっての意味：
+
+- タブはエディタタブとして振る舞います：任意の列へドラッグ、分割、ピン留め、エージェントごとに複数タブ。ターミナルパネルには現れません。
+- VS Code の `terminal.*` 設定とターミナルのショートカットは適用されません；CLI Code は `editor.fontFamily` / `editor.fontSize`、あなたのカラーテーマ、そして CLI Code のタブにフォーカスがある間だけ有効な独自ショートカット（下記）を使います。
+- エージェントは変更なしに、あなたの対話型ログインシェルの中で、本物の `PATH`、MCP サーバー、プラグインと共に動きます。
+
 ## クイックスタート
 
 1. Marketplace から**インストール**（`Cmd/Ctrl + Shift + X` → *CLI Code*）。VS Code 1.94 以上、全機能は macOS / Linux。
