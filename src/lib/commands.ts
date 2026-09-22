@@ -42,33 +42,58 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
     void vscode.window.showInformationMessage("Open a folder first.")
     return
   }
+  type Item = vscode.QuickPickItem & { run: () => Promise<void> }
+  // The picker opens at once and fills in as the lookups finish: history first, then the
+  // "continue latest" entries, whose per-CLI store lookups are synchronous and would
+  // otherwise hold the whole picker back.
+  const quickPick = vscode.window.createQuickPick<Item>()
+  quickPick.placeholder = "Pick a session to resume"
+  quickPick.matchOnDescription = true
+  quickPick.busy = true
+  quickPick.show()
+  let picked: Item | undefined
+  const done = new Promise<void>((resolve) => {
+    quickPick.onDidAccept(() => {
+      picked = quickPick.selectedItems[0]
+      quickPick.hide()
+    })
+    quickPick.onDidHide(() => {
+      quickPick.dispose()
+      resolve()
+    })
+  })
+
   const sessions = await listSessionsForWorkspace(cwd)
+  // The id is spliced into a shell command line; anything outside [\w.-] is not a session id.
+  quickPick.items = sessions
+    .filter((s) => /^[\w.-]+$/.test(s.sessionId))
+    .map((s) => {
+      const tool = CLI_TOOLS.find((t) => t.id === s.toolId)!
+      return {
+        label: `$(history) ${s.title}`,
+        description: tool.label,
+        detail: new Date(s.updatedAt).toLocaleString(),
+        run: () => openTerminalPanel(context, tool, { command: tool.resumeCommand!.replace("{sessionId}", s.sessionId), title: s.title }),
+      }
+    })
   // Tools whose sessions cannot be listed (no history parser) still get a "continue latest"
-  // entry: this folder's newest session from the CLI's own store when it has one, else --continue.
-  // Only installed CLIs are asked — the store lookups are synchronous and block the host.
+  // entry: this folder's newest session from the CLI's own store when it has one, else
+  // --continue. Only installed CLIs are asked.
   const installed = await detectInstalled(CLI_TOOLS.map((t) => extractBinary(t.command)))
   const continueEntries = CLI_TOOLS.filter((t) => installed.get(extractBinary(t.command)) && !sessions.some((s) => s.toolId === t.id))
     .map((tool) => ({ tool, command: continueLatestCommand(tool, locateLatestSession(tool.historyToolId ?? tool.id, cwd, 0, os.homedir())) }))
     .filter((e): e is { tool: CliTool; command: string } => e.command !== undefined)
-  if (sessions.length === 0 && continueEntries.length === 0) {
+    .map(
+      ({ tool, command }): Item => ({ label: `$(debug-continue) Continue latest session`, description: tool.label, run: () => openTerminalPanel(context, tool, { command }) }),
+    )
+  quickPick.items = [...quickPick.items, ...continueEntries]
+  quickPick.busy = false
+  if (quickPick.items.length === 0) {
+    quickPick.hide()
     void vscode.window.showInformationMessage("No sessions found for this folder.")
     return
   }
-  type Item = vscode.QuickPickItem & { run: () => Promise<void> }
-  // The id is spliced into a shell command line; anything outside [\w.-] is not a session id.
-  const items: Item[] = sessions.filter((s) => /^[\w.-]+$/.test(s.sessionId)).map((s) => {
-    const tool = CLI_TOOLS.find((t) => t.id === s.toolId)!
-    return {
-      label: `$(history) ${s.title}`,
-      description: tool.label,
-      detail: new Date(s.updatedAt).toLocaleString(),
-      run: () => openTerminalPanel(context, tool, { command: tool.resumeCommand!.replace("{sessionId}", s.sessionId), title: s.title }),
-    }
-  })
-  for (const { tool, command } of continueEntries) {
-    items.push({ label: `$(debug-continue) Continue latest session`, description: tool.label, run: () => openTerminalPanel(context, tool, { command }) })
-  }
-  const picked = await vscode.window.showQuickPick(items, { placeHolder: "Pick a session to resume", matchOnDescription: true })
+  await done
   if (picked) await picked.run()
 }
 
