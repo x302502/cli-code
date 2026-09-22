@@ -78,86 +78,9 @@ export async function pickTool(context: vscode.ExtensionContext): Promise<CliToo
   })
 }
 
-/** The terminal tab name for a tool: just its label. The CLI's icon is shown on the tab. */
-export function terminalName(tool: CliTool): string {
-  return tool.label
-}
-
 /** Env var stamped on every CLI terminal so we can identify it after a reload
  *  even when VS Code renames the tab (e.g. "Claude Code" → "Claude"). */
 export const TOOL_ID_ENV = "_CLI_CODE_TOOL_ID"
-
-/**
- * Matches a terminal tab label against known CLI tools.
- * Handles exact labels, tool IDs, binary names, and dynamic title prefixes
- * (e.g. "Claude • Fix login bug", "Codex - Refactor auth", "Claude Code (2)").
- */
-export function findToolByTabLabel(name: string | undefined): CliTool | undefined {
-  if (!name) return undefined
-  const clean = name.trim()
-  if (!clean) return undefined
-  const lower = clean.toLowerCase()
-
-  // 1. Exact match on full label (case-insensitive)
-  const exactLabel = CLI_TOOLS.find((t) => t.label.toLowerCase() === lower)
-  if (exactLabel) return exactLabel
-
-  // 2. Exact match on tool id
-  const exactId = CLI_TOOLS.find((t) => t.id.toLowerCase() === lower)
-  if (exactId) return exactId
-
-  // 3. Exact match on extracted binary name
-  const exactBin = CLI_TOOLS.find((t) => extractBinary(t.command).toLowerCase() === lower)
-  if (exactBin) return exactBin
-
-  // 4. Tab name starts with full tool label (e.g. "Claude Agent Teams • ...", "Claude Code • ...", "Claude Code (2)")
-  // Sort by label length descending so specific tools match before generic ones
-  const sortedByLabelLen = [...CLI_TOOLS].sort((a, b) => b.label.length - a.label.length)
-  const labelPrefix = sortedByLabelLen.find(
-    (t) =>
-      lower.startsWith(t.label.toLowerCase() + " ") ||
-      lower.startsWith(t.label.toLowerCase() + "•") ||
-      lower.startsWith(t.label.toLowerCase() + ":") ||
-      lower.startsWith(t.label.toLowerCase() + "-") ||
-      lower.startsWith(t.label.toLowerCase() + "|") ||
-      lower.startsWith(t.label.toLowerCase() + "("),
-  )
-  if (labelPrefix) return labelPrefix
-
-  // 5. Tab name starts with tool id (e.g. "claude-agent-teams • ...", "claude • ...")
-  const sortedByIdLen = [...CLI_TOOLS].sort((a, b) => b.id.length - a.id.length)
-  const idPrefix = sortedByIdLen.find(
-    (t) =>
-      lower.startsWith(t.id.toLowerCase() + " ") ||
-      lower.startsWith(t.id.toLowerCase() + "•") ||
-      lower.startsWith(t.id.toLowerCase() + ":") ||
-      lower.startsWith(t.id.toLowerCase() + "-") ||
-      lower.startsWith(t.id.toLowerCase() + "|"),
-  )
-  if (idPrefix) return idPrefix
-
-  // 6. Tab name starts with brand / binary in CLI_TOOLS order (e.g. "Claude • ...", "Codex • ...", "Antigravity • ...")
-  for (const tool of CLI_TOOLS) {
-    const bin = extractBinary(tool.command).toLowerCase()
-    const firstWordOfLabel = tool.label.toLowerCase().split(/\s+/)[0]
-    const prefixes = [bin, firstWordOfLabel].filter(Boolean)
-
-    for (const prefix of prefixes) {
-      if (
-        lower === prefix ||
-        lower.startsWith(prefix + " ") ||
-        lower.startsWith(prefix + "•") ||
-        lower.startsWith(prefix + ":") ||
-        lower.startsWith(prefix + "-") ||
-        lower.startsWith(prefix + "|")
-      ) {
-        return tool
-      }
-    }
-  }
-
-  return undefined
-}
 
 /** Builds the environment variables a terminal should launch with for a tool. */
 export function buildEnv(tool: CliTool, port: number | undefined): Record<string, string> {

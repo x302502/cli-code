@@ -66,6 +66,11 @@ function statusHooksEnabled(): boolean {
 /** Installs/removes the status hooks of every supported CLI; the summary is shown unless quiet
  * (then only failures are). */
 async function runStatusHookSync(context: vscode.ExtensionContext, enabled: boolean, opts: { quiet?: boolean } = {}): Promise<void> {
+  // The hook line needs `sh`, so never write it on Windows — not even from the explicit commands.
+  if (process.platform === "win32") {
+    if (!opts.quiet) void vscode.window.showWarningMessage("CLI Code status hooks are not supported on Windows.")
+    return
+  }
   // The CLIs' bin dirs usually come from .zshrc, which the extension host's PATH may lack.
   const envPath = (await shellEnv())?.PATH ?? process.env.PATH
   const results = syncStatusHooks({ installers: STATUS_HOOK_INSTALLERS, home: os.homedir(), enabled, onPath: (b) => binaryOnPath(b, envPath) })
@@ -75,6 +80,14 @@ async function runStatusHookSync(context: vscode.ExtensionContext, enabled: bool
   else if (!opts.quiet) void vscode.window.showInformationMessage(`CLI Code status hooks — ${summarize(results)}`)
 }
 
+/** The explicit commands: sync now (with the summary toast), then flip the setting, or the next
+ * activation's silent sync would undo them. Sync first so the toast reports what this call did;
+ * the config listener's follow-up sync then finds everything unchanged and stays quiet. */
+async function setStatusHooks(context: vscode.ExtensionContext, enabled: boolean): Promise<void> {
+  await runStatusHookSync(context, enabled)
+  await vscode.workspace.getConfiguration("cliCode").update("statusHooks", enabled, vscode.ConfigurationTarget.Global)
+}
+
 export function activate(context: vscode.ExtensionContext): TestApi {
   // Restored CLI tabs only connect once they become visible; hold the daemon open in the
   // meantime so its idle-exit does not kill their sessions. Must not block activation.
@@ -82,8 +95,8 @@ export function activate(context: vscode.ExtensionContext): TestApi {
   void holdDaemonAlive(context).then((d) => context.subscriptions.push(d))
   // Status hooks follow the setting silently, like Orca: installed for every supported CLI on
   // PATH, removed everywhere when turned off. Never from the integration-test host (it runs
-  // against the real home) and never on Windows (the hook line needs `sh`).
-  if (context.extensionMode !== vscode.ExtensionMode.Test && process.platform !== "win32") void runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
+  // against the real home).
+  if (context.extensionMode !== vscode.ExtensionMode.Test) void runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
   context.subscriptions.push(
     vscode.commands.registerCommand("cli-code.open", () => openCli(context, { reuseExisting: true })),
     vscode.commands.registerCommand("cli-code.openNew", () => openCli(context, { reuseExisting: false })),
@@ -127,8 +140,8 @@ export function activate(context: vscode.ExtensionContext): TestApi {
       sendToActivePanel({ type: "find", query: typeof ctx?.cliCodeSelection === "string" ? ctx.cliCodeSelection.split("\n")[0] : undefined }),
     ),
     vscode.commands.registerCommand("cli-code.restartAllSessions", () => restartAllPanels(context)),
-    vscode.commands.registerCommand("cli-code.installStatusHooks", () => runStatusHookSync(context, true)),
-    vscode.commands.registerCommand("cli-code.removeStatusHooks", () => runStatusHookSync(context, false)),
+    vscode.commands.registerCommand("cli-code.installStatusHooks", () => setStatusHooks(context, true)),
+    vscode.commands.registerCommand("cli-code.removeStatusHooks", () => setStatusHooks(context, false)),
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("cliCode.statusHooks")) void runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
     }),

@@ -69,14 +69,12 @@ function configEntries(dir: string): string[] {
  * Per-path signature. Most files: newest mtime. Files the CLI itself rewrites while running —
  * `~/.claude.json` (Claude stores its state there) and Codex's `config.toml` (notices, trust
  * entries, model availability) — would otherwise look "changed" all the time, so for those only
- * the parts that matter (MCP servers, hooks) are hashed.
+ * the parts that matter (MCP servers, hooks) are hashed. A missing path is recorded as "" (not
+ * dropped), so a config file created after the snapshot still shows up as a change.
  */
 export function configSnapshot(paths: string[]): Record<string, string> {
   const out: Record<string, string> = {}
-  for (const p of paths) {
-    const sig = signature(p)
-    if (sig !== undefined) out[p] = sig
-  }
+  for (const p of paths) out[p] = signature(p) ?? ""
   return out
 }
 

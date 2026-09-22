@@ -36,6 +36,13 @@ describe("configSnapshot / changedPath", () => {
     touch(".config/opencode/plugins/b.ts", T0 + 5000)
     expect(changedPath(configSnapshot([plugins]), configSnapshot([plugins]))).toBeUndefined()
   })
+  it("a config file created after the snapshot counts as a change (checkStale re-reads only the snapshot's keys)", () => {
+    const mcp = path.join(home, "proj/.mcp.json")
+    const before = configSnapshot([mcp])
+    expect(changedPath(before, configSnapshot(Object.keys(before)))).toBeUndefined()
+    touch("proj/.mcp.json", T0)
+    expect(changedPath(before, configSnapshot(Object.keys(before)))).toBe(mcp)
+  })
   it("ignores our own .cli-code.bak and .tmp files inside a directory", () => {
     const dir = path.join(home, ".copilot/hooks")
     touch(".copilot/hooks/cli-code.json", T0)

@@ -20,9 +20,26 @@ import { resolveTabTitle } from "./tab-title.js"
 
 export const VIEW_TYPE = "cliCode.terminal"
 const DAEMON_ID_KEY = "cliCode.daemonId"
+// The outdated daemon that still holds this window's sessions (see ensureDaemonUncached). Kept
+// in workspaceState, not module memory: a second Reload Window starts a fresh extension host
+// that must still find the tabs attached to the old daemon.
+const PREVIOUS_DAEMON_ID_KEY = "cliCode.previousDaemonId"
 const FONT_ZOOM_KEY = "cliCode.fontZoom"
 
-export type PanelState = { sessionId: string; toolId: string; customTitle?: string; promptTitle?: string; quickCommandLabel?: string; spawnedAt?: number; configSnapshot?: Record<string, string> }
+export type PanelState = {
+  sessionId: string
+  toolId: string
+  cwd?: string
+  customTitle?: string
+  promptTitle?: string
+  quickCommandLabel?: string
+  // Restart identity: what to re-run and which conversation to resume. Must survive a reload
+  // even when the attach fails, so the "session gone" restart lands in the same conversation.
+  command?: string
+  spawnedAt?: number
+  cliSessionId?: string
+  configSnapshot?: Record<string, string>
+}
 
 // Registries for rename (Task 10) and Task 11 (focus tracking, writing at-mentions
 // into the active session).
@@ -258,8 +275,10 @@ export function ensureDaemon(context: vscode.ExtensionContext): Promise<string> 
 function daemonBuild(context: vscode.ExtensionContext): string {
   return createHash("sha256").update(fs.readFileSync(context.asAbsolutePath("dist/daemon.js"))).digest("hex").slice(0, 16)
 }
-/** The socket of an outdated daemon that still holds this window's sessions (see ensureDaemonUncached). */
-let previousSocketPath: string | undefined
+function previousSocketPath(context: vscode.ExtensionContext): string | undefined {
+  const id = context.workspaceState.get<string>(PREVIOUS_DAEMON_ID_KEY)
+  return id ? daemonSocketPath(id) : undefined
+}
 
 async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<string> {
   let id = context.workspaceState.get<string>(DAEMON_ID_KEY)
@@ -277,9 +296,9 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
       // The daemon runs the previous build (the extension was updated while it kept the
       // sessions alive). It cannot be restarted without killing them, so start a fresh one
       // under a new id: restored tabs still attach to the old daemon through
-      // previousSocketPath, and each restart moves that tab to the new daemon. The old one
+      // PREVIOUS_DAEMON_ID_KEY, and each restart moves that tab to the new daemon. The old one
       // exits on its own once its last client is gone.
-      previousSocketPath = socketPath
+      await context.workspaceState.update(PREVIOUS_DAEMON_ID_KEY, id)
       id = undefined
     }
   }
@@ -322,14 +341,19 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
  * enough: the server counts any open socket as activity. Disposed on deactivate.
  */
 export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise<vscode.Disposable> {
-  const id = context.workspaceState.get<string>(DAEMON_ID_KEY)
-  if (!id) return { dispose: () => {} }
-  const socketPath = daemonSocketPath(id)
-  if (!(await isListening(socketPath))) return { dispose: () => {} }
-  const socket = net.createConnection(socketPath)
-  socket.on("error", () => {})
-  socket.on("close", () => {})
-  return { dispose: () => socket.destroy() }
+  const sockets: net.Socket[] = []
+  // The outdated daemon (if any) still holds tabs that have not been restarted yet.
+  for (const key of [DAEMON_ID_KEY, PREVIOUS_DAEMON_ID_KEY]) {
+    const id = context.workspaceState.get<string>(key)
+    if (!id) continue
+    const socketPath = daemonSocketPath(id)
+    if (!(await isListening(socketPath))) continue
+    const socket = net.createConnection(socketPath)
+    socket.on("error", () => {})
+    socket.on("close", () => {})
+    sockets.push(socket)
+  }
+  return { dispose: () => sockets.forEach((s) => s.destroy()) }
 }
 
 /** Shell snippet Claude's hook entry evaluates; the editor's own binary runs our bundle as node.
@@ -419,12 +443,18 @@ export async function restoreTerminalPanel(
     return
   }
 
-  // Restore the custom title first: even a failed attach must keep it for "Restart Session".
+  // Restore the title, cwd and restart identity first: even a failed attach must keep them for
+  // "Restart Session", or two tabs in one folder would both resume the folder's newest session.
   if (state.customTitle) customTitles.set(panel, state.customTitle)
+  if (state.cwd) panelCwds.set(panel, state.cwd)
+  if (state.command) panelCommands.set(panel, state.command)
+  if (state.spawnedAt) panelSpawnedAt.set(panel, state.spawnedAt)
+  if (state.cliSessionId) panelCliSessionIds.set(panel, state.cliSessionId)
   const socketPath = await ensureDaemon(context)
+  const previous = previousSocketPath(context)
   const connection =
     (await connectSession(socketPath, { op: "attach", sessionId: state.sessionId })) ??
-    (previousSocketPath ? await connectSession(previousSocketPath, { op: "attach", sessionId: state.sessionId }) : undefined)
+    (previous ? await connectSession(previous, { op: "attach", sessionId: state.sessionId }) : undefined)
   if (!connection) {
     // The session is gone (the app quit, or the daemon cleaned it up itself). Be honest with the user.
     panel.iconPath = iconFor(context, tool)
@@ -435,7 +465,6 @@ export async function restoreTerminalPanel(
   // Restore the prompt title before wiring so the first title/state posted is already correct.
   if (state.promptTitle) panelPromptTitles.set(panel, state.promptTitle)
   if (state.quickCommandLabel) panelQuickLabels.set(panel, state.quickCommandLabel)
-  if (state.spawnedAt) panelSpawnedAt.set(panel, state.spawnedAt)
   if (state.configSnapshot) panelConfigSnapshot.set(panel, state.configSnapshot)
   wirePanel(context, panel, tool, connection)
   void checkStale(context, panel)
@@ -510,7 +539,7 @@ async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Pro
   }
   const spawnedAt = panelSpawnedAt.get(panel) ?? 0
   // Claude reports its id through its hook; every other CLI is asked via its own session store.
-  const cliSessionId = panelCliSessionIds.get(panel) ?? (cwd ? locateLatestSession(tool.id, cwd, spawnedAt, os.homedir()) : undefined)
+  const cliSessionId = panelCliSessionIds.get(panel) ?? (cwd ? locateLatestSession(tool.historyToolId ?? tool.id, cwd, spawnedAt, os.homedir()) : undefined)
   return restartCommand({ tool, baseCommand, cliSessionId, sessions, spawnedAt })
 }
 
@@ -620,14 +649,20 @@ function attachConnection(
   })
   connection.onExit((e) => sendTo(panel, { type: "exit", code: e.code }))
   connection.onMeta((e) => {
-    if (e.kind === "cwd") panelCwds.set(panel, e.cwd)
-    else if (e.kind === "title") {
+    // cwd and the CLI's session id are part of the serialized state; re-post when they arrive.
+    if (e.kind === "cwd") {
+      panelCwds.set(panel, e.cwd)
+      postState(panel)
+    } else if (e.kind === "title") {
       panelOscTitles.set(panel, e.title)
       updateTitle(panel)
     } else if (e.kind === "status") {
       const previous = panelStatus.get(panel)?.state
       panelStatus.set(panel, { state: e.state, prompt: e.prompt })
-      if (e.cliSessionId) panelCliSessionIds.set(panel, e.cliSessionId)
+      if (e.cliSessionId && e.cliSessionId !== panelCliSessionIds.get(panel)) {
+        panelCliSessionIds.set(panel, e.cliSessionId)
+        postState(panel)
+      }
       sendTo(panel, { type: "agentStatus", state: e.state })
       refreshModel(panel)
       if (e.state === "done" || e.state === "waiting" || e.state === "blocked") {
@@ -887,10 +922,13 @@ function postState(panel: vscode.WebviewPanel): void {
     state: {
       sessionId: connection.sessionId,
       toolId: tool.id,
+      cwd: panelCwds.get(panel),
       customTitle: customTitles.get(panel),
       promptTitle: panelPromptTitles.get(panel),
       quickCommandLabel: panelQuickLabels.get(panel),
+      command: panelCommands.get(panel),
       spawnedAt: panelSpawnedAt.get(panel),
+      cliSessionId: panelCliSessionIds.get(panel),
       configSnapshot: panelConfigSnapshot.get(panel),
     },
   })
