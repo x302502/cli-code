@@ -10,9 +10,13 @@ const PASTE_END = "\x1b[201~"
  * append, backspace deletes, escape sequences are skipped, bracketed paste is taken
  * verbatim, Enter submits.
  */
-export function createPromptTracker(): { feed: (input: string) => string | undefined; hasDraft: () => boolean; reset: () => void } {
+export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): { feed: (input: string) => string | undefined; hasDraft: () => boolean; reset: () => void } {
   let line = ""
   let pasting = false
+  // A tracker attached to a running CLI (after a reload) never saw what is already typed into
+  // its prompt: assume a draft, so a stale tab is not auto-restarted over it, until the line is
+  // known empty again.
+  let unknown = opts.draftUnknown ?? false
 
   const feed = (input: string): string | undefined => {
     let submitted: string | undefined
@@ -54,12 +58,19 @@ export function createPromptTracker(): { feed: (input: string) => string | undef
         const title = formatPromptTitle(line)
         submitted = title || undefined
         line = ""
+        unknown = false
       } else if (ch === "\x7f" || ch === "\b") line = line.slice(0, -1)
-      else if (ch === "\x03" || ch === "\x15") line = ""
-      else if (ch >= " ") line += ch
+      else if (ch === "\x03" || ch === "\x15") {
+        line = ""
+        unknown = false
+      } else if (ch >= " ") line += ch
       i++
     }
     return submitted
   }
-  return { feed, hasDraft: () => line.length > 0, reset: () => (line = "") }
+  const reset = () => {
+    line = ""
+    unknown = false
+  }
+  return { feed, hasDraft: () => unknown || line.length > 0, reset }
 }

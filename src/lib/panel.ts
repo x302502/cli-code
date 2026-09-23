@@ -470,7 +470,7 @@ export async function restoreTerminalPanel(
   if (state.promptTitle) panelPromptTitles.set(panel, state.promptTitle)
   if (state.quickCommandLabel) panelQuickLabels.set(panel, state.quickCommandLabel)
   if (state.configSnapshot) panelConfigSnapshot.set(panel, state.configSnapshot)
-  wirePanel(context, panel, tool, connection)
+  wirePanel(context, panel, tool, connection, { reattached: true })
   void checkStale(context, panel)
 }
 
@@ -571,6 +571,7 @@ function wirePanel(
   panel: vscode.WebviewPanel,
   tool: CliTool,
   connection: SessionConnection,
+  opts: { reattached?: boolean } = {},
 ): void {
   panel.iconPath = iconFor(context, tool)
   panel.webview.html = terminalHtml(context, panel.webview)
@@ -613,7 +614,7 @@ function wirePanel(
     if (lastFocusedPanel === panel) lastFocusedPanel = undefined
   })
 
-  attachConnection(context, panel, tool, connection)
+  attachConnection(context, panel, tool, connection, opts)
 }
 
 /** Wires a connection into an already-set-up panel. Runs once per attach — including a
@@ -623,12 +624,14 @@ function attachConnection(
   panel: vscode.WebviewPanel,
   tool: CliTool,
   connection: SessionConnection,
+  opts: { reattached?: boolean } = {},
 ): void {
   const wiring = panelWiring.get(panel)
   if (!wiring) return
   wiring.listener?.dispose()
   panelConnections.set(panel, connection)
-  const tracker = createPromptTracker()
+  // A CLI that kept running through a reload may have an unsent prompt we never saw typed.
+  const tracker = createPromptTracker({ draftUnknown: opts.reattached })
   panelTrackers.set(panel, tracker)
 
   connection.onSnapshot((text) => sendTo(panel, { type: "snapshot", text }))
@@ -665,7 +668,9 @@ function attachConnection(
       const previous = panelStatus.get(panel)?.state
       panelStatus.set(panel, { state: e.state, prompt: e.prompt })
       // Keys typed while the CLI waited on a dialog (y, 1, …) answered it; they are not a draft.
-      if (previous === "waiting" && e.state !== "waiting") tracker.reset()
+      // A prompt being submitted (→ working) also means the input is empty now — but only on a
+      // real transition, not the status replayed on attach (a queued draft may sit there).
+      if ((previous === "waiting" && e.state !== "waiting") || (previous !== undefined && previous !== "working" && e.state === "working")) tracker.reset()
       if (e.cliSessionId && e.cliSessionId !== panelCliSessionIds.get(panel)) {
         panelCliSessionIds.set(panel, e.cliSessionId)
         postState(panel)

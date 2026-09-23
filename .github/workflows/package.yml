@@ -22,13 +22,12 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y python3 make g++
       # node-pty is Node-API, so one build per arch serves every Node/Electron the editor ships.
       - run: npm install --no-save node-pty@1.1.0 --build-from-source
-      # NOTE: these output paths (build/Release/pty.node, build/Release/spawn-helper) must be
-      # re-checked when node-pty is upgraded — a future version may change its build layout.
+      # NOTE: this output path (build/Release/pty.node) must be re-checked when node-pty is
+      # upgraded — a future version may change its build layout. There is no spawn-helper on
+      # Linux: node-pty's binding.gyp builds it for macOS only.
       - run: |
           mkdir -p out/linux-${{ matrix.arch }}
           cp node_modules/node-pty/build/Release/pty.node out/linux-${{ matrix.arch }}/
-          cp node_modules/node-pty/build/Release/spawn-helper out/linux-${{ matrix.arch }}/
-          chmod +x out/linux-${{ matrix.arch }}/spawn-helper
       - uses: actions/upload-artifact@v4
         with:
           name: "prebuild-linux-${{ matrix.arch }}"
@@ -54,7 +53,7 @@ jobs:
             mkdir -p node_modules/node-pty/prebuilds/linux-$a
             cp linux-prebuilds/prebuild-linux-$a/* node_modules/node-pty/prebuilds/linux-$a/
           done
-          chmod +x node_modules/node-pty/prebuilds/*/spawn-helper
+          chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper
       # Runs the full pipeline (check-types, lint, test, fix-perms, esbuild) once; each of the
       # six vsce runs then skips vscode:prepublish via CLI_CODE_SKIP_PREPUBLISH=1.
       - run: bun run package:all

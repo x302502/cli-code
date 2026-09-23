@@ -31,11 +31,13 @@ try {
   const prebuilds = existsSync(join(ext, "node_modules/node-pty/prebuilds")) ? readdirSync(join(ext, "node_modules/node-pty/prebuilds")) : []
   if (prebuilds.length !== 1) failures.push(`expected exactly one prebuild dir, got ${prebuilds.join(",") || "none"}`)
   for (const bad of ["src", "test", "docs", "scripts"]) if (existsSync(join(ext, bad))) failures.push(`should not ship ${bad}/`)
-  if (!target.startsWith("win32")) {
+  // node-pty builds spawn-helper on macOS only; Linux and Windows have no such file.
+  if (!target.startsWith("win32") && !existsSync(join(ext, `node_modules/node-pty/prebuilds/${target}/pty.node`))) failures.push("missing pty.node")
+  if (target.startsWith("darwin")) {
     const helper = join(ext, `node_modules/node-pty/prebuilds/${target}/spawn-helper`)
     if (!existsSync(helper)) failures.push("missing spawn-helper")
     else if (!(statSync(helper).mode & 0o111)) failures.push("spawn-helper is not executable")
-  } else {
+  } else if (target.startsWith("win32")) {
     const conpty = join(ext, `node_modules/node-pty/prebuilds/${target}/conpty.node`)
     if (!existsSync(conpty)) failures.push(`missing node_modules/node-pty/prebuilds/${target}/conpty.node`)
   }

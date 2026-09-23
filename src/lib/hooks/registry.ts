@@ -114,7 +114,8 @@ function ownJsonFile(id: string, label: string, binary: string, rel: string[], c
       return true
     },
     uninstall: (home) => {
-      if (!fs.existsSync(file(home))) return false
+      // Only a file we wrote: the user may keep their own hooks under the same name.
+      if (!fs.existsSync(file(home)) || !isOurs(readSettingsFile(file(home)))) return false
       fs.rmSync(file(home))
       return true
     },

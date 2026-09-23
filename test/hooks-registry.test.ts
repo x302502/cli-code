@@ -70,6 +70,16 @@ describe("status hook installers", () => {
     expect(codex.install(home)).toBe(true)
     expect(codex.installed(home)).toBe(true)
   })
+  it("copilot and grok never remove a cli-code.json they did not write (turning statusHooks off runs uninstall unattended)", () => {
+    for (const id of ["copilot", "grok"]) {
+      const file = byId(id).files(home)[0]!
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: "echo mine" }] }] } }))
+      expect(byId(id).installed(home)).toBe(false)
+      expect(byId(id).uninstall(home)).toBe(false)
+      expect(fs.existsSync(file)).toBe(true)
+    }
+  })
   it("copilot and grok own their file; other files in the hooks dir are untouched", () => {
     write(".copilot/hooks/mine.json", "{}")
     byId("copilot").install(home)
