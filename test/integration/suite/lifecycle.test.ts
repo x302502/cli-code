@@ -1,5 +1,5 @@
 import * as assert from "node:assert/strict"
-import type * as vscode from "vscode"
+import * as vscode from "vscode"
 import { api, openReady, pidAlive, readEnvFile, waitFor } from "./helpers.js"
 
 describe("lifecycle (checklist B, A-e)", () => {
@@ -20,6 +20,23 @@ describe("lifecycle (checklist B, A-e)", () => {
     assert.equal(a.currentFontSize(a.context), base - 1)
     await a.applyFontZoom(a.context, "reset")
     assert.equal(a.currentFontSize(a.context), base)
+  })
+
+  // Review finding: a tab closed while its restore still awaited the daemon left the attached
+  // session running with no tab (and kept the daemon from ever idling out).
+  it("closing a tab while it is being restored ends its CLI", async () => {
+    const { a, panel: original, env } = await openReady("restore-close")
+    const sessionId = a.inspectPanel(original).sessionId!
+    const restored = vscode.window.createWebviewPanel("cliCode.terminal", "restoring", vscode.ViewColumn.One, {
+      enableScripts: true,
+      localResourceRoots: [vscode.Uri.file(a.context.extensionPath)],
+    })
+    const restoring = a.restoreTerminalPanel(a.context, restored, { sessionId, toolId: "codex" })
+    restored.dispose()
+    await restoring
+    await waitFor(() => !pidAlive(Number(env.pid)), 5_000, "CLI killed after the restoring tab closed")
+    assert.ok(!a.activePanels().includes(restored))
+    original.dispose()
   })
 
   it("a tool that exits can be restarted in the same tab, keeping its title", async () => {

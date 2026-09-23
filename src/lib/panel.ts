@@ -24,7 +24,7 @@ const DAEMON_ID_KEY = "cliCode.daemonId"
 // The outdated daemon that still holds this window's sessions (see ensureDaemonUncached). Kept
 // in workspaceState, not module memory: a second Reload Window starts a fresh extension host
 // that must still find the tabs attached to the old daemon.
-const PREVIOUS_DAEMON_ID_KEY = "cliCode.previousDaemonId"
+const PREVIOUS_DAEMON_IDS_KEY = "cliCode.previousDaemonIds"
 const FONT_ZOOM_KEY = "cliCode.fontZoom"
 
 export type PanelState = {
@@ -40,6 +40,7 @@ export type PanelState = {
   spawnedAt?: number
   cliSessionId?: string
   configSnapshot?: Record<string, string>
+  extensionPath?: string
 }
 
 // Registries for rename (Task 10) and Task 11 (focus tracking, writing at-mentions
@@ -57,11 +58,10 @@ const panelCommands = new WeakMap<vscode.WebviewPanel, string>()
 const panelSpawnedAt = new WeakMap<vscode.WebviewPanel, number>()
 // Signatures of the CLI's config files as they were when its process started.
 const panelConfigSnapshot = new WeakMap<vscode.WebviewPanel, Record<string, string>>()
+// The extension folder (i.e. build) whose hook the tab's CLI was started with.
+const panelExtensionPaths = new WeakMap<vscode.WebviewPanel, string>()
 // When the PTY last produced output — a quiet terminal is one that can be restarted safely.
 const panelLastOutput = new WeakMap<vscode.WebviewPanel, number>()
-// Set by markActivation: sessions spawned before an extension update run stale hooks.
-let activatedAt = 0
-let extensionUpdated = false
 const panelCliSessionIds = new WeakMap<vscode.WebviewPanel, string>()
 // Last model id shown in the tab's action bar, so unchanged detections post nothing.
 const panelModels = new WeakMap<vscode.WebviewPanel, string>()
@@ -251,6 +251,8 @@ export function writeToActivePanel(text: string): boolean {
   const connection = panelConnections.get(panel)
   if (!connection) return false
   connection.write(text)
+  // What we type for the user is part of their prompt: an auto-restart must not wipe it.
+  panelTrackers.get(panel)?.feed(text)
   panel.reveal()
   return true
 }
@@ -283,9 +285,9 @@ export function ensureDaemon(context: vscode.ExtensionContext): Promise<string> 
 function daemonBuild(context: vscode.ExtensionContext): string {
   return createHash("sha256").update(fs.readFileSync(context.asAbsolutePath("dist/daemon.js"))).digest("hex").slice(0, 16)
 }
-function previousSocketPath(context: vscode.ExtensionContext): string | undefined {
-  const id = context.workspaceState.get<string>(PREVIOUS_DAEMON_ID_KEY)
-  return id ? daemonSocketPath(id) : undefined
+/** Daemons from earlier builds that may still hold tabs of this window (oldest first). */
+function previousDaemonIds(context: vscode.ExtensionContext): string[] {
+  return context.workspaceState.get<string[]>(PREVIOUS_DAEMON_IDS_KEY) ?? []
 }
 
 async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<string> {
@@ -306,9 +308,10 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
       // The daemon runs the previous build (the extension was updated while it kept the
       // sessions alive). It cannot be restarted without killing them, so start a fresh one
       // under a new id: restored tabs still attach to the old daemon through
-      // PREVIOUS_DAEMON_ID_KEY, and each restart moves that tab to the new daemon. The old one
-      // exits on its own once its last client is gone.
-      await context.workspaceState.update(PREVIOUS_DAEMON_ID_KEY, id)
+      // PREVIOUS_DAEMON_IDS_KEY, and each restart moves that tab to the new daemon. The old one
+      // exits on its own once its last client is gone. A list, not one slot: two updates in a
+      // row must not forget the daemon that still holds tabs from before the first.
+      await context.workspaceState.update(PREVIOUS_DAEMON_IDS_KEY, [...previousDaemonIds(context).filter((x) => x !== id), id])
       id = undefined
     }
   }
@@ -360,14 +363,14 @@ export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise
   // The outdated daemon (if any) still holds tabs that have not been restarted yet. It exits
   // by itself once its last session moved over (the hold does not keep an empty daemon), and
   // its id is dropped here the next time round so nothing keeps probing a dead socket.
-  for (const key of [DAEMON_ID_KEY, PREVIOUS_DAEMON_ID_KEY]) {
-    const id = context.workspaceState.get<string>(key)
-    if (!id) continue
+  const current = context.workspaceState.get<string>(DAEMON_ID_KEY)
+  const retired: string[] = []
+  for (const id of [...(current ? [current] : []), ...previousDaemonIds(context)]) {
     const socketPath = daemonSocketPath(id)
     const probe = await probeSocket(socketPath)
     if (probe !== "listening") {
       // Only a definite "absent" retires the id; a timed-out probe may still be a live daemon.
-      if (key === PREVIOUS_DAEMON_ID_KEY && probe === "absent") await context.workspaceState.update(key, undefined)
+      if (id !== current && probe === "absent") retired.push(id)
       continue
     }
     const socket = net.createConnection(socketPath)
@@ -375,6 +378,7 @@ export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise
     socket.on("close", () => {})
     sockets.push(socket)
   }
+  if (retired.length) await context.workspaceState.update(PREVIOUS_DAEMON_IDS_KEY, previousDaemonIds(context).filter((x) => !retired.includes(x)))
   return { dispose: () => sockets.forEach((s) => s.destroy()) }
 }
 
@@ -454,6 +458,7 @@ export async function openTerminalPanel(
   })
   panelCommands.set(panel, baseCommand)
   panelSpawnedAt.set(panel, Date.now())
+  panelExtensionPaths.set(panel, context.extensionPath)
   panelConfigSnapshot.set(panel, configSnapshot(configPathsFor(tool.id, tool.historyToolId, cwd, os.homedir())))
   if (options.title) customTitles.set(panel, options.title)
   if (options.quickCommandLabel) panelQuickLabels.set(panel, options.quickCommandLabel)
@@ -480,11 +485,28 @@ export async function restoreTerminalPanel(
   if (state.command) panelCommands.set(panel, state.command)
   if (state.spawnedAt) panelSpawnedAt.set(panel, state.spawnedAt)
   if (state.cliSessionId) panelCliSessionIds.set(panel, state.cliSessionId)
-  const socketPath = await ensureDaemon(context)
-  const previous = previousSocketPath(context)
-  const connection =
-    (await connectSession(socketPath, { op: "attach", sessionId: state.sessionId })) ??
-    (previous ? await connectSession(previous, { op: "attach", sessionId: state.sessionId }) : undefined)
+  // The user may close the tab while we wait on the daemon (seconds after a reload); the
+  // panel is not registered yet, so track that here.
+  let closed = false
+  const closing = panel.onDidDispose(() => (closed = true))
+  let connection: SessionConnection | undefined
+  try {
+    const socketPath = await ensureDaemon(context)
+    connection = await connectSession(socketPath, { op: "attach", sessionId: state.sessionId })
+  } catch {
+    // Daemon unresponsive or failed to start: fall through to the gone page (with Restart).
+  }
+  for (const id of [...previousDaemonIds(context)].reverse()) {
+    if (connection || closed) break
+    connection = await connectSession(daemonSocketPath(id), { op: "attach", sessionId: state.sessionId })
+  }
+  closing.dispose()
+  if (closed) {
+    // A closed tab ends its CLI (same as closing a live one); nothing would ever kill it later.
+    connection?.kill()
+    connection?.dispose()
+    return
+  }
   if (!connection) {
     // The session is gone (the app quit, or the daemon cleaned it up itself). Be honest with the user.
     panel.iconPath = iconFor(context, tool)
@@ -496,6 +518,7 @@ export async function restoreTerminalPanel(
   if (state.promptTitle) panelPromptTitles.set(panel, state.promptTitle)
   if (state.quickCommandLabel) panelQuickLabels.set(panel, state.quickCommandLabel)
   if (state.configSnapshot) panelConfigSnapshot.set(panel, state.configSnapshot)
+  if (state.extensionPath) panelExtensionPaths.set(panel, state.extensionPath)
   wirePanel(context, panel, tool, connection, { reattached: true })
   void checkStale(context, panel)
 }
@@ -840,16 +863,6 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
   }
 }
 
-/** Called once per activation: an extension update means every session spawned before it
- * runs the previous version's hooks and must be restarted to pick the new ones up. */
-export function markActivation(context: vscode.ExtensionContext): void {
-  const version = (context.extension.packageJSON as { version?: string }).version ?? ""
-  activatedAt = Date.now()
-  // Extension-test hosts use in-memory storage, so every launch would look like an update.
-  extensionUpdated = context.extensionMode !== vscode.ExtensionMode.Test && context.globalState.get<string>("cliCode.lastVersion") !== version
-  void context.globalState.update("cliCode.lastVersion", version)
-}
-
 /**
  * A tab whose CLI started before its config (MCP servers, plugins, hooks) or this extension
  * changed is stale: MCP/plugins/hooks are read only at CLI start. Idle tabs restart into the
@@ -861,7 +874,10 @@ export async function checkStale(context: vscode.ExtensionContext, panel: vscode
   if (!tool || !spawnedAt || !activePanels.has(panel) || !panelConnections.has(panel)) return
   const before = panelConfigSnapshot.get(panel)
   const reason =
-    extensionUpdated && spawnedAt < activatedAt
+    // CLI_CODE_HOOK points into the extension folder of the build that spawned the tab; after
+    // an update that folder is gone and the hooks silently stop. Tabs saved before this field
+    // existed come from such a build too.
+    panelExtensionPaths.get(panel) !== context.extensionPath
       ? "CLI Code was updated"
       : (() => {
           if (!before) return undefined
@@ -915,6 +931,7 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     // From now on the tab is a resume tab: later restarts keep landing in the same conversation.
     panelCommands.set(panel, baseCommand)
     panelSpawnedAt.set(panel, Date.now())
+    panelExtensionPaths.set(panel, context.extensionPath)
     panelConfigSnapshot.set(panel, configSnapshot(configPathsFor(tool.id, tool.historyToolId, usableCwd(panelCwds.get(panel)), os.homedir())))
     const connection = socketPath
       ? await connectSession(socketPath, {
@@ -978,6 +995,7 @@ function postState(panel: vscode.WebviewPanel): void {
       spawnedAt: panelSpawnedAt.get(panel),
       cliSessionId: panelCliSessionIds.get(panel),
       configSnapshot: panelConfigSnapshot.get(panel),
+      extensionPath: panelExtensionPaths.get(panel),
     },
   })
 }

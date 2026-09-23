@@ -47,6 +47,8 @@ const vscode = acquireVsCodeApi()
 // terminal — a multi-MB accidental paste into a TUI is hard to undo.
 const PASTE_CONFIRM_BYTES = 100 * 1024
 let heldPaste: string | undefined
+// A quick command held for the size confirmation still owes its Enter once approved.
+let heldSubmit = false
 
 /** Reads the font family/size the panel injected on <body style>, falling back to VS Code's editor font. */
 function readFont(): { fontFamily: string; fontSize: number } {
@@ -190,6 +192,7 @@ termElement.addEventListener(
     e.preventDefault()
     e.stopPropagation()
     heldPaste = text
+    heldSubmit = false
     vscode.postMessage({ type: "pasteConfirm", size: text.length })
   },
   true,
@@ -371,13 +374,18 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     const r = tailText(term.buffer.active, message.maxLines)
     vscode.postMessage({ type: "context", ...r })
   } else if (message.type === "pasteApproved") {
-    if (heldPaste !== undefined) term.paste(heldPaste)
+    if (heldPaste !== undefined) {
+      term.paste(heldPaste)
+      if (heldSubmit) term.input("\r")
+    }
     heldPaste = undefined
+    heldSubmit = false
   } else if (message.type === "pasteRejected") {
     heldPaste = undefined
   } else if (message.type === "pasteText") {
     if (new TextEncoder().encode(message.text).length > PASTE_CONFIRM_BYTES) {
       heldPaste = message.text
+      heldSubmit = message.submit === true
       vscode.postMessage({ type: "pasteConfirm", size: message.text.length })
     } else {
       term.paste(message.text)

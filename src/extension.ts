@@ -9,7 +9,6 @@ import { addFilepathToTerminal, addQuickCommand, openCli, resumeSession, runQuic
 import {
   activeTerminalPanel,
   checkAllStale,
-  markActivation,
   restartAllPanels,
   applyFontZoom,
   baseTitle,
@@ -92,7 +91,6 @@ async function setStatusHooks(context: vscode.ExtensionContext, enabled: boolean
 export function activate(context: vscode.ExtensionContext): TestApi {
   // Restored CLI tabs only connect once they become visible; hold the daemon open in the
   // meantime so its idle-exit does not kill their sessions. Must not block activation.
-  markActivation(context)
   void holdDaemonAlive(context).then((d) => context.subscriptions.push(d))
   // Status hooks follow the setting silently, like Orca: installed for every supported CLI on
   // PATH, removed everywhere when turned off. Never from the integration-test host (it runs
