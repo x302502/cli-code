@@ -1,6 +1,8 @@
 // No Node imports here: this module is also bundled into the webview (via path-resolve.ts's
 // re-export), and a `node:*` import would break the browser bundle.
 
+// A one-letter extension only counts for the ones that really exist (C/C++/ObjC/asm/R/D),
+// or prose like "e.g" and "i.e" would turn into links.
 // Extension-less filenames worth linking on their own (same allow-list Orca uses); anything
 // else without a slash needs a `name.ext` shape. Existence is checked before a link is shown,
 // so a generous match here costs nothing but a stat.
@@ -9,7 +11,7 @@ const BARE_NAMES = "README|Makefile|Dockerfile|Rakefile|Gemfile|Procfile|LICENSE
 // letter/number/mark classes, and \p{M} covers macOS's decomposed (NFD) diacritics.
 const C = "\\p{L}\\p{M}\\p{N}_"
 const PATH_RE = new RegExp(
-  `^((?:~|\\.{1,2})?/[${C}.\\-@+/]+|[${C}.\\-@+]+/[${C}.\\-@+/]*|(?:${BARE_NAMES})(?:\\.[${C}.\\-]+)?|[\\p{L}_][${C}\\-]*(?:\\.[${C}\\-]+)*\\.[A-Za-z][A-Za-z0-9]{1,7})(?::(\\d+))?(?::(\\d+))?$`,
+  `^((?:~|\\.{1,2})?/[${C}.\\-@+/]+|[${C}.\\-@+]+/[${C}.\\-@+/]*|(?:${BARE_NAMES})(?:\\.[${C}.\\-]+)?|[\\p{L}_][${C}\\-]*(?:\\.[${C}\\-]+)*\\.(?:[A-Za-z][A-Za-z0-9]{1,7}|[chmsrdCHMSRD]))(?::(\\d+))?(?::(\\d+))?$`,
   "u",
 )
 

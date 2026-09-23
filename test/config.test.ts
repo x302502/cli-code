@@ -7,13 +7,12 @@ describe("CLI_TOOLS", () => {
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  it("gives every tool a non-empty label, command, icon, and themeIcon", () => {
+  it("gives every tool a non-empty label, command and icon", () => {
     for (const tool of CLI_TOOLS) {
       expect(tool.label.length).toBeGreaterThan(0)
       expect(tool.command.length).toBeGreaterThan(0)
       expect(tool.icon.length, `${tool.id} needs an icon`).toBeGreaterThan(0)
       expect(tool.icon, `${tool.id} icon must be svg or png`).toMatch(/\.(svg|png)$/)
-      expect(tool.themeIcon.length, `${tool.id} needs a themeIcon`).toBeGreaterThan(0)
     }
   })
 

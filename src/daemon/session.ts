@@ -132,7 +132,7 @@ export class Session {
     // Queue the snapshot marker before any later chunk can arrive, so every
     // byte that comes in during the await lands in `backlog`, not in the
     // snapshot.
-    const text = await this.snapshotAtMarker()
+    const text = await this.snapshot()
     if (gen !== this.attachGen) return
     onSnapshot(text)
     this.backlog = undefined
@@ -174,10 +174,6 @@ export class Session {
     this.applyBackpressure()
   }
 
-  snapshot(): Promise<string> {
-    return this.snapshotAtMarker()
-  }
-
   kill(): void {
     if (!this.exit) this.pty.kill()
   }
@@ -194,7 +190,7 @@ export class Session {
    * the writes queued before this call — xterm parses its whole queue in one
    * macrotask, so awaiting an earlier write's callback is not a stable cut point.
    */
-  private snapshotAtMarker(): Promise<string> {
+  snapshot(): Promise<string> {
     return new Promise<string>((resolve) => this.mirror.write("", () => resolve(this.serializer.serialize())))
   }
 

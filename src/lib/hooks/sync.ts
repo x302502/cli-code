@@ -1,5 +1,3 @@
-import * as fs from "node:fs"
-import * as path from "node:path"
 import type { StatusHookInstaller } from "./registry.js"
 
 export type SyncResult = { id: string; label: string; action: "installed" | "removed" | "unchanged" | "skipped" | "error"; error?: string }
@@ -25,20 +23,6 @@ export function syncStatusHooks(args: {
       return { ...base, action: "error", error: String(err) }
     }
   })
-}
-
-/** Whether an executable of that name sits in one of the PATH directories (no process spawned). */
-export function binaryOnPath(binary: string, envPath: string | undefined = process.env.PATH): boolean {
-  for (const dir of (envPath ?? "").split(path.delimiter)) {
-    if (!dir) continue
-    try {
-      fs.accessSync(path.join(dir, binary), fs.constants.X_OK)
-      return true
-    } catch {
-      // keep looking
-    }
-  }
-  return false
 }
 
 /** One line for the toast: "Installed: Codex, Grok · Removed: … · Failed: …". */

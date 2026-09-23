@@ -1,12 +1,11 @@
 import { execFile } from "node:child_process"
 
 /**
- * The environment a CLI would get in the user's real terminal. The daemon runs commands
- * through `$SHELL -lc`, a login shell that never reads `.zshrc`/`.bashrc` — where nvm, pnpm,
- * pyenv and the CLIs' own `~/.x/bin` dirs usually land on PATH. MCP servers spawned via
- * `npx` then resolved to the wrong node and failed to start, while the same CLI worked in a
- * terminal and in Orca. Like Orca and VS Code's own terminal, ask an interactive login shell
- * (`-ilc`) for its environment once and hand that to every spawn.
+ * The environment a CLI would get in the user's real terminal, asked of an interactive login
+ * shell (`-ilc`) once per window. The CLIs themselves already get it — the daemon spawns them
+ * through that same shell — so this is for the extension host, which reads no `.zshrc` and
+ * would otherwise miss the very PATH entries the CLIs live in (nvm, pnpm, `~/.x/bin`): it is
+ * what CLI detection and the status-hook sync look them up on.
  */
 const START = "__CLI_CODE_ENV_START__"
 const END = "__CLI_CODE_ENV_END__"

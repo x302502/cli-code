@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test"
-import { extractBinary } from "../src/lib/detect.js"
+import * as fs from "node:fs"
+import * as os from "node:os"
+import * as path from "node:path"
+import { binaryOnPath, extractBinary } from "../src/lib/detect.js"
 
 describe("extractBinary", () => {
   it("extracts the first token as the binary for plain commands", () => {
@@ -24,5 +27,17 @@ describe("extractBinary", () => {
     expect(extractBinary("grok --permission-mode bypassPermissions")).toBe("grok")
     expect(extractBinary("command-code --yolo")).toBe("command-code")
     expect(extractBinary("kiro-cli --trust-all-tools")).toBe("kiro-cli")
+  })
+})
+
+describe("binaryOnPath", () => {
+  it("finds an executable in a PATH dir without spawning anything", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-path-"))
+    fs.writeFileSync(path.join(dir, "fakecli"), "#!/bin/sh\n", { mode: 0o755 })
+    fs.writeFileSync(path.join(dir, "notexec"), "")
+    expect(binaryOnPath("fakecli", `${dir}:/nonexistent`)).toBe(true)
+    expect(binaryOnPath("notexec", dir)).toBe(false)
+    expect(binaryOnPath("missing", dir)).toBe(false)
+    fs.rmSync(dir, { recursive: true, force: true })
   })
 })

@@ -6,7 +6,7 @@ const httpTool: CliTool = {
   id: "opencode",
   label: "opencode",
   icon: "opencode.svg",
-  themeIcon: "terminal",
+ 
   command: "opencode --auto",
   extraEnv: { OPENCODE_CALLER: "vscode" },
 }
@@ -15,7 +15,7 @@ const plainTool: CliTool = {
   id: "claude",
   label: "Claude Code",
   icon: "claude.svg",
-  themeIcon: "sparkle",
+ 
   command: "claude",
 }
 

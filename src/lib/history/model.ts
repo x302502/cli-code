@@ -19,7 +19,9 @@ export function modelFromText(text: string): string | undefined {
 }
 
 const CHUNK = 64 * 1024
-// Codex rollout file per (cwd, tab spawn time); see the codex case below.
+// Codex rollout file per (cwd, tab spawn time); see the codex case below. Bounded because a
+// restart adds an entry that is never asked for again and the window may live for days.
+const CODEX_ROLLOUT_CACHE = 32
 const codexRollouts = new Map<string, string>()
 
 /** Head and tail of a transcript — model records sit at the start (session setup) and in
@@ -69,7 +71,11 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
         let file = codexRollouts.get(key)
         if (!file || !fs.existsSync(file)) {
           file = codexSessions(cwd, 50).find((x) => x.updatedAt >= sinceMs)?.source
-          if (file) codexRollouts.set(key, file)
+          if (file) {
+            codexRollouts.set(key, file)
+            // Map iterates in insertion order, so the first key is the oldest.
+            if (codexRollouts.size > CODEX_ROLLOUT_CACHE) codexRollouts.delete(codexRollouts.keys().next().value!)
+          }
         }
         return file ? modelFromFile(file) : undefined
       }

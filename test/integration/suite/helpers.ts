@@ -54,7 +54,7 @@ export function makeTool(tag: string, extraEnv: Record<string, string> = {}): Cl
     id: `itest-${tag}`,
     label: `itest ${tag}`,
     icon: "claude.svg",
-    themeIcon: "terminal",
+   
     command: `sh "${fixture("echo-tool.sh")}"`,
     extraEnv: { ITEST_OUT: outDir(), ITEST_TAG: tag, ...extraEnv },
   }

@@ -47,28 +47,50 @@ export function decodeJsonPayload<T>(payload: Uint8Array): T {
  * may arrive in several chunks, and one chunk may contain several frames.
  */
 export function createFrameDecoder(): (chunk: Uint8Array) => { type: number; payload: Uint8Array }[] {
-  let pending = new Uint8Array(0)
+  // Chunks are held as they arrive and merged only as far as the frame being read needs:
+  // concatenating the whole backlog on every chunk copies a multi-MB snapshot once per 64 KB
+  // chunk (quadratic), which a reload with several tabs pays on the extension host's thread.
+  let chunks: Uint8Array[] = []
+  let total = 0
+
+  /** Merges whole chunks at the front until `chunks[0]` holds at least `n` bytes (n <= total). */
+  const coalesce = (n: number): Uint8Array => {
+    let head = chunks[0]!
+    if (head.length >= n) return head
+    let size = 0
+    let count = 0
+    while (size < n) size += chunks[count++]!.length
+    const merged = new Uint8Array(size)
+    let at = 0
+    for (let i = 0; i < count; i++) {
+      merged.set(chunks[i]!, at)
+      at += chunks[i]!.length
+    }
+    chunks.splice(0, count, merged)
+    head = merged
+    return head
+  }
 
   return (chunk) => {
-    const combined = new Uint8Array(pending.length + chunk.length)
-    combined.set(pending)
-    combined.set(chunk, pending.length)
-
-    const frames: { type: number; payload: Uint8Array }[] = []
-    const view = new DataView(combined.buffer, combined.byteOffset, combined.byteLength)
-    let offset = 0
-
-    while (combined.length - offset >= HEADER_LEN) {
-      const length = view.getUint32(offset + 1, false)
-      if (combined.length - offset - HEADER_LEN < length) break
-      frames.push({
-        type: combined[offset]!,
-        payload: combined.slice(offset + HEADER_LEN, offset + HEADER_LEN + length),
-      })
-      offset += HEADER_LEN + length
+    if (chunk.length > 0) {
+      chunks.push(chunk)
+      total += chunk.length
     }
 
-    pending = combined.slice(offset)
+    const frames: { type: number; payload: Uint8Array }[] = []
+    while (total >= HEADER_LEN) {
+      const head = coalesce(HEADER_LEN)
+      const length = new DataView(head.buffer, head.byteOffset, head.byteLength).getUint32(1, false)
+      const frameLen = HEADER_LEN + length
+      if (total < frameLen) break
+      const full = coalesce(frameLen)
+      frames.push({ type: full[0]!, payload: full.slice(HEADER_LEN, frameLen) })
+      // The rest is a view into the same buffer — no copy until a later frame needs it merged.
+      const rest = full.subarray(frameLen)
+      if (rest.length > 0) chunks[0] = rest
+      else chunks.shift()
+      total -= frameLen
+    }
     return frames
   }
 }

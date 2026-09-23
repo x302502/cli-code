@@ -19,6 +19,7 @@ import { buildEnv } from "./terminal.js"
 import { resolveTabTitle } from "./tab-title.js"
 
 export const VIEW_TYPE = "cliCode.terminal"
+const UNRESPONSIVE = "The CLI Code terminal daemon is not responding."
 const DAEMON_ID_KEY = "cliCode.daemonId"
 // The outdated daemon that still holds this window's sessions (see ensureDaemonUncached). Kept
 // in workspaceState, not module memory: a second Reload Window starts a fresh extension host
@@ -65,12 +66,19 @@ const panelCliSessionIds = new WeakMap<vscode.WebviewPanel, string>()
 // Last model id shown in the tab's action bar, so unchanged detections post nothing.
 const panelModels = new WeakMap<vscode.WebviewPanel, string>()
 const MODEL_REFRESH_MS = 30_000
+// Every hook event asks for the model too, and the lookup walks the CLI's session store on the
+// extension host's thread; one scan per this many ms is enough to notice a /model change.
+const MODEL_THROTTLE_MS = 5_000
+const panelModelCheckedAt = new WeakMap<vscode.WebviewPanel, number>()
 
 /** Reads the CLI's current model from its session store and tells the webview when it changed. */
 function refreshModel(panel: vscode.WebviewPanel): void {
   const tool = panelTools.get(panel)
   const cwd = usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
   if (!tool || !cwd || !activePanels.has(panel)) return
+  const now = Date.now()
+  if (now - (panelModelCheckedAt.get(panel) ?? 0) < MODEL_THROTTLE_MS) return
+  panelModelCheckedAt.set(panel, now)
   const model = detectModel(tool.historyToolId ?? tool.id, cwd, panelSpawnedAt.get(panel) ?? 0, os.homedir(), panelCliSessionIds.get(panel))
   if (model === panelModels.get(panel)) return
   if (model) panelModels.set(panel, model)
@@ -285,7 +293,9 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
   const build = daemonBuild(context)
   if (id) {
     const socketPath = daemonSocketPath(id)
-    if (await isListening(socketPath)) {
+    const probe = await probeSocket(socketPath)
+    if (probe === "unknown") throw new Error(UNRESPONSIVE)
+    if (probe === "listening") {
       let stamped: string | undefined
       try {
         stamped = fs.readFileSync(daemonBuildStampPath(id), "utf8").trim()
@@ -307,7 +317,9 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
     await context.workspaceState.update(DAEMON_ID_KEY, id)
   }
   const socketPath = daemonSocketPath(id)
-  if (await isListening(socketPath)) return socketPath
+  const probe = await probeSocket(socketPath)
+  if (probe === "listening") return socketPath
+  if (probe === "unknown") throw new Error(UNRESPONSIVE)
 
   // The probe above proved nothing is listening. The daemon exits via process.exit(0) on
   // idle without unlinking its socket file, so a stale file can still be sitting at this
@@ -325,9 +337,12 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
   daemon.unref()
   spawnedDaemonPid = daemon.pid
 
-  // Wait for the daemon to open its socket. 20 × 50ms is generous for a node process to start.
-  for (let i = 0; i < 20; i++) {
-    if (await isListening(socketPath)) return socketPath
+  // Wait for the daemon to open its socket. A warm start takes tens of ms; a cold one — first
+  // run after an update, a virus scanner reading the bundle, a laptop on battery — can take
+  // seconds, and a budget it misses turns into a failed open the user has to retry.
+  const deadline = Date.now() + 5_000
+  while (Date.now() < deadline) {
+    if ((await probeSocket(socketPath)) === "listening") return socketPath
     await new Promise((r) => setTimeout(r, 50))
   }
   throw new Error("Could not start the CLI Code terminal daemon.")
@@ -349,8 +364,10 @@ export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise
     const id = context.workspaceState.get<string>(key)
     if (!id) continue
     const socketPath = daemonSocketPath(id)
-    if (!(await isListening(socketPath))) {
-      if (key === PREVIOUS_DAEMON_ID_KEY) await context.workspaceState.update(key, undefined)
+    const probe = await probeSocket(socketPath)
+    if (probe !== "listening") {
+      // Only a definite "absent" retires the id; a timed-out probe may still be a live daemon.
+      if (key === PREVIOUS_DAEMON_ID_KEY && probe === "absent") await context.workspaceState.update(key, undefined)
       continue
     }
     const socket = net.createConnection(socketPath)
@@ -361,31 +378,41 @@ export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise
   return { dispose: () => sockets.forEach((s) => s.destroy()) }
 }
 
-/** Shell snippet Claude's hook entry evaluates; the editor's own binary runs our bundle as node.
- * stdout is discarded so nothing the bundle prints can be read by Claude as hook output. */
 /** Per-tool extras for a new CLI process; PATH and the rest come from the daemon's interactive
  * login shell (see daemon/entry.ts). */
 function spawnEnv(context: vscode.ExtensionContext, tool: CliTool): Record<string, string> {
   return { ...buildEnv(tool), CLI_CODE_HOOK: hookCommand(context) }
 }
 
+/** Shell snippet Claude's hook entry evaluates; the editor's own binary runs our bundle as node.
+ * stdout is discarded so nothing the bundle prints can be read by Claude as hook output. */
 function hookCommand(context: vscode.ExtensionContext): string {
   return `ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "${context.asAbsolutePath("dist/hook.js")}" >/dev/null`
 }
 
-function isListening(socketPath: string): Promise<boolean> {
+/**
+ * Is a daemon listening on this socket? "unknown" is its own answer: a probe that times out
+ * (a hung pipe, a stalled host) is NOT evidence that nothing is there, and treating it as
+ * "absent" would unlink a live daemon's socket and spawn a replacement, orphaning every
+ * session the first one still runs.
+ */
+function probeSocket(socketPath: string): Promise<"listening" | "absent" | "unknown"> {
   return new Promise((resolve) => {
     const probe = net.createConnection(socketPath)
+    let timedOut = false
     // A hung pipe (neither connect, error, nor close) must not stall ensureDaemon forever.
-    probe.setTimeout(500, () => probe.destroy(new Error("timeout")))
-    probe.on("connect", () => {
-      resolve(true)
+    probe.setTimeout(500, () => {
+      timedOut = true
       probe.destroy()
     })
-    probe.on("error", () => resolve(false))
-    // destroy() with no error argument (the timeout path) emits close but not error, so
-    // isListening must also resolve here or it would hang forever on a stuck pipe.
-    probe.on("close", () => resolve(false))
+    probe.on("connect", () => {
+      resolve("listening")
+      probe.destroy()
+    })
+    probe.on("error", () => resolve(timedOut ? "unknown" : "absent"))
+    // destroy() with no error argument (the timeout path) emits close but not error, so this
+    // must resolve too or the probe would hang forever on a stuck pipe.
+    probe.on("close", () => resolve(timedOut ? "unknown" : "absent"))
   })
 }
 
@@ -400,7 +427,6 @@ export async function openTerminalPanel(
     initialInput?: { text: string; submit: boolean }
   } = {},
 ): Promise<void> {
-  // Not awaited: the offer is a non-modal toast, and the terminal must open right away.
   const socketPath = await ensureDaemon(context)
   const cwd = usableCwd(options.cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
   const baseCommand = options.command ?? tool.command
@@ -533,17 +559,18 @@ const HISTORY_TOOLS = new Set(["claude", "codex", "grok"])
 async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Promise<string> {
   const baseCommand = panelCommands.get(panel) ?? tool.command
   const cwd = usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  const spawnedAt = panelSpawnedAt.get(panel) ?? 0
+  // Claude reports its id through its hook; every other CLI is asked via its own session store.
+  const reportedSessionId = panelCliSessionIds.get(panel)
+  // Both lookups below only matter when the hook named no session: skip them otherwise.
   let sessions: Awaited<ReturnType<typeof listSessionsForWorkspace>> = []
-  if (cwd && HISTORY_TOOLS.has(tool.historyToolId ?? tool.id)) {
+  if (!reportedSessionId && cwd && HISTORY_TOOLS.has(tool.historyToolId ?? tool.id)) {
     try {
       sessions = await listSessionsForWorkspace(cwd)
     } catch {
       // History is best effort; a scan failure just means a fresh session.
     }
   }
-  const spawnedAt = panelSpawnedAt.get(panel) ?? 0
-  // Claude reports its id through its hook; every other CLI is asked via its own session store.
-  const reportedSessionId = panelCliSessionIds.get(panel)
   const locatedSessionId = reportedSessionId || !cwd ? undefined : locateLatestSession(tool.historyToolId ?? tool.id, cwd, spawnedAt, os.homedir())
   return restartCommand({ tool, baseCommand, reportedSessionId, locatedSessionId, sessions, spawnedAt })
 }
@@ -673,6 +700,9 @@ function attachConnection(
       if ((previous === "waiting" && e.state !== "waiting") || (previous !== undefined && previous !== "working" && e.state === "working")) tracker.reset()
       if (e.cliSessionId && e.cliSessionId !== panelCliSessionIds.get(panel)) {
         panelCliSessionIds.set(panel, e.cliSessionId)
+        // A newly known session id makes the model readable from one file: re-read now
+        // rather than waiting out the throttle.
+        panelModelCheckedAt.delete(panel)
         postState(panel)
       }
       sendTo(panel, { type: "agentStatus", state: e.state })

@@ -46,6 +46,18 @@ describe("createFrameDecoder", () => {
     expect(Array.from(frames[0]!.payload)).toEqual([1])
   })
 
+  it("ghép một payload lớn đến theo hàng trăm chunk 64KB, rồi trả phần dư cho khung sau", () => {
+    const decode = createFrameDecoder()
+    const big = new Uint8Array(2_000_000).map((_, i) => i & 0xff)
+    const wire = new Uint8Array([...encodeFrame(MSG.Data, big), ...encodeFrame(MSG.Exit, bytes(4))])
+    const frames = []
+    for (let at = 0; at < wire.length; at += 65_536) frames.push(...decode(wire.subarray(at, at + 65_536)))
+    expect(frames.map((f) => f.type)).toEqual([MSG.Data, MSG.Exit])
+    expect(frames[0]!.payload.length).toBe(2_000_000)
+    expect(Array.from(frames[0]!.payload.slice(1_999_997))).toEqual(Array.from(big.slice(1_999_997)))
+    expect(Array.from(frames[1]!.payload)).toEqual([4])
+  })
+
   it("chịu được payload lớn hơn 64KB", () => {
     const decode = createFrameDecoder()
     const big = new Uint8Array(200_000).fill(3)

@@ -11,6 +11,11 @@ describe("parsePathLink — bare filenames and trailing punctuation", () => {
     expect(parsePathLink("package.json:3")).toEqual({ path: "package.json", line: 3 })
     expect(parsePathLink("app.ts:12:3")).toEqual({ path: "app.ts", line: 12, col: 3 })
   })
+  it("single-character extensions count too (C/C++ headers and sources)", () => {
+    expect(parsePathLink("main.c:12:5")).toEqual({ path: "main.c", line: 12, col: 5 })
+    expect(parsePathLink("foo.h:3")).toEqual({ path: "foo.h", line: 3 })
+    expect(parsePathLink("main.cc:1")).toEqual({ path: "main.cc", line: 1 })
+  })
   it("directory forms: trailing slash, ./dir, ~/dir, absolute", () => {
     expect(parsePathLink("notes/")).toEqual({ path: "notes/" })
     expect(parsePathLink("./notes")).toEqual({ path: "./notes" })

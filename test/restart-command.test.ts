@@ -3,9 +3,9 @@ import { continueLatestCommand, restartCommand } from "../src/lib/restart-comman
 import type { CliTool } from "../src/lib/config.js"
 import type { SessionSummary } from "../src/lib/history/types.js"
 
-const claude: CliTool = { id: "claude", label: "Claude", icon: "", themeIcon: "", command: "claude --x", resumeCommand: "claude --resume {sessionId} --x" }
-const copilot: CliTool = { id: "copilot", label: "Copilot", icon: "", themeIcon: "", command: "copilot", continueCommand: "copilot --continue" }
-const plain: CliTool = { id: "pi", label: "Pi", icon: "", themeIcon: "", command: "pi" }
+const claude: CliTool = { id: "claude", label: "Claude", icon: "", command: "claude --x", resumeCommand: "claude --resume {sessionId} --x" }
+const copilot: CliTool = { id: "copilot", label: "Copilot", icon: "", command: "copilot", continueCommand: "copilot --continue" }
+const plain: CliTool = { id: "pi", label: "Pi", icon: "", command: "pi" }
 const s = (toolId: string, sessionId: string, updatedAt: number): SessionSummary => ({ toolId, sessionId, title: "", updatedAt, source: "" })
 
 describe("restartCommand", () => {
@@ -44,7 +44,7 @@ describe("restartCommand", () => {
 })
 
 describe("continueLatestCommand", () => {
-  const base: CliTool = { id: "x", label: "X", icon: "", themeIcon: "", command: "x" }
+  const base: CliTool = { id: "x", label: "X", icon: "", command: "x" }
   const cline: CliTool = { ...base, id: "cline", resumeCommand: "cline --id {sessionId}", continueCommand: undefined }
   const amp: CliTool = { ...base, id: "amp", resumeCommand: "amp threads continue {sessionId}", continueCommand: "amp threads continue --last" }
   it("resumes the folder's newest session by id when the CLI's store names one", () => {

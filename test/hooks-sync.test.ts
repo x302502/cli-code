@@ -1,9 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import * as fs from "node:fs"
-import * as os from "node:os"
-import * as path from "node:path"
 import type { StatusHookInstaller } from "../src/lib/hooks/registry.js"
-import { binaryOnPath, summarize, syncStatusHooks } from "../src/lib/hooks/sync.js"
+import { summarize, syncStatusHooks } from "../src/lib/hooks/sync.js"
 
 function fake(id: string, opts: { installed?: boolean; fail?: boolean } = {}): StatusHookInstaller & { calls: string[] } {
   let installed = opts.installed ?? false
@@ -46,17 +43,5 @@ describe("syncStatusHooks", () => {
     expect(res.map((r) => r.action)).toEqual(["removed", "unchanged"])
     expect(summarize(res)).toBe("Removed: A")
     expect(summarize([])).toBe("Nothing to change.")
-  })
-})
-
-describe("binaryOnPath", () => {
-  it("finds an executable in a PATH dir without spawning anything", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-path-"))
-    fs.writeFileSync(path.join(dir, "fakecli"), "#!/bin/sh\n", { mode: 0o755 })
-    fs.writeFileSync(path.join(dir, "notexec"), "")
-    expect(binaryOnPath("fakecli", `${dir}:/nonexistent`)).toBe(true)
-    expect(binaryOnPath("notexec", dir)).toBe(false)
-    expect(binaryOnPath("missing", dir)).toBe(false)
-    fs.rmSync(dir, { recursive: true, force: true })
   })
 })
