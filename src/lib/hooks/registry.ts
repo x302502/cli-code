@@ -1,6 +1,6 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
-import { backupSettingsFileOnce, hooksInstalled, installHooks, readSettingsFile, uninstallHooks, writeSettingsFile } from "../claude-hooks.js"
+import { backupSettingsFileOnce, HOOK_COMMAND, hooksInstalled, installHooks, readSettingsFile, uninstallHooks, writeSettingsFile } from "../claude-hooks.js"
 import { addTrust, codexTrustKeys, removeTrust } from "./codex-trust.js"
 import { copilotFile, copilotInstalled } from "./copilot.js"
 import { isManagedPlugin, pluginSource, type PluginFlavour } from "./plugin-template.js"
@@ -100,6 +100,21 @@ const codex: StatusHookInstaller = {
 
 // --- a file of our own inside a hooks directory (copilot, grok) ---
 
+/** Every hook command in a hooks file (Claude's `command`, Copilot's `bash`), at any depth. */
+function hookCommands(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(hookCommands)
+  if (!value || typeof value !== "object") return []
+  const o = value as Record<string, unknown>
+  const own = [o.command, o.bash].filter((c): c is string => typeof c === "string")
+  return [...own, ...Object.entries(o).filter(([k]) => k !== "command" && k !== "bash").flatMap(([, v]) => hookCommands(v))]
+}
+
+/** A file CLI Code wrote, possibly by an older build: it holds hook commands and all are ours. */
+function managedHooksFile(value: unknown): boolean {
+  const cmds = hookCommands(value)
+  return cmds.length > 0 && cmds.every((c) => c === HOOK_COMMAND || c === GROK_HOOK_COMMAND)
+}
+
 function ownJsonFile(id: string, label: string, binary: string, rel: string[], content: () => unknown, isOurs: (value: unknown) => boolean): StatusHookInstaller {
   const file = (home: string) => path.join(home, ...rel)
   return {
@@ -109,13 +124,18 @@ function ownJsonFile(id: string, label: string, binary: string, rel: string[], c
     files: (home) => [file(home)],
     installed: (home) => fs.existsSync(file(home)) && isOurs(readSettingsFile(file(home))),
     install: (home) => {
-      if (fs.existsSync(file(home)) && isOurs(readSettingsFile(file(home)))) return false
+      if (fs.existsSync(file(home))) {
+        const current = readSettingsFile(file(home))
+        if (isOurs(current)) return false
+        // Install runs unattended on activation: never replace hooks the user keeps under our name.
+        if (!managedHooksFile(current)) throw new Error(`${file(home)} exists and is not managed by CLI Code`)
+      }
       writeSettingsFile(file(home), content())
       return true
     },
     uninstall: (home) => {
       // Only a file we wrote: the user may keep their own hooks under the same name.
-      if (!fs.existsSync(file(home)) || !isOurs(readSettingsFile(file(home)))) return false
+      if (!fs.existsSync(file(home)) || !managedHooksFile(readSettingsFile(file(home)))) return false
       fs.rmSync(file(home))
       return true
     },

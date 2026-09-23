@@ -87,7 +87,7 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
       case "mimo":
       case "kilo": {
         const db = { opencode: "opencode/opencode.db", mimo: "mimocode/mimocode.db", kilo: "kilo/kilo.db" }[toolId]!
-        return modelFromOpencodeDb(path.join(home, ".local", "share", db), cwd, sinceMs)
+        return modelFromOpencodeDb(path.join(home, ".local", "share", db), cwd, sinceMs, sessionId)
       }
       case "copilot": {
         const id = sessionId ?? locateLatestSession("copilot", cwd, sinceMs, home)
@@ -121,11 +121,12 @@ function newestJsonl(dir: string, sinceMs: number): string | undefined {
 }
 
 /** opencode and forks: the newest assistant message of the newest session for `cwd`. */
-function modelFromOpencodeDb(file: string, cwd: string, sinceMs: number): string | undefined {
+function modelFromOpencodeDb(file: string, cwd: string, sinceMs: number, sessionId?: string): string | undefined {
   const db = openDb(file)
   if (!db) return undefined
   try {
-    const session = db.prepare("SELECT id FROM session WHERE directory = ? AND time_updated >= ? ORDER BY time_updated DESC LIMIT 1").get(cwd, sinceMs)
+    // The tab's own session (reported by its hook) wins; the folder's newest is only a fallback.
+    const session = sessionId ? { id: sessionId } : db.prepare("SELECT id FROM session WHERE directory = ? AND time_updated >= ? ORDER BY time_updated DESC LIMIT 1").get(cwd, sinceMs)
     if (!session || typeof session.id !== "string") return undefined
     const row = db.prepare("SELECT data FROM message WHERE session_id = ? AND data LIKE '%\"modelID\"%' ORDER BY time_created DESC LIMIT 1").get(session.id)
     return typeof row?.data === "string" ? modelFromText(row.data) : undefined

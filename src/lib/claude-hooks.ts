@@ -63,8 +63,13 @@ export function uninstallHooks(value: unknown, events: readonly string[] = HOOK_
     for (const e of events) {
       const groups = hooks[e]
       if (!Array.isArray(groups)) continue
-      const kept = groups.filter((g) => !isOurs(g))
-      if (kept.length !== groups.length) changed = true
+      // Drop only our entries: a group may also hold the user's own hooks, which must stay.
+      const kept = groups.flatMap((g) => {
+        if (!isOurs(g)) return [g]
+        changed = true
+        const rest = g.hooks.filter((h) => h?.command !== HOOK_COMMAND)
+        return rest.length ? [{ ...g, hooks: rest }] : []
+      })
       if (kept.length) hooks[e] = kept
       else delete hooks[e]
     }

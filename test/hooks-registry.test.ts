@@ -80,6 +80,26 @@ describe("status hook installers", () => {
       expect(fs.existsSync(file)).toBe(true)
     }
   })
+  it("copilot and grok refuse to overwrite a cli-code.json they did not write (install runs unattended)", () => {
+    for (const id of ["copilot", "grok"]) {
+      const file = byId(id).files(home)[0]!
+      const mine = JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: "echo mine" }] }] } })
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, mine)
+      expect(() => byId(id).install(home)).toThrow(/not managed/)
+      expect(fs.readFileSync(file, "utf8")).toBe(mine)
+    }
+  })
+  it("an outdated cli-code.json of ours (older hook line) is rewritten and removable", () => {
+    const file = byId("grok").files(home)[0]!
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: HOOK_COMMAND }] }] } }))
+    expect(byId("grok").install(home)).toBe(true)
+    expect(byId("grok").installed(home)).toBe(true)
+    fs.writeFileSync(file, JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: HOOK_COMMAND }] }] } }))
+    expect(byId("grok").uninstall(home)).toBe(true)
+    expect(fs.existsSync(file)).toBe(false)
+  })
   it("copilot and grok own their file; other files in the hooks dir are untouched", () => {
     write(".copilot/hooks/mine.json", "{}")
     byId("copilot").install(home)

@@ -57,3 +57,12 @@ describe("copilot hook file", () => {
     expect(copilotInstalled(undefined)).toBe(false)
   })
 })
+
+describe("uninstall keeps the user's hooks that share a group with ours", () => {
+  it("removes only CLI Code's entry from a mixed group", () => {
+    const value = { hooks: { Stop: [{ hooks: [{ type: "command", command: "say done" }, { type: "command", command: HOOK_COMMAND }] }] } }
+    const { settings, changed } = uninstallHooks(value, ["Stop"])
+    expect(changed).toBe(true)
+    expect(settings.hooks).toEqual({ Stop: [{ hooks: [{ type: "command", command: "say done" }] }] })
+  })
+})

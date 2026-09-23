@@ -57,6 +57,18 @@ describe("detectModel — per-CLI session stores", () => {
     db.close()
     expect(detectModel("opencode", cwd, T0, home)).toBe("mimo-v2.5-free")
   })
+  it("opencode family: a known session id wins over the folder's newest session", () => {
+    const { Database } = require("bun:sqlite") as { Database: new (p: string) => { exec(s: string): void; close(): void } }
+    fs.mkdirSync(path.join(home, ".local/share/opencode"), { recursive: true })
+    const db = new Database(path.join(home, ".local/share/opencode/opencode.db"))
+    db.exec("CREATE TABLE session (id text, project_id text, directory text, time_updated integer)")
+    db.exec("CREATE TABLE message (id text, session_id text, time_created integer, time_updated integer, data text)")
+    db.exec(`INSERT INTO session VALUES ('ses_a','p','/w/proj',${T0 + 1}), ('ses_b','p','/w/proj',${T0 + 2})`)
+    db.exec(`INSERT INTO message VALUES ('m1','ses_a',1,1,'{"role":"assistant","modelID":"model-a"}'), ('m2','ses_b',2,2,'{"role":"assistant","modelID":"model-b"}')`)
+    db.close()
+    expect(detectModel("opencode", cwd, T0, home, "ses_a")).toBe("model-a")
+    expect(detectModel("opencode", cwd, T0, home)).toBe("model-b")
+  })
   it("copilot: newest usage event of the folder's session in session-store.db", () => {
     const { Database } = require("bun:sqlite") as { Database: new (p: string) => { exec(s: string): void; close(): void } }
     write(".copilot/session-state/s-1/workspace.yaml", "id: s-1\ncwd: /w/proj\n")
