@@ -78,18 +78,24 @@ export function claudeSessionsInDir(dir: string, limit: number): SessionSummary[
 
 export function codexSessions(cwd: string, limit: number): SessionSummary[] {
   const dir = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "sessions")
-  return newestFiles(dir, (n) => n.startsWith("rollout-") && n.endsWith(".jsonl"), limit, true).flatMap((f) => {
+  // Codex keeps every project's rollouts in one tree: walk it newest first and keep this
+  // workspace's until `limit` — a limit applied before filtering let newer sessions of other
+  // projects push all of this one's out.
+  const out: SessionSummary[] = []
+  for (const f of newestFiles(dir, (n) => n.startsWith("rollout-") && n.endsWith(".jsonl"), Infinity, true)) {
+    if (out.length >= limit) break
     const m = safeMtimeMs(f)
-    if (m === undefined) return []
+    if (m === undefined) continue
     let text: string
     try {
       text = head(f)
     } catch {
-      return []
+      continue
     }
     const s = parseCodexRollout(text, { sessionId: path.basename(f, ".jsonl"), mtimeMs: m, source: f })
-    return s && s.cwd === cwd ? [s] : []
-  })
+    if (s && s.cwd === cwd) out.push(s)
+  }
+  return out
 }
 
 export function grokSessions(cwd: string, limit: number): SessionSummary[] {

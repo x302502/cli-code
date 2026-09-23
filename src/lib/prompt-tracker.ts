@@ -46,11 +46,16 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): { fe
           i += 2
           continue
         }
-        // CSI: ESC [ params final-byte(0x40–0x7e). Other ESC: skip one byte.
+        // CSI: ESC [ params final-byte(0x40–0x7e). SS3 (application cursor keys): ESC O x.
+        // ↑/↓ recall a history entry into the input that the tracker never saw typed.
         if (input[i + 1] === "[") {
           let j = i + 2
           while (j < input.length && !(input.charCodeAt(j) >= 0x40 && input.charCodeAt(j) <= 0x7e)) j++
+          if (j === i + 2 && (input[j] === "A" || input[j] === "B")) unknown = true
           i = j + 1
+        } else if (input[i + 1] === "O" && i + 2 < input.length) {
+          if (input[i + 2] === "A" || input[i + 2] === "B") unknown = true
+          i += 3
         } else i += 1
         continue
       }
@@ -60,6 +65,7 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): { fe
         line = ""
         unknown = false
       } else if (ch === "\x7f" || ch === "\b") line = line.slice(0, -1)
+      else if (ch === "\x10" || ch === "\x0e") unknown = true // Ctrl+P / Ctrl+N: history recall
       else if (ch === "\x03" || ch === "\x15") {
         line = ""
         unknown = false

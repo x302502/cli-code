@@ -1,4 +1,5 @@
 import { Terminal } from "@xterm/headless"
+import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { SerializeAddon } from "@xterm/addon-serialize"
 import { COALESCE_MS, createCoalescer, nextPauseState } from "../lib/flow-control.js"
 import { createOscScanner } from "../lib/osc-scan.js"
@@ -223,6 +224,10 @@ export function createSession(args: {
   const mirror = new Terminal({ cols: args.cols, rows: args.rows, scrollback: 5000, allowProposedApi: true })
   const serializer = new SerializeAddon()
   mirror.loadAddon(serializer)
+  // The webview measures wide characters with Unicode 11; the mirror must agree or a snapshot
+  // after Reload Window puts text and the cursor in different cells (emoji are 2 wide in 11).
+  mirror.loadAddon(new Unicode11Addon())
+  mirror.unicode.activeVersion = "11"
 
   const pty = args.spawnPty({
     command: args.command,

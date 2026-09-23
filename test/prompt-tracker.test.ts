@@ -76,3 +76,21 @@ describe("createPromptTracker", () => {
     expect(hasDraft()).toBe(false)
   })
 })
+
+describe("createPromptTracker — history recall", () => {
+  it("↑/↓ (CSI or SS3) and Ctrl+P/Ctrl+N recall a prompt the tracker cannot see: the draft becomes unknown", () => {
+    for (const key of ["\x1b[A", "\x1b[B", "\x1bOA", "\x1bOB", "\x10", "\x0e"]) {
+      const t = createPromptTracker()
+      expect(t.hasDraft()).toBe(false)
+      t.feed(key)
+      expect(t.hasDraft()).toBe(true)
+      t.feed("\r")
+      expect(t.hasDraft()).toBe(false)
+    }
+  })
+  it("SS3 arrows are skipped whole, not typed as text", () => {
+    const t = createPromptTracker()
+    t.feed("ab\x1bOCc")
+    expect(t.feed("\r")).toBe("abc")
+  })
+})

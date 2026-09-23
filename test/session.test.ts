@@ -236,3 +236,15 @@ describe("Session", () => {
     expect(session.oscTitle).toBe("x")
   })
 })
+
+describe("Session mirror — same Unicode width rules as the webview (Unicode 11)", () => {
+  it("an emoji is two cells wide, so text written after it lands where the webview puts it", async () => {
+    const { session, emit } = makeSession()
+    // A😀B, then CR and a cursor jump to column 4 (1-based), then X. Unicode 11: A|😀😀|B → X replaces B.
+    emit("A\u{1F600}B\r\x1b[4GX")
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    expect(snapshot).toContain("A\u{1F600}X")
+    expect(snapshot).not.toContain("BX")
+  })
+})
