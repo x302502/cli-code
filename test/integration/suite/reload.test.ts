@@ -115,5 +115,19 @@ if (stage() === "1") {
       await waitFor(() => a.inspectPanel(fresh).ready, 15_000, "fresh webview ready")
       assert.equal(fresh.title, "Mất phiên")
     })
+
+    // Review finding: restartFromGone had no in-flight guard, so a double click opened two tabs
+    // resuming the same conversation.
+    it("clicking Restart twice on a gone page opens one tab", async () => {
+      const a = await api()
+      const panel = await restoredPanel(a, { ...saved(), sessionId: "00000000-0000-0000-0000-000000000001", title: "Hai lần" })
+      openPanel = panel
+      await waitFor(() => a.inspectPanel(panel).gone, 15_000, "gone page")
+      const before = new Set(a.activePanels())
+      await Promise.all([a.restartFromGone(a.context, panel), a.restartFromGone(a.context, panel)])
+      const fresh = a.activePanels().filter((p) => !before.has(p))
+      assert.equal(fresh.length, 1)
+      for (const p of fresh) p.dispose()
+    })
   })
 }

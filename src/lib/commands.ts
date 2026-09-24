@@ -42,7 +42,7 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
     void vscode.window.showInformationMessage("Open a folder first.")
     return
   }
-  type Item = vscode.QuickPickItem & { run: () => Promise<void> }
+  type Item = vscode.QuickPickItem & { run: () => Promise<unknown> }
   // The picker opens at once and fills in as the lookups finish: history first, then the
   // "continue latest" entries, whose per-CLI store lookups are synchronous and would
   // otherwise hold the whole picker back.

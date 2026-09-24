@@ -431,7 +431,7 @@ export async function openTerminalPanel(
     quickCommandLabel?: string
     initialInput?: { text: string; submit: boolean }
   } = {},
-): Promise<void> {
+): Promise<vscode.WebviewPanel | undefined> {
   const socketPath = await ensureDaemon(context)
   const cwd = usableCwd(options.cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
   const baseCommand = options.command ?? tool.command
@@ -447,7 +447,7 @@ export async function openTerminalPanel(
   })
   if (!connection) {
     void vscode.window.showErrorMessage("Could not open the terminal: the daemon is not responding.")
-    return
+    return undefined
   }
 
   // Stack CLIs as tabs in one editor group: reuse the column of an existing CLI panel.
@@ -466,6 +466,7 @@ export async function openTerminalPanel(
   if (options.initialInput) panelInitialInputs.set(panel, options.initialInput)
   panelCwds.set(panel, cwd)
   wirePanel(context, panel, tool, connection)
+  return panel
 }
 
 export async function restoreTerminalPanel(
@@ -621,15 +622,25 @@ function siblingIdentities(panel: vscode.WebviewPanel, tool: CliTool, cwd: strin
 /** Reopens a gone panel's tool in a fresh tab with the same cwd and title, resuming its conversation. */
 export async function restartFromGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
   const tool = panelTools.get(panel)
-  if (!tool) return
-  const cwd = panelCwds.get(panel)
-  const title = customTitles.get(panel)
-  const command = await commandForRestart(panel, tool)
-  panel.dispose()
+  // A second click (or a click while the history scan is still running) must not open a
+  // second tab resuming the same conversation.
+  if (!tool || restarting.has(panel)) return
+  restarting.add(panel)
   try {
-    await openTerminalPanel(context, tool, { cwd, title, command })
-  } catch (err) {
-    void vscode.window.showErrorMessage(String(err))
+    const cwd = panelCwds.get(panel)
+    const title = customTitles.get(panel)
+    const command = await commandForRestart(panel, tool)
+    let opened: vscode.WebviewPanel | undefined
+    try {
+      opened = await openTerminalPanel(context, tool, { cwd, title, command })
+    } catch (err) {
+      void vscode.window.showErrorMessage(String(err))
+    }
+    // Only a tab that actually came up replaces the gone page; otherwise the page (with its
+    // Restart button, resume id and title) stays so the user can try again.
+    if (opened) panel.dispose()
+  } finally {
+    restarting.delete(panel)
   }
 }
 
