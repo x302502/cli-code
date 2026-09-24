@@ -117,9 +117,13 @@ export function backupSettingsFileOnce(file: string): void {
 /** Atomic write: stage to a temp file, then rename over the target, so a crash mid-write can
  * never leave a truncated settings.json. The file keeps its permissions (config files may hold
  * tokens and are often 0600); a new file is created private. The backup copy keeps them too. */
-export function writeFileAtomic(file: string, text: string): void {
+export function writeFileAtomic(link: string, text: string): void {
+  fs.mkdirSync(path.dirname(link), { recursive: true })
+  backupSettingsFileOnce(link)
+  // A symlinked config (dotfiles) is updated where it lives: renaming over the link itself
+  // would replace it with a plain file and leave the real file stale.
+  const file = resolveLink(link)
   fs.mkdirSync(path.dirname(file), { recursive: true })
-  backupSettingsFileOnce(file)
   let mode = 0o600
   try {
     mode = fs.statSync(file).mode & 0o777
@@ -131,6 +135,22 @@ export function writeFileAtomic(file: string, text: string): void {
   // writeFileSync's mode is filtered by the umask and ignored for an existing tmp file.
   fs.chmodSync(tmp, mode)
   fs.renameSync(tmp, file)
+}
+
+/** Follows symlinks to the file they point to (also when that file does not exist yet). */
+function resolveLink(file: string): string {
+  let p = file
+  for (let i = 0; i < 40; i++) {
+    let st: fs.Stats
+    try {
+      st = fs.lstatSync(p)
+    } catch {
+      return p
+    }
+    if (!st.isSymbolicLink()) return p
+    p = path.resolve(path.dirname(p), fs.readlinkSync(p))
+  }
+  return p
 }
 
 export function writeSettingsFile(file: string, settings: unknown): void {

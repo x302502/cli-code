@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { continueLatestCommand, restartCommand } from "../src/lib/restart-command.js"
+import { continueLatestCommand, restartCommand, sessionIdFromCommand } from "../src/lib/restart-command.js"
 import type { CliTool } from "../src/lib/config.js"
 import type { SessionSummary } from "../src/lib/history/types.js"
 
@@ -57,5 +57,36 @@ describe("continueLatestCommand", () => {
   })
   it("never splices an unsafe id into a shell line", () => {
     expect(continueLatestCommand(amp, "x; rm -rf /")).toBe("amp threads continue --last")
+  })
+})
+
+describe("restartCommand — several tabs of one CLI in one folder", () => {
+  const cc: CliTool = { id: "command-code", label: "Command Code", icon: "", command: "command-code --yolo", resumeCommand: "command-code --yolo --resume {sessionId}", continueCommand: "command-code --yolo --continue" }
+  it("never guesses while a sibling tab's conversation is unknown: the newest session may be the sibling's", () => {
+    const args = { tool: cc, baseCommand: "command-code --yolo", locatedSessionId: "session-b", sessions: [], spawnedAt: 1000 }
+    expect(restartCommand({ ...args, siblings: [{}] })).toBe("command-code --yolo")
+    // --continue is the same guess ("latest"): not used either.
+    expect(restartCommand({ ...args, locatedSessionId: undefined, siblings: [{}] })).toBe("command-code --yolo")
+  })
+  it("a candidate another tab already owns is not this tab's", () => {
+    expect(restartCommand({ tool: cc, baseCommand: "command-code --yolo", locatedSessionId: "session-b", sessions: [], spawnedAt: 1000, siblings: [{ sessionId: "session-b" }] })).toBe("command-code --yolo")
+  })
+  it("with every sibling's conversation known and different, the located session is this tab's", () => {
+    expect(restartCommand({ tool: cc, baseCommand: "command-code --yolo", locatedSessionId: "session-a", sessions: [], spawnedAt: 1000, siblings: [{ sessionId: "session-b" }] })).toBe("command-code --yolo --resume session-a")
+  })
+  it("from a history list, the newest session no sibling owns", () => {
+    const sessions = [s("claude", "b", 6000), s("claude", "a", 5000)]
+    expect(restartCommand({ tool: claude, baseCommand: "claude --x", sessions, spawnedAt: 1000, siblings: [{ sessionId: "b" }] })).toBe("claude --resume a --x")
+  })
+  it("reported and pinned identities are unaffected by siblings", () => {
+    expect(restartCommand({ tool: cc, baseCommand: "command-code --yolo", reportedSessionId: "mine", sessions: [], spawnedAt: 1000, siblings: [{}] })).toBe("command-code --yolo --resume mine")
+    expect(restartCommand({ tool: cc, baseCommand: "command-code --yolo --resume pinned", sessions: [], spawnedAt: 1000, siblings: [{}] })).toBe("command-code --yolo --resume pinned")
+  })
+})
+
+describe("sessionIdFromCommand", () => {
+  it("reads the id back out of a filled-in resume command", () => {
+    expect(sessionIdFromCommand("claude --resume abc --x", "claude --resume {sessionId} --x")).toBe("abc")
+    expect(sessionIdFromCommand("claude --x", "claude --resume {sessionId} --x")).toBeUndefined()
   })
 })

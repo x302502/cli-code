@@ -160,3 +160,17 @@ describe("status hook installers", () => {
     expect(byId("omp").installed(home)).toBe(true)
   })
 })
+
+describe("writes through symlinked config files", () => {
+  it("updates the link's target and keeps the link (dotfiles setups)", () => {
+    if (process.platform === "win32") return
+    write("dotfiles/claude-settings.json", '{"model":"x"}')
+    fs.mkdirSync(path.join(home, ".claude"), { recursive: true })
+    fs.symlinkSync(path.join(home, "dotfiles/claude-settings.json"), path.join(home, ".claude/settings.json"))
+    expect(byId("claude").install(home)).toBe(true)
+    expect(fs.lstatSync(path.join(home, ".claude/settings.json")).isSymbolicLink()).toBe(true)
+    const target = JSON.parse(read("dotfiles/claude-settings.json"))
+    expect(target.model).toBe("x")
+    expect(target.hooks.Stop.length).toBe(1)
+  })
+})

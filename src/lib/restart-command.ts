@@ -18,8 +18,11 @@ export function restartCommand(args: {
   locatedSessionId?: string
   sessions: SessionSummary[]
   spawnedAt: number
+  /** Other open tabs of the same CLI in the same folder, with their conversation when known. */
+  siblings?: { sessionId?: string }[]
 }): string {
   const { tool, baseCommand, spawnedAt } = args
+  const siblings = args.siblings ?? []
   const safe = (id: string | undefined) => (id && SAFE_ID.test(id) ? id : undefined)
   // What the CLI reported wins even over a pinned --resume: the user may have switched
   // conversations inside the CLI (/clear, /resume) since the tab was opened.
@@ -29,16 +32,33 @@ export function restartCommand(args: {
   if (tool.resumeCommand && matchesTemplate(baseCommand, tool.resumeCommand)) return baseCommand
   if (tool.continueCommand && baseCommand === tool.continueCommand) return baseCommand
 
+  // Everything below guesses "the newest conversation in this folder". With another tab of the
+  // same CLI here whose conversation is unknown, that newest one may well be the sibling's —
+  // restarting into it would take over the other tab's work. A fresh session is the safe
+  // answer then (and --continue is the same guess, so it is skipped too).
+  if (siblings.some((t) => !t.sessionId)) return baseCommand
+  const claimed = new Set(siblings.map((t) => t.sessionId))
   if (tool.resumeCommand) {
+    const located = safe(args.locatedSessionId)
+    // The store names only its newest session; if a sibling owns it, this tab's is unknown.
+    if (located && claimed.has(located)) return baseCommand
     const id =
-      safe(args.locatedSessionId) ??
+      located ??
       args.sessions
-        .filter((s) => s.toolId === (tool.historyToolId ?? tool.id) && s.updatedAt >= spawnedAt && SAFE_ID.test(s.sessionId))
+        .filter((s) => s.toolId === (tool.historyToolId ?? tool.id) && s.updatedAt >= spawnedAt && SAFE_ID.test(s.sessionId) && !claimed.has(s.sessionId))
         .sort((a, b) => b.updatedAt - a.updatedAt)[0]?.sessionId
     if (id) return tool.resumeCommand.replace("{sessionId}", id)
   }
-  if (tool.continueCommand) return tool.continueCommand
+  if (tool.continueCommand && siblings.length === 0) return tool.continueCommand
   return baseCommand
+}
+
+/** The session id in a command built from `template` (a tab opened or restarted by id). */
+export function sessionIdFromCommand(command: string, template: string): string | undefined {
+  const [before, after] = template.split("{sessionId}")
+  if (after === undefined || !matchesTemplate(command, template)) return undefined
+  const id = command.slice(before!.length, command.length - after.length)
+  return SAFE_ID.test(id) ? id : undefined
 }
 
 /** Whether `command` is `template` with `{sessionId}` filled in. */

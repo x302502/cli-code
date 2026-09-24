@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto"
 import * as fs from "node:fs"
 import * as net from "node:net"
 import * as os from "node:os"
+import * as path from "node:path"
 import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { connectSession, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
@@ -12,7 +13,7 @@ import { detectModel } from "./history/model.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
 import { createPromptTracker } from "./prompt-tracker.js"
 import { canAutoRestart, changedPath, configPathsFor, configSnapshot } from "./config-watch.js"
-import { restartCommand } from "./restart-command.js"
+import { restartCommand, sessionIdFromCommand } from "./restart-command.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
 import { buildEnv } from "./terminal.js"
@@ -595,7 +596,26 @@ async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Pro
     }
   }
   const locatedSessionId = reportedSessionId || !cwd ? undefined : locateLatestSession(tool.historyToolId ?? tool.id, cwd, spawnedAt, os.homedir())
-  return restartCommand({ tool, baseCommand, reportedSessionId, locatedSessionId, sessions, spawnedAt })
+  return restartCommand({ tool, baseCommand, reportedSessionId, locatedSessionId, sessions, spawnedAt, siblings: siblingIdentities(panel, tool, cwd) })
+}
+
+/** Other open tabs of the same CLI in the same folder, each with its conversation if known:
+ * the one its hook reported, else the id its command resumes. */
+function siblingIdentities(panel: vscode.WebviewPanel, tool: CliTool, cwd: string | undefined): { sessionId?: string }[] {
+  const family = tool.historyToolId ?? tool.id
+  const here = cwd ? path.resolve(cwd) : undefined
+  return [...activePanels]
+    .filter((p) => p !== panel)
+    .filter((p) => {
+      const t = panelTools.get(p)
+      const c = usableCwd(panelCwds.get(p)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      return t !== undefined && (t.historyToolId ?? t.id) === family && c !== undefined && path.resolve(c) === here
+    })
+    .map((p) => {
+      const t = panelTools.get(p)!
+      const cmd = panelCommands.get(p)
+      return { sessionId: panelCliSessionIds.get(p) ?? (t.resumeCommand && cmd ? sessionIdFromCommand(cmd, t.resumeCommand) : undefined) }
+    })
 }
 
 /** Reopens a gone panel's tool in a fresh tab with the same cwd and title, resuming its conversation. */
