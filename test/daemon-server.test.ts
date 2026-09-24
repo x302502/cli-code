@@ -15,7 +15,7 @@ afterEach(async () => {
 function scriptedPty() {
   let dataCb: (d: string) => void = () => {}
   let exitCb: (e: { exitCode: number; signal?: number }) => void = () => {}
-  const written: string[] = []
+  const written: (string | Buffer)[] = []
   const pty: PtyLike = {
     onData: (cb) => (dataCb = cb),
     onExit: (cb) => (exitCb = cb),
@@ -373,5 +373,23 @@ describe("startDaemon", () => {
     expect(decodeJsonPayload<unknown>(status.payload)).toEqual({ state: "working", prompt: "abc" })
     hook.socket.destroy()
     owner.socket.destroy()
+  })
+})
+
+describe("startDaemon — binary input", () => {
+  it("writes InputBinary frames to the PTY byte for byte (legacy mouse reports are not UTF-8)", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty })
+    stop = daemon.close
+    const client = connect(p)
+    client.socket.write(encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "x", command: "x", cwd: "/tmp", env: {}, cols: 120, rows: 24 }))
+    await client.waitFor(MSG.HelloOk)
+    // X10 click at column 101: ESC [ M, button 0x20, x = 101 + 32 = 0x85, y = 0x21.
+    const report = new Uint8Array([0x1b, 0x5b, 0x4d, 0x20, 0x85, 0x21])
+    client.socket.write(encodeFrame(MSG.InputBinary, report))
+    for (let i = 0; i < 100 && harness.written.length === 0; i++) await new Promise((r) => setTimeout(r, 10))
+    expect(Buffer.from(harness.written[0] as Buffer)).toEqual(Buffer.from(report))
+    client.socket.destroy()
   })
 })

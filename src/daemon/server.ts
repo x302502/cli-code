@@ -65,6 +65,7 @@ export async function startDaemon(args: {
           }
           if (!session) continue
           if (frame.type === MSG.Input) session.write(new TextDecoder().decode(frame.payload))
+          else if (frame.type === MSG.InputBinary) session.write(Buffer.from(frame.payload))
           else if (frame.type === MSG.Resize) {
             const size = decodeJsonPayload<{ cols: number; rows: number }>(frame.payload)
             session.resize(size.cols, size.rows)

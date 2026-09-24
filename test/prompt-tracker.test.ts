@@ -94,3 +94,27 @@ describe("createPromptTracker — history recall", () => {
     expect(t.feed("\r")).toBe("abc")
   })
 })
+
+describe("createPromptTracker — edits it cannot replay", () => {
+  it("after the caret moves (Home/←/→/End, Ctrl+A/E) the line is unknown: Backspace no longer means 'delete the last char'", () => {
+    for (const move of ["\x1b[H", "\x1bOH", "\x1b[D", "\x1b[1~", "\x01", "\x02"]) {
+      const t = createPromptTracker()
+      t.feed("abc")
+      t.feed(move)
+      t.feed("\x7f\x7f\x7f")
+      expect(t.hasDraft()).toBe(true)
+    }
+  })
+  it("other editing keys it does not model (Tab completion, Ctrl+W/K/Y) also make the draft unknown", () => {
+    for (const key of ["\t", "\x17", "\x0b", "\x19"]) {
+      const t = createPromptTracker()
+      t.feed(key)
+      expect(t.hasDraft()).toBe(true)
+    }
+  })
+  it("focus reports (ESC [ I / ESC [ O) are not edits", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b[I\x1b[O")
+    expect(t.hasDraft()).toBe(false)
+  })
+})

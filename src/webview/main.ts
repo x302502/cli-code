@@ -317,7 +317,9 @@ new MutationObserver(() => {
 fit.fit()
 
 term.onData((data) => vscode.postMessage({ type: "input", data }))
-term.onBinary((data) => vscode.postMessage({ type: "input", data }))
+// onBinary carries raw bytes (legacy X10 mouse reports past column 95): keep them apart from
+// text input, which is UTF-8 encoded on the way to the PTY.
+term.onBinary((data) => vscode.postMessage({ type: "input", data, binary: true }))
 
 const overlay = createExitOverlay(() => vscode.postMessage({ type: "restart" }))
 const searchBar = createSearchBar(term, searchAddon)

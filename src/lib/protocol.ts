@@ -6,6 +6,8 @@ export const MSG = {
   Ack: 4,
   Kill: 5,
   StatusReport: 6,
+  // Raw bytes for the PTY (xterm onBinary: legacy mouse reports), never re-encoded as UTF-8.
+  InputBinary: 7,
   HelloOk: 16,
   HelloFail: 17,
   Snapshot: 18,

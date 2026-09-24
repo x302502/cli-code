@@ -761,7 +761,9 @@ function attachConnection(
   })
 
   wiring.listener = panel.webview.onDidReceiveMessage((message) => {
-    if (message.type === "input") {
+    if (message.type === "input" && message.binary === true && typeof message.data === "string") {
+      connection.writeBinary(message.data)
+    } else if (message.type === "input") {
       connection.write(message.data)
       const title = tracker.feed(message.data)
       if (title) {

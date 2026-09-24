@@ -8,7 +8,7 @@ import { AGENT_STATES, type AgentState, type MetaEvent } from "../lib/protocol.j
 export type PtyLike = {
   onData(cb: (data: string) => void): void
   onExit(cb: (e: { exitCode: number; signal?: number }) => void): void
-  write(data: string): void
+  write(data: string | Buffer): void
   resize(cols: number, rows: number): void
   kill(): void
   pause(): void
@@ -159,7 +159,7 @@ export class Session {
     }
   }
 
-  write(data: string): void {
+  write(data: string | Buffer): void {
     if (this.exit) return
     this.pty.write(data)
   }

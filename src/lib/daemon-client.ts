@@ -11,6 +11,8 @@ export type SessionConnection = {
   onMeta(cb: (e: MetaEvent) => void): void
   onClose(cb: () => void): void
   write(data: string): void
+  /** Bytes as-is: each char of `data` is one byte (0–255), as xterm's onBinary delivers them. */
+  writeBinary(data: string): void
   resize(cols: number, rows: number): void
   ack(bytes: number): void
   kill(): void
@@ -129,6 +131,7 @@ export function connectSession(
                 }
               },
               write: (data) => socket.write(encodeFrame(MSG.Input, new TextEncoder().encode(data))),
+              writeBinary: (data) => socket.write(encodeFrame(MSG.InputBinary, Uint8Array.from(data, (c) => c.charCodeAt(0) & 0xff))),
               resize: (cols, rows) => socket.write(encodeJsonFrame(MSG.Resize, { cols, rows })),
               ack: (bytes) => {
                 const payload = new Uint8Array(4)

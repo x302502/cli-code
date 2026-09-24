@@ -46,17 +46,22 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): { fe
           i += 2
           continue
         }
-        // CSI: ESC [ params final-byte(0x40–0x7e). SS3 (application cursor keys): ESC O x.
-        // ↑/↓ recall a history entry into the input that the tracker never saw typed.
+        // CSI: ESC [ params final-byte(0x40–0x7e). SS3 (application keys): ESC O x. The tracker
+        // only replays typing at the end of the line: any other key — history (↑/↓), caret
+        // moves (Home, ←, …), Alt-combos — edits the input in ways it cannot follow, so the
+        // draft becomes unknown. Focus reports (ESC [ I / O) are the only keys that are not edits.
         if (input[i + 1] === "[") {
           let j = i + 2
           while (j < input.length && !(input.charCodeAt(j) >= 0x40 && input.charCodeAt(j) <= 0x7e)) j++
-          if (j === i + 2 && (input[j] === "A" || input[j] === "B")) unknown = true
+          if (!(j === i + 2 && (input[j] === "I" || input[j] === "O"))) unknown = true
           i = j + 1
         } else if (input[i + 1] === "O" && i + 2 < input.length) {
-          if (input[i + 2] === "A" || input[i + 2] === "B") unknown = true
+          unknown = true
           i += 3
-        } else i += 1
+        } else {
+          unknown = true
+          i += 1
+        }
         continue
       }
       if (ch === "\r" || ch === "\n") {
@@ -65,11 +70,13 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): { fe
         line = ""
         unknown = false
       } else if (ch === "\x7f" || ch === "\b") line = line.slice(0, -1)
-      else if (ch === "\x10" || ch === "\x0e") unknown = true // Ctrl+P / Ctrl+N: history recall
       else if (ch === "\x03" || ch === "\x15") {
         line = ""
         unknown = false
       } else if (ch >= " ") line += ch
+      // Every other control key (Ctrl+P/N history, Ctrl+A/E/B/F moves, Tab completion,
+      // Ctrl+W/K/Y …) changes the input in a way the tracker cannot replay.
+      else unknown = true
       i++
     }
     return submitted
