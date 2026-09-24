@@ -50,24 +50,32 @@ export async function resolveShellEnv(shell: string | undefined = process.env.SH
 
 let cached: Record<string, string> | undefined
 let inflight: Promise<Record<string, string> | undefined> | undefined
-let resolvedAt = 0
+let probedAt = 0
 const TTL_MS = 60_000
 
 /**
- * Cached per window: the first spawn waits for the probe, later ones use the cached value
- * and refresh it in the background once it is older than a minute (so a PATH edit in .zshrc
- * reaches the next tab without a reload).
+ * Cached per window: the first call waits for the probe, later ones use the cached value and
+ * refresh it in the background once it is older than a minute (so a PATH edit in .zshrc
+ * reaches the next tab without a reload). A failed probe is remembered for that minute too —
+ * with a .zshrc slower than the timeout, every hook sync and CLI check would otherwise wait out
+ * the full timeout again.
  */
-export async function shellEnv(): Promise<Record<string, string> | undefined> {
-  const refresh = () => (inflight ??= resolveShellEnv().then((env) => {
-    if (env) {
-      cached = env
-      resolvedAt = Date.now()
-    }
-    inflight = undefined
-    return cached
-  }))
-  if (cached === undefined) return refresh()
-  if (Date.now() - resolvedAt > TTL_MS) void refresh()
+export async function shellEnv(probe: () => Promise<Record<string, string> | undefined> = () => resolveShellEnv()): Promise<Record<string, string> | undefined> {
+  const refresh = () =>
+    (inflight ??= probe().then((env) => {
+      if (env) cached = env
+      probedAt = Date.now()
+      inflight = undefined
+      return cached
+    }))
+  if (probedAt === 0) return refresh()
+  if (Date.now() - probedAt > TTL_MS) void refresh()
   return cached
+}
+
+/** For tests: forget the cached environment and when it was probed. */
+export function resetShellEnvCache(): void {
+  cached = undefined
+  inflight = undefined
+  probedAt = 0
 }

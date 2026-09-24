@@ -233,14 +233,8 @@ export function createSession(args: {
   spawnPty: SpawnPty
   schedule?: (fn: () => void, ms: number) => unknown
 }): Session {
-  const mirror = new Terminal({ cols: args.cols, rows: args.rows, scrollback: 5000, allowProposedApi: true })
-  const serializer = new SerializeAddon()
-  mirror.loadAddon(serializer)
-  // The webview measures wide characters with Unicode 11; the mirror must agree or a snapshot
-  // after Reload Window puts text and the cursor in different cells (emoji are 2 wide in 11).
-  mirror.loadAddon(new Unicode11Addon())
-  mirror.unicode.activeVersion = "11"
-
+  // Spawn first: if it throws (no shell, bad cwd) no 5000-line mirror is left behind for the
+  // life of the daemon.
   const pty = args.spawnPty({
     command: args.command,
     cwd: args.cwd,
@@ -248,6 +242,14 @@ export function createSession(args: {
     cols: args.cols,
     rows: args.rows,
   })
+
+  const mirror = new Terminal({ cols: args.cols, rows: args.rows, scrollback: 5000, allowProposedApi: true })
+  const serializer = new SerializeAddon()
+  mirror.loadAddon(serializer)
+  // The webview measures wide characters with Unicode 11; the mirror must agree or a snapshot
+  // after Reload Window puts text and the cursor in different cells (emoji are 2 wide in 11).
+  mirror.loadAddon(new Unicode11Addon())
+  mirror.unicode.activeVersion = "11"
 
   const session = new Session(args.id, args.toolId, pty, mirror, serializer, args.schedule ?? setTimeout)
   // Seed with the spawn cwd: CLIs run via `$SHELL -ilc <cmd>` rarely emit OSC 7, and a

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { parseEnvBlock, resolveShellEnv } from "../src/lib/shell-env.js"
+import { parseEnvBlock, resetShellEnvCache, resolveShellEnv, shellEnv } from "../src/lib/shell-env.js"
 
 const block = (entries: string[]) => `noise from .zshrc\n__CLI_CODE_ENV_START__${entries.join("\0")}__CLI_CODE_ENV_END__`
 
@@ -28,5 +28,19 @@ describe("resolveShellEnv", () => {
   it("really works against this machine's shell (PATH comes back non-empty)", async () => {
     const env = await resolveShellEnv()
     expect(env?.PATH ?? "").not.toBe("")
+  })
+})
+
+describe("shellEnv cache", () => {
+  it("a failed probe is remembered too: a slow .zshrc costs its timeout once per minute, not on every call", async () => {
+    resetShellEnvCache()
+    let calls = 0
+    const failing = async () => {
+      calls++
+      return undefined
+    }
+    expect(await shellEnv(failing)).toBeUndefined()
+    expect(await shellEnv(failing)).toBeUndefined()
+    expect(calls).toBe(1)
   })
 })
