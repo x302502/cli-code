@@ -96,3 +96,15 @@ describe("findUrlTokens", () => {
     expect(tokens("example.com ftp://x javascript:alert(1)")).toEqual([])
   })
 })
+
+describe("Windows paths", () => {
+  it("drive-letter paths with either separator are one token, line/col split off at the end", () => {
+    expect(findPathTokens("error at C:\\project\\src\\main.ts:12:4 here")).toEqual([{ text: "C:\\project\\src\\main.ts:12:4", start: 9 }])
+    expect(findPathTokens("see C:/project/src/main.ts:12:4")).toEqual([{ text: "C:/project/src/main.ts:12:4", start: 4 }])
+    expect(parsePathLink("C:\\project\\src\\main.ts:12:4")).toEqual({ path: "C:\\project\\src\\main.ts", line: 12, col: 4 })
+    expect(parsePathLink("d:/x/y.md")).toEqual({ path: "d:/x/y.md" })
+  })
+  it("relative paths with backslashes keep their folders", () => {
+    expect(findPathTokens("in src\\lib\\a.ts:3")).toEqual([{ text: "src\\lib\\a.ts:3", start: 3 }])
+  })
+})

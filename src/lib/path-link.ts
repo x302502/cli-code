@@ -10,8 +10,11 @@ const BARE_NAMES = "README|Makefile|Dockerfile|Rakefile|Gemfile|Procfile|LICENSE
 // `\w` is ASCII-only: Vietnamese (and any other non-Latin) filenames need the Unicode
 // letter/number/mark classes, and \p{M} covers macOS's decomposed (NFD) diacritics.
 const C = "\\p{L}\\p{M}\\p{N}_"
+// Windows: a drive letter (`C:\\…` or `C:/…`) and backslash separators, so `C:\\p\\a.ts:12:4`
+// stays one path instead of a bare `a.ts:12:4` resolved against the wrong folder.
+const SEP = "/\\\\"
 const PATH_RE = new RegExp(
-  `^((?:~|\\.{1,2})?/[${C}.\\-@+/]+|[${C}.\\-@+]+/[${C}.\\-@+/]*|(?:${BARE_NAMES})(?:\\.[${C}.\\-]+)?|[\\p{L}_][${C}\\-]*(?:\\.[${C}\\-]+)*\\.(?:[A-Za-z][A-Za-z0-9]{1,7}|[chmsrdCHMSRD]))(?::(\\d+))?(?::(\\d+))?$`,
+  `^([A-Za-z]:[${SEP}][${C}.\\-@+${SEP}]*|(?:~|\\.{1,2})?[${SEP}][${C}.\\-@+${SEP}]+|[${C}.\\-@+]+[${SEP}][${C}.\\-@+${SEP}]*|(?:${BARE_NAMES})(?:\\.[${C}.\\-]+)?|[\\p{L}_][${C}\\-]*(?:\\.[${C}\\-]+)*\\.(?:[A-Za-z][A-Za-z0-9]{1,7}|[chmsrdCHMSRD]))(?::(\\d+))?(?::(\\d+))?$`,
   "u",
 )
 
@@ -27,7 +30,7 @@ export function parsePathLink(text: string): { path: string; line?: number; col?
 
 // A candidate token is a run of path-ish characters; the exact shape is then checked with
 // PATH_RE after trailing punctuation (sentence/quote/bracket endings) is trimmed away.
-const TOKEN_RE = new RegExp(`[${C}.\\-@+~/:]+`, "gu")
+const TOKEN_RE = new RegExp(`[${C}.\\-@+~/\\\\:]+`, "gu")
 const TRAILING = /[.,;:'"]+$/
 
 /** Path-like tokens on one row of terminal text, with their 0-based start column. URLs are

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
@@ -130,11 +131,18 @@ export function writeFileAtomic(link: string, text: string): void {
   } catch {
     // new file
   }
-  const tmp = `${file}.tmp`
-  fs.writeFileSync(tmp, text, { mode })
-  // writeFileSync's mode is filtered by the umask and ignored for an existing tmp file.
-  fs.chmodSync(tmp, mode)
-  fs.renameSync(tmp, file)
+  // A temp name per write: every VS Code window runs the hook sync, and a shared `.tmp` let one
+  // process rename another's half-written file into place (or fail with ENOENT).
+  const tmp = `${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`
+  try {
+    fs.writeFileSync(tmp, text, { mode, flag: "wx" })
+    // writeFileSync's mode is filtered by the umask.
+    fs.chmodSync(tmp, mode)
+    fs.renameSync(tmp, file)
+  } catch (err) {
+    fs.rmSync(tmp, { force: true })
+    throw err
+  }
 }
 
 /** Follows symlinks to the file they point to (also when that file does not exist yet). */

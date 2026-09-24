@@ -174,3 +174,32 @@ describe("writes through symlinked config files", () => {
     expect(target.hooks.Stop.length).toBe(1)
   })
 })
+
+describe("concurrent writers (one hook sync per VS Code window)", () => {
+  it("readers never see a half-written file and no writer fails", async () => {
+    const file = path.join(home, "settings.json")
+    fs.writeFileSync(file, JSON.stringify({ n: 0 }))
+    const mod = path.resolve(import.meta.dir, "../src/lib/claude-hooks.ts")
+    const writer = (id: number) =>
+      Bun.spawn(["bun", "-e", `import { writeSettingsFile } from ${JSON.stringify(mod)}; const big = "x".repeat(200000); for (let i = 0; i < 150; i++) writeSettingsFile(${JSON.stringify(file)}, { id: ${id}, i, big })`], { stderr: "pipe" })
+    const procs = [writer(1), writer(2), writer(3)]
+    let bad = 0
+    const reading = (async () => {
+      while (procs.some((p) => p.exitCode === null)) {
+        try {
+          JSON.parse(fs.readFileSync(file, "utf8"))
+        } catch {
+          bad++
+        }
+        await new Promise((r) => setTimeout(r, 1))
+      }
+    })()
+    const codes = await Promise.all(procs.map((p) => p.exited))
+    await reading
+    const errors = await Promise.all(procs.map((p) => new Response(p.stderr).text()))
+    expect(errors.join("")).toBe("")
+    expect(codes).toEqual([0, 0, 0])
+    expect(bad).toBe(0)
+    expect(fs.readdirSync(home).filter((n) => n.endsWith(".tmp"))).toEqual([])
+  }, 60_000)
+})
