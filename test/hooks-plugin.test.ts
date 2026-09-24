@@ -60,6 +60,22 @@ describe("generated status plugin", () => {
       { hook_event_name: "UserPromptSubmit", session_id: "ses_1", cwd: "/w/proj", prompt: "fix the bug" },
     ])
   })
+  it("opencode: a subagent (child session) never ends the tab's turn or takes over its session id", async () => {
+    const plugin = await load("opencode")
+    const client = { session: { get: async ({ path: { id } }: { path: { id: string } }) => ({ data: { id, parentID: id === "ses_child" ? "ses_parent" : undefined } }) } }
+    const hooks = (await plugin({ directory: "/w/proj", client })) as Record<string, (...a: unknown[]) => Promise<void>>
+    await hooks["chat.message"]!({ sessionID: "ses_parent" }, { parts: [{ type: "text", text: "go" }] })
+    await hooks["chat.message"]!({ sessionID: "ses_child" }, { parts: [{ type: "text", text: "subtask" }] })
+    await hooks.event!({ event: { type: "session.idle", properties: { sessionID: "ses_child" } } })
+    await hooks["permission.ask"]!({ sessionID: "ses_child" })
+    await hooks.event!({ event: { type: "session.idle", properties: { sessionID: "ses_parent" } } })
+    expect(await captured(3)).toEqual([
+      // A subagent asking for permission still means the user is needed — without its id.
+      { hook_event_name: "PermissionRequest", cwd: "/w/proj" },
+      { hook_event_name: "Stop", session_id: "ses_parent", cwd: "/w/proj" },
+      { hook_event_name: "UserPromptSubmit", session_id: "ses_parent", cwd: "/w/proj", prompt: "go" },
+    ])
+  })
   it("pi: before_agent_start / agent_settled / ui_prompt_start", async () => {
     const ext = await load("pi")
     const handlers: Record<string, (e: unknown, c: unknown) => Promise<void>> = {}

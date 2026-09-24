@@ -192,7 +192,7 @@ export class Session {
    * macrotask, so awaiting an earlier write's callback is not a stable cut point.
    */
   snapshot(): Promise<string> {
-    return new Promise<string>((resolve) => this.mirror.write("", () => resolve(this.serializer.serialize())))
+    return new Promise<string>((resolve) => this.mirror.write("", () => resolve(this.serializer.serialize() + mouseEncoding(this.mirror))))
   }
 
   private forward(chunk: Uint8Array): void {
@@ -208,6 +208,18 @@ export class Session {
     if (next) this.pty.pause()
     else this.pty.resume()
   }
+}
+
+/**
+ * The mouse report encoding the program switched on (SGR = 1006, SGR pixels = 1016). The
+ * serializer restores mouse *tracking* but not its encoding, so after a reload the webview
+ * would send legacy X10 reports to a TUI still expecting SGR ones.
+ */
+function mouseEncoding(term: Terminal): string {
+  const encoding = (term as unknown as { _core?: { coreMouseService?: { activeEncoding?: string } } })._core?.coreMouseService?.activeEncoding
+  if (encoding === "SGR") return "\x1b[?1006h"
+  if (encoding === "SGR_PIXELS") return "\x1b[?1016h"
+  return ""
 }
 
 export function createSession(args: {

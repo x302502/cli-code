@@ -23,20 +23,39 @@ function report(payload: Record<string, unknown>): void {
 `
 
 const OPENCODE = `
-export default async function CliCodeStatus(input: { directory?: string }) {
+export default async function CliCodeStatus(input: { directory?: string; client?: any }) {
   if (!HOOK) return {}
   const cwd = input?.directory
   const text = (parts: unknown) =>
     Array.isArray(parts) ? parts.filter((p: any) => p?.type === "text" && typeof p.text === "string").map((p: any) => p.text).join("\\n") : undefined
+  // Subagents run in child sessions (they have a parentID) and emit their own prompt/idle
+  // events; those must not end the tab's turn or become the session the tab restarts into.
+  const children = new Map<string, boolean>()
+  const isChild = async (id: unknown): Promise<boolean> => {
+    if (typeof id !== "string" || !input?.client?.session?.get) return false
+    if (!children.has(id)) {
+      try {
+        const res = await input.client.session.get({ path: { id } })
+        children.set(id, Boolean((res?.data ?? res)?.parentID))
+      } catch {
+        return false
+      }
+    }
+    return children.get(id) === true
+  }
   return {
     "chat.message": async (inp: any, out: any) => {
+      if (await isChild(inp?.sessionID)) return
       report({ hook_event_name: "UserPromptSubmit", session_id: inp?.sessionID, cwd, prompt: text(out?.parts) })
     },
     "permission.ask": async (perm: any) => {
-      report({ hook_event_name: "PermissionRequest", session_id: perm?.sessionID, cwd })
+      // A subagent waiting on permission still needs the user — just not its session id.
+      if (await isChild(perm?.sessionID)) report({ hook_event_name: "PermissionRequest", cwd })
+      else report({ hook_event_name: "PermissionRequest", session_id: perm?.sessionID, cwd })
     },
     event: async ({ event }: any) => {
-      if (event?.type === "session.idle") report({ hook_event_name: "Stop", session_id: event?.properties?.sessionID, cwd })
+      if (event?.type !== "session.idle" || (await isChild(event?.properties?.sessionID))) return
+      report({ hook_event_name: "Stop", session_id: event?.properties?.sessionID, cwd })
     },
   }
 }

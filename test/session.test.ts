@@ -248,3 +248,21 @@ describe("Session mirror — same Unicode width rules as the webview (Unicode 11
     expect(snapshot).not.toContain("BX")
   })
 })
+
+describe("Session snapshot — mouse encoding", () => {
+  it("restores SGR mouse encoding (1006) along with tracking, so clicks after a reload use the same format", async () => {
+    const { session, emit } = makeSession()
+    emit("\x1b[?1000h\x1b[?1006h")
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    expect(snapshot).toContain("\x1b[?1000h")
+    expect(snapshot).toContain("\x1b[?1006h")
+  })
+  it("adds nothing when the default encoding is active", async () => {
+    const { session, emit } = makeSession()
+    emit("\x1b[?1000h")
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    expect(snapshot).not.toContain("\x1b[?1006h")
+  })
+})
