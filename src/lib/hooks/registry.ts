@@ -1,6 +1,6 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
-import { backupSettingsFileOnce, HOOK_COMMAND, hooksInstalled, installHooks, readSettingsFile, uninstallHooks, writeSettingsFile } from "../claude-hooks.js"
+import { HOOK_COMMAND, hooksInstalled, installHooks, readSettingsFile, uninstallHooks, writeFileAtomic, writeSettingsFile } from "../claude-hooks.js"
 import { addTrust, codexTrustKeys, removeTrust } from "./codex-trust.js"
 import { copilotFile, copilotInstalled } from "./copilot.js"
 import { isManagedPlugin, pluginSource, type PluginFlavour } from "./plugin-template.js"
@@ -33,11 +33,7 @@ function readText(file: string): string | undefined {
   }
 }
 function writeText(file: string, text: string): void {
-  fs.mkdirSync(path.dirname(file), { recursive: true })
-  backupSettingsFileOnce(file)
-  const tmp = `${file}.tmp`
-  fs.writeFileSync(tmp, text)
-  fs.renameSync(tmp, file)
+  writeFileAtomic(file, text)
 }
 
 // --- the Claude `hooks` object inside a settings file the user also edits (claude, droid) ---
@@ -66,11 +62,15 @@ function settingsHooks(id: string, label: string, binary: string, rel: string[],
 // --- Codex: hooks.json plus trust entries in config.toml ---
 
 const CODEX_EVENTS = ["UserPromptSubmit", "Stop", "PermissionRequest"] as const
+/** The folder Codex reads its config from: CODEX_HOME when set (as for Codex itself), else ~/.codex. */
+export function codexDir(home: string): string {
+  return process.env.CODEX_HOME || path.join(home, ".codex")
+}
 const codex: StatusHookInstaller = {
   id: "codex",
   label: "Codex",
   binary: "codex",
-  files: (home) => [path.join(home, ".codex", "hooks.json"), path.join(home, ".codex", "config.toml")],
+  files: (home) => [path.join(codexDir(home), "hooks.json"), path.join(codexDir(home), "config.toml")],
   installed: (home) => {
     const [hooksFile, tomlFile] = codex.files(home) as [string, string]
     const value = readSettingsFile(hooksFile)

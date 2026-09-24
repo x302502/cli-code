@@ -72,7 +72,11 @@ async function runStatusHookSync(context: vscode.ExtensionContext, enabled: bool
     return
   }
   // The CLIs' bin dirs usually come from .zshrc, which the extension host's PATH may lack.
-  const envPath = (await shellEnv())?.PATH ?? process.env.PATH
+  const env = await shellEnv()
+  const envPath = env?.PATH ?? process.env.PATH
+  // Codex reads CODEX_HOME from the shell it runs in (often set in .zshrc, which the extension
+  // host never sourced); installing hooks and reading history must use the same folder.
+  if (env?.CODEX_HOME && !process.env.CODEX_HOME) process.env.CODEX_HOME = env.CODEX_HOME
   const results = syncStatusHooks({ installers: STATUS_HOOK_INSTALLERS, home: os.homedir(), enabled, onPath: (b) => binaryOnPath(b, envPath) })
   const failed = results.some((r) => r.action === "error")
   if (results.some((r) => r.action === "installed" || r.action === "removed")) checkAllStale(context)

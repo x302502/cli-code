@@ -30,9 +30,12 @@ const CONFIG_PATHS: Record<string, Paths> = {
 }
 
 export function configPathsFor(toolId: string, historyToolId: string | undefined, cwd: string | undefined, home: string): string[] {
-  const p = CONFIG_PATHS[historyToolId ?? toolId]
+  const id = historyToolId ?? toolId
+  const p = CONFIG_PATHS[id]
   if (!p) return []
-  return [...p.home.map((r) => path.join(home, r)), ...(cwd ? p.project.map((r) => path.join(cwd, r)) : [])]
+  // Codex's home folder moves with CODEX_HOME; its project-level `.codex/` does not.
+  const homeFile = (r: string) => (id === "codex" && process.env.CODEX_HOME ? path.join(process.env.CODEX_HOME, r.replace(/^\.codex\//, "")) : path.join(home, r))
+  return [...p.home.map(homeFile), ...(cwd ? p.project.map((r) => path.join(cwd, r)) : [])]
 }
 
 /**
@@ -87,7 +90,8 @@ export function changedPath(before: Record<string, string>, after: Record<string
 function signature(p: string): string | undefined {
   const base = path.basename(p)
   if (base === ".claude.json") return hashOf(p, claudeMcp)
-  if (base === "config.toml" && path.basename(path.dirname(p)) === ".codex") return hashOf(p, codexMcpAndHooks)
+  const parent = path.dirname(p)
+  if (base === "config.toml" && (path.basename(parent) === ".codex" || (process.env.CODEX_HOME && path.resolve(parent) === path.resolve(process.env.CODEX_HOME)))) return hashOf(p, codexMcpAndHooks)
   const m = newestMtime(p)
   if (m === undefined) return undefined
   // A directory also lists its entries, so a removed plugin file counts as a change.

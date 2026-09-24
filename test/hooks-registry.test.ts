@@ -8,8 +8,17 @@ import { GROK_HOOK_COMMAND, STATUS_HOOK_INSTALLERS } from "../src/lib/hooks/regi
 
 // Every installer runs against a throwaway home; the real one is never read or written here.
 let home: string
-beforeEach(() => (home = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-hooks-home-"))))
-afterEach(() => fs.rmSync(home, { recursive: true, force: true }))
+// A developer's own CODEX_HOME must never redirect these tests to their real Codex folder.
+const savedCodexHome = process.env.CODEX_HOME
+beforeEach(() => {
+  delete process.env.CODEX_HOME
+  home = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-hooks-home-"))
+})
+afterEach(() => {
+  if (savedCodexHome === undefined) delete process.env.CODEX_HOME
+  else process.env.CODEX_HOME = savedCodexHome
+  fs.rmSync(home, { recursive: true, force: true })
+})
 
 const byId = (id: string) => STATUS_HOOK_INSTALLERS.find((i) => i.id === id)!
 const write = (rel: string, text: string) => {
@@ -61,6 +70,28 @@ describe("status hook installers", () => {
     codex.uninstall(home)
     expect(read(".codex/config.toml")).toBe('model = "gpt-5"\n\n[hooks.state."/x/hooks.json:stop:0:0"]\ntrusted_hash = "sha256:user"\n')
     expect(JSON.parse(read(".codex/hooks.json")).hooks.Stop.length).toBe(1)
+  })
+  it("codex: follows CODEX_HOME, the folder Codex itself reads, and leaves ~/.codex alone", () => {
+    const custom = path.join(home, "custom-codex")
+    process.env.CODEX_HOME = custom
+    expect(byId("codex").install(home)).toBe(true)
+    expect(fs.existsSync(path.join(custom, "hooks.json"))).toBe(true)
+    expect(read("custom-codex/config.toml")).toContain(`[hooks.state."${path.join(custom, "hooks.json")}:stop:0:0"]`)
+    expect(fs.existsSync(path.join(home, ".codex"))).toBe(false)
+  })
+  it("rewrites keep a file's permissions; new files are private (0600)", () => {
+    if (process.platform === "win32") return
+    write(".factory/settings.json", "{}")
+    fs.chmodSync(path.join(home, ".factory/settings.json"), 0o600)
+    write(".codex/config.toml", 'model = "x"\n')
+    fs.chmodSync(path.join(home, ".codex/config.toml"), 0o640)
+    byId("droid").install(home)
+    byId("codex").install(home)
+    const mode = (rel: string) => fs.statSync(path.join(home, rel)).mode & 0o777
+    expect(mode(".factory/settings.json")).toBe(0o600)
+    expect(mode(".codex/config.toml")).toBe(0o640)
+    expect(mode(".codex/hooks.json")).toBe(0o600)
+    expect(mode(".factory/settings.json.cli-code.bak")).toBe(0o600)
   })
   it("codex: a hooks.json entry without its trust table counts as not installed and gets repaired", () => {
     const codex = byId("codex")

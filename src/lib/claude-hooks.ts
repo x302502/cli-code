@@ -115,13 +115,26 @@ export function backupSettingsFileOnce(file: string): void {
 }
 
 /** Atomic write: stage to a temp file, then rename over the target, so a crash mid-write can
- * never leave a truncated settings.json. */
-export function writeSettingsFile(file: string, settings: unknown): void {
+ * never leave a truncated settings.json. The file keeps its permissions (config files may hold
+ * tokens and are often 0600); a new file is created private. The backup copy keeps them too. */
+export function writeFileAtomic(file: string, text: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true })
   backupSettingsFileOnce(file)
+  let mode = 0o600
+  try {
+    mode = fs.statSync(file).mode & 0o777
+  } catch {
+    // new file
+  }
   const tmp = `${file}.tmp`
-  fs.writeFileSync(tmp, JSON.stringify(settings, null, 2) + "\n")
+  fs.writeFileSync(tmp, text, { mode })
+  // writeFileSync's mode is filtered by the umask and ignored for an existing tmp file.
+  fs.chmodSync(tmp, mode)
   fs.renameSync(tmp, file)
+}
+
+export function writeSettingsFile(file: string, settings: unknown): void {
+  writeFileAtomic(file, JSON.stringify(settings, null, 2) + "\n")
 }
 
 export function installHooksToDisk(file: string = CLAUDE_SETTINGS_PATH): boolean {

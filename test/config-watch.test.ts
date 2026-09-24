@@ -17,6 +17,18 @@ const touch = (rel: string, mtimeMs: number) => {
 const T0 = Date.now() - 60_000
 
 describe("configPathsFor", () => {
+  it("codex home files follow CODEX_HOME (project-level .codex/ does not)", () => {
+    const saved = process.env.CODEX_HOME
+    process.env.CODEX_HOME = "/x/codex-home"
+    try {
+      expect(configPathsFor("codex", undefined, "/w/proj", "/h")).toEqual(["/x/codex-home/config.toml", "/x/codex-home/hooks.json", "/w/proj/.codex/config.toml", "/w/proj/.codex/hooks.json"])
+      delete process.env.CODEX_HOME
+      expect(configPathsFor("codex", undefined, undefined, "/h")).toEqual(["/h/.codex/config.toml", "/h/.codex/hooks.json"])
+    } finally {
+      if (saved === undefined) delete process.env.CODEX_HOME
+      else process.env.CODEX_HOME = saved
+    }
+  })
   it("lists the CLI's home and project config locations; agent-teams follows claude; unknown CLIs have none", () => {
     expect(configPathsFor("codex", undefined, "/w/proj", "/h")).toEqual(["/h/.codex/config.toml", "/h/.codex/hooks.json", "/w/proj/.codex/config.toml", "/w/proj/.codex/hooks.json"])
     expect(configPathsFor("claude-agent-teams", "claude", undefined, "/h")).toEqual(["/h/.claude/settings.json", "/h/.claude/settings.local.json", "/h/.claude.json"])
