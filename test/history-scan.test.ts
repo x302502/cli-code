@@ -14,8 +14,9 @@ afterEach(() => {
   fs.rmSync(home, { recursive: true, force: true })
 })
 
-function rollout(name: string, cwd: string, mtimeMs: number) {
-  const dir = path.join(home, "sessions", "2026", "09", "23")
+function rollout(name: string, cwd: string, mtimeMs: number, day = new Date(mtimeMs)) {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const dir = path.join(home, "sessions", String(day.getFullYear()), pad(day.getMonth() + 1), pad(day.getDate()))
   fs.mkdirSync(dir, { recursive: true })
   const f = path.join(dir, `rollout-${name}.jsonl`)
   fs.writeFileSync(
@@ -38,6 +39,17 @@ describe("codexSessions", () => {
     expect(codexSessions("/w/mine/", 3).map((s) => s.sessionId)).toEqual(["mine"])
     const found = codexSessions("/w/mine", 3)
     expect(found.map((s) => s.sessionId)).toEqual(["mine"])
+  })
+})
+
+describe("codexSessions with a spawn time (model pill, restart)", () => {
+  it("only walks the day folders since the spawn: a tab's rollout cannot live in an older one", () => {
+    const now = Date.now()
+    rollout("today", "/w/mine", now - 10_000)
+    // Same workspace and a recent mtime, but filed under an old day: out of scope for the tab.
+    rollout("old-day", "/w/mine", now - 5_000, new Date(2020, 0, 1))
+    expect(codexSessions("/w/mine", 5, now - 60_000).map((s) => s.sessionId)).toEqual(["today"])
+    expect(codexSessions("/w/mine", 5).map((s) => s.sessionId).sort()).toEqual(["old-day", "today"])
   })
 })
 

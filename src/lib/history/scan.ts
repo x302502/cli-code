@@ -87,13 +87,29 @@ export function claudeSessionsInDir(dir: string, limit: number, cwd?: string): S
   return out
 }
 
-export function codexSessions(cwd: string, limit: number): SessionSummary[] {
+/**
+ * With `sinceMs` (a tab's spawn time) only the day folders from that day on are walked:
+ * Codex files each rollout under sessions/YYYY/MM/DD of its start, so a tab's own rollout
+ * cannot be anywhere older — and the model pill asks every few seconds, which must not stat
+ * a whole long history each time.
+ */
+export function codexSessions(cwd: string, limit: number, sinceMs?: number): SessionSummary[] {
   const dir = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "sessions")
+  const isRollout = (n: string) => n.startsWith("rollout-") && n.endsWith(".jsonl")
+  const files =
+    sinceMs === undefined
+      ? newestFiles(dir, isRollout, Infinity, true)
+      : daysSince(sinceMs)
+          .flatMap((d) => newestFiles(path.join(dir, d), isRollout, Infinity, false))
+          .map((f) => ({ f, m: safeMtimeMs(f) ?? 0 }))
+          .filter((x) => x.m >= sinceMs)
+          .sort((a, b) => b.m - a.m)
+          .map((x) => x.f)
   // Codex keeps every project's rollouts in one tree: walk it newest first and keep this
   // workspace's until `limit` — a limit applied before filtering let newer sessions of other
   // projects push all of this one's out.
   const out: SessionSummary[] = []
-  for (const f of newestFiles(dir, (n) => n.startsWith("rollout-") && n.endsWith(".jsonl"), Infinity, true)) {
+  for (const f of files) {
     if (out.length >= limit) break
     const m = safeMtimeMs(f)
     if (m === undefined) continue
@@ -105,6 +121,20 @@ export function codexSessions(cwd: string, limit: number): SessionSummary[] {
     }
     const s = parseCodexRollout(text, { sessionId: path.basename(f, ".jsonl"), mtimeMs: m, source: f })
     if (s?.cwd && samePath(s.cwd, cwd)) out.push(s)
+  }
+  return out
+}
+
+/** `YYYY/MM/DD` folder names from the day before `sinceMs` (time zones) through tomorrow. */
+function daysSince(sinceMs: number): string[] {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const out: string[] = []
+  const day = new Date(sinceMs - 86_400_000)
+  day.setHours(0, 0, 0, 0)
+  const end = Date.now() + 86_400_000
+  for (let i = 0; day.getTime() <= end && i < 400; i++) {
+    out.push(path.join(String(day.getFullYear()), pad(day.getMonth() + 1), pad(day.getDate())))
+    day.setDate(day.getDate() + 1)
   }
   return out
 }

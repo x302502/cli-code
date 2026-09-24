@@ -65,12 +65,12 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
         return file ? modelFromFile(file) : undefined
       }
       case "codex": {
-        // codexSessions walks and stats all of ~/.codex/sessions; a tab's rollout file never
-        // moves once found, so remember it and only walk again until there is one.
+        // Only the day folders since the spawn are walked; a tab's rollout file never moves once
+        // found, so remember it and only look again until there is one.
         const key = `${cwd}\0${sinceMs}`
         let file = codexRollouts.get(key)
         if (!file || !fs.existsSync(file)) {
-          file = codexSessions(cwd, 50).find((x) => x.updatedAt >= sinceMs)?.source
+          file = codexSessions(cwd, 1, sinceMs)[0]?.source
           if (file) {
             codexRollouts.set(key, file)
             // Map iterates in insertion order, so the first key is the oldest.
