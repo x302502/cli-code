@@ -61,3 +61,49 @@ export function removeTrust(toml: string, hashes: string[]): { text: string; cha
   })
   return { text, changed }
 }
+
+/** Trust keys of every handler that is not ours, per event, in hooks.json order. */
+function userKeys(hooksJsonPath: string, value: unknown): Map<string, string[]> {
+  const out = new Map<string, string[]>()
+  const hooks = (value as { hooks?: Record<string, HookGroup[]> } | undefined)?.hooks
+  if (!hooks || typeof hooks !== "object") return out
+  for (const [event, groups] of Object.entries(hooks)) {
+    if (!Array.isArray(groups)) continue
+    const keys: string[] = []
+    groups.forEach((g, gi) => {
+      if (!Array.isArray(g?.hooks)) return
+      g.hooks.forEach((h, hi) => {
+        if (h?.command !== HOOK_COMMAND) keys.push(`${hooksJsonPath}:${snake(event)}:${gi}:${hi}`)
+      })
+    })
+    out.set(event, keys)
+  }
+  return out
+}
+
+/**
+ * Removing our handlers shifts the group/handler index of the user's hooks after them, and
+ * Codex looks trust up by that index — so a hook the user approved would stop running. Moves
+ * each trust table from the handler's old key to its new one (removal keeps order, so the
+ * user's handlers pair up one to one). All renames happen in one pass, so no chain collides.
+ */
+export function remapTrust(toml: string, hooksJsonPath: string, before: unknown, after: unknown): { text: string; changed: boolean } {
+  const rename = new Map<string, string>()
+  const was = userKeys(hooksJsonPath, before)
+  const now = userKeys(hooksJsonPath, after)
+  for (const [event, oldKeys] of was) {
+    const newKeys = now.get(event) ?? []
+    oldKeys.forEach((k, i) => {
+      if (newKeys[i] && newKeys[i] !== k) rename.set(k, newKeys[i]!)
+    })
+  }
+  if (rename.size === 0) return { text: toml, changed: false }
+  let changed = false
+  const text = toml.replace(/\[hooks\.state\."([^"\n]*)"\]/g, (m, key: string) => {
+    const to = rename.get(key)
+    if (!to) return m
+    changed = true
+    return `[hooks.state."${to}"]`
+  })
+  return { text, changed }
+}

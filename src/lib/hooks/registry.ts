@@ -1,7 +1,7 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
 import { HOOK_COMMAND, hooksInstalled, installHooks, readSettingsFile, uninstallHooks, writeFileAtomic, writeSettingsFile } from "../claude-hooks.js"
-import { addTrust, codexTrustKeys, removeTrust } from "./codex-trust.js"
+import { addTrust, codexTrustKeys, remapTrust, removeTrust } from "./codex-trust.js"
 import { copilotFile, copilotInstalled } from "./copilot.js"
 import { isManagedPlugin, pluginSource, type PluginFlavour } from "./plugin-template.js"
 
@@ -93,8 +93,9 @@ const codex: StatusHookInstaller = {
     const { settings, changed } = uninstallHooks(before, CODEX_EVENTS)
     if (changed) writeSettingsFile(hooksFile, settings)
     const trust = removeTrust(readText(tomlFile) ?? "", hashes)
-    if (trust.changed) writeText(tomlFile, trust.text)
-    return changed || trust.changed
+    const moved = remapTrust(trust.text, hooksFile, before, settings)
+    if (trust.changed || moved.changed) writeText(tomlFile, moved.text)
+    return changed || trust.changed || moved.changed
   },
 }
 
