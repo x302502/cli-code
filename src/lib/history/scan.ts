@@ -56,24 +56,35 @@ function newestFiles(dir: string, filter: (name: string) => boolean, limit: numb
 }
 
 function claudeSessions(cwd: string, limit: number): SessionSummary[] {
-  return claudeSessionsInDir(path.join(os.homedir(), ".claude", "projects", encodeClaudeProjectDir(cwd)), limit)
+  return claudeSessionsInDir(path.join(os.homedir(), ".claude", "projects", encodeClaudeProjectDir(cwd)), limit, cwd)
 }
 
-/** Top-level `*.jsonl` only: sub-agent transcripts live in `<sessionId>/subagents/agent-*.jsonl`
- * under the project dir and are not resumable sessions. */
-export function claudeSessionsInDir(dir: string, limit: number): SessionSummary[] {
-  return newestFiles(dir, (n) => n.endsWith(".jsonl"), limit, false).flatMap((f) => {
+/**
+ * Top-level `*.jsonl` only: sub-agent transcripts live in `<sessionId>/subagents/agent-*.jsonl`
+ * under the project dir and are not resumable sessions. With `cwd`, only transcripts that record
+ * that very cwd count: Claude's folder name maps every non-alphanumeric to "-", so
+ * /work/foo-bar and /work/foo/bar share a folder. A transcript without a cwd cannot be
+ * attributed and is left out. Filtering happens before the limit.
+ */
+export function claudeSessionsInDir(dir: string, limit: number, cwd?: string): SessionSummary[] {
+  const want = cwd === undefined ? undefined : path.resolve(cwd)
+  const out: SessionSummary[] = []
+  for (const f of newestFiles(dir, (n) => n.endsWith(".jsonl"), want === undefined ? limit : Infinity, false)) {
+    if (out.length >= limit) break
     const m = safeMtimeMs(f)
-    if (m === undefined) return []
+    if (m === undefined) continue
     let text: string
     try {
       text = head(f)
     } catch {
-      return []
+      continue
     }
     const s = parseClaudeSession(text, { sessionId: path.basename(f, ".jsonl"), mtimeMs: m, source: f })
-    return s ? [s] : []
-  })
+    if (!s) continue
+    if (want !== undefined && (!s.cwd || path.resolve(s.cwd) !== want)) continue
+    out.push(s)
+  }
+  return out
 }
 
 export function codexSessions(cwd: string, limit: number): SessionSummary[] {
