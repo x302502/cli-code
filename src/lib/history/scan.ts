@@ -1,6 +1,7 @@
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
+import { samePath } from "../same-path.js"
 import { encodeClaudeProjectDir, parseClaudeSession } from "./claude.js"
 import { parseCodexRollout } from "./codex.js"
 import { parseGrokSession } from "./grok.js"
@@ -67,9 +68,8 @@ function claudeSessions(cwd: string, limit: number): SessionSummary[] {
  * attributed and is left out. Filtering happens before the limit.
  */
 export function claudeSessionsInDir(dir: string, limit: number, cwd?: string): SessionSummary[] {
-  const want = cwd === undefined ? undefined : path.resolve(cwd)
   const out: SessionSummary[] = []
-  for (const f of newestFiles(dir, (n) => n.endsWith(".jsonl"), want === undefined ? limit : Infinity, false)) {
+  for (const f of newestFiles(dir, (n) => n.endsWith(".jsonl"), cwd === undefined ? limit : Infinity, false)) {
     if (out.length >= limit) break
     const m = safeMtimeMs(f)
     if (m === undefined) continue
@@ -81,7 +81,7 @@ export function claudeSessionsInDir(dir: string, limit: number, cwd?: string): S
     }
     const s = parseClaudeSession(text, { sessionId: path.basename(f, ".jsonl"), mtimeMs: m, source: f })
     if (!s) continue
-    if (want !== undefined && (!s.cwd || path.resolve(s.cwd) !== want)) continue
+    if (cwd !== undefined && (!s.cwd || !samePath(s.cwd, cwd))) continue
     out.push(s)
   }
   return out
@@ -104,7 +104,7 @@ export function codexSessions(cwd: string, limit: number): SessionSummary[] {
       continue
     }
     const s = parseCodexRollout(text, { sessionId: path.basename(f, ".jsonl"), mtimeMs: m, source: f })
-    if (s && s.cwd === cwd) out.push(s)
+    if (s?.cwd && samePath(s.cwd, cwd)) out.push(s)
   }
   return out
 }

@@ -14,11 +14,14 @@ export function parseFileUrlPath(url: string): string | undefined {
   const afterScheme = url.slice("file://".length)
   const slash = afterScheme.indexOf("/")
   if (slash === -1) return undefined
+  let decoded: string
   try {
-    return decodeURIComponent(afterScheme.slice(slash))
+    decoded = decodeURIComponent(afterScheme.slice(slash))
   } catch {
     return undefined
   }
+  // file:///C:/proj → C:/proj: on Windows the URL path carries a slash before the drive letter.
+  return /^\/[A-Za-z]:[\/]/.test(decoded) ? decoded.slice(1) : decoded
 }
 
 function findTerminator(text: string, from: number): { index: number; length: 1 | 2 } | undefined {

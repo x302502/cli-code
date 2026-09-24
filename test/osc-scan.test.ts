@@ -61,3 +61,13 @@ describe("parseFileUrlPath", () => {
     expect(parseFileUrlPath("file://host/%ZZ")).toBeUndefined()
   })
 })
+
+describe("parseFileUrlPath — Windows", () => {
+  it("drops the slash before a drive letter (file:///C:/… is C:/…, not /C:/…)", () => {
+    expect(parseFileUrlPath("file:///C:/proj/src/main.ts")).toBe("C:/proj/src/main.ts")
+    expect(parseFileUrlPath("file://localhost/c:/proj")).toBe("c:/proj")
+    expect(parseFileUrlPath("file:///C:/My%20Docs")).toBe("C:/My Docs")
+    // POSIX paths are untouched.
+    expect(parseFileUrlPath("file:///Users/x/proj")).toBe("/Users/x/proj")
+  })
+})

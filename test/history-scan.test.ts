@@ -34,6 +34,8 @@ describe("codexSessions", () => {
     rollout("mine", "/w/mine", now - 60_000)
     for (let i = 0; i < 5; i++) rollout(`other-${i}`, "/w/other", now - i * 1000)
     expect(codexSessions("/w/mine", 100).map((s) => s.sessionId)).toEqual(["mine"])
+    // A trailing separator on either side still names the same workspace.
+    expect(codexSessions("/w/mine/", 3).map((s) => s.sessionId)).toEqual(["mine"])
     const found = codexSessions("/w/mine", 3)
     expect(found.map((s) => s.sessionId)).toEqual(["mine"])
   })

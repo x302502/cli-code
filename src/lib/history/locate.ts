@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import * as fs from "node:fs"
 import * as path from "node:path"
+import { samePath } from "../same-path.js"
 
 /**
  * Finds the id of the session a CLI tab most likely owns: the newest session record that
@@ -94,7 +95,7 @@ function mtime(p: string): number | undefined {
 }
 
 function sameDir(a: string, b: string): boolean {
-  return path.resolve(a) === path.resolve(b)
+  return samePath(a, b)
 }
 
 /** Antigravity (`agy`) keeps `cache/last_conversations.json` (cwd → newest conversation id)
