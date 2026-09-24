@@ -76,7 +76,9 @@ export function createActionBar(handlers: {
   document.body.prepend(bar)
 
   document.addEventListener("mousedown", (e) => {
-    if (!menu.hidden && !menu.contains(e.target as Node) && e.target !== more) hide()
+    // `contains`, not `===`: the click lands on the button's SVG, and treating that as "outside"
+    // closed the menu on mousedown only for the button's click handler to reopen it.
+    if (!menu.hidden && !menu.contains(e.target as Node) && !more.contains(e.target as Node)) hide()
   })
   // Capture phase: xterm's own keydown handler would otherwise swallow Escape first.
   document.addEventListener(
