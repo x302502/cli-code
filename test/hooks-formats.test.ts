@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { HOOK_COMMAND, hooksInstalled, installHooks, uninstallHooks } from "../src/lib/claude-hooks.js"
-import { codexHookHash, codexTrustKeys, addTrust, removeTrust } from "../src/lib/hooks/codex-trust.js"
+import { codexHookHash, codexTrustKeys, addTrust, removeTrust, trustedWith } from "../src/lib/hooks/codex-trust.js"
 import { copilotFile, copilotInstalled } from "../src/lib/hooks/copilot.js"
 
 describe("claude-format merge with a custom event list (droid, codex, grok)", () => {
@@ -64,5 +64,26 @@ describe("uninstall keeps the user's hooks that share a group with ours", () => 
     const { settings, changed } = uninstallHooks(value, ["Stop"])
     expect(changed).toBe(true)
     expect(settings.hooks).toEqual({ Stop: [{ hooks: [{ type: "command", command: "say done" }] }] })
+  })
+})
+
+describe("codex trust tables — by hash, not just by key", () => {
+  const key = "/h/.codex/hooks.json:stop:0:0"
+  const ours = { key, hash: "sha256:ours" }
+  it("a table at our key holding another hook's hash is replaced with ours", () => {
+    const toml = `model = "x"\n\n[hooks.state."${key}"]\ntrusted_hash = "sha256:users-old-hook"\n`
+    const r = addTrust(toml, [ours])
+    expect(r.changed).toBe(true)
+    expect(r.text).toContain(`[hooks.state."${key}"]\nenabled = true\ntrusted_hash = "sha256:ours"`)
+    expect(r.text).not.toContain("users-old-hook")
+    expect(addTrust(r.text, [ours]).changed).toBe(false)
+    expect(trustedWith(r.text, key, "sha256:ours")).toBe(true)
+    expect(trustedWith(toml, key, "sha256:ours")).toBe(false)
+  })
+  it("removeTrust also removes our table when it ends the file without a newline", () => {
+    const toml = `model = "x"\n\n[hooks.state."${key}"]\nenabled = true\ntrusted_hash = "sha256:ours"`
+    const r = removeTrust(toml, ["sha256:ours"])
+    expect(r.changed).toBe(true)
+    expect(r.text).toBe(`model = "x"\n`)
   })
 })

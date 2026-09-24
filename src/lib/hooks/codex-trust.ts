@@ -35,12 +35,28 @@ export function codexTrustKeys(hooksJsonPath: string, value: unknown): { key: st
 
 const block = (key: string, hash: string) => `[hooks.state."${key}"]\nenabled = true\ntrusted_hash = "${hash}"\n`
 
-/** Appends missing trust tables at the end of the TOML text (a table may appear anywhere). */
+// One `[hooks.state."<key>"]` table: its header and the non-blank lines under it, up to the next
+// header, a blank line or the end of the file (whether or not that ends in a newline).
+const TABLE_RE = /\n?\[hooks\.state\."([^"\n]*)"\]\n?(?:(?!\[)[^\n]+(?:\n|$))*/g
+const hashIn = (table: string) => /trusted_hash = "([^"]*)"/.exec(table)?.[1]
+
+/** Whether the table at `key` trusts exactly `hash`. */
+export function trustedWith(toml: string, key: string, hash: string): boolean {
+  for (const m of toml.matchAll(TABLE_RE)) if (m[1] === key && hashIn(m[0]) === hash) return true
+  return false
+}
+
+/**
+ * Makes each key trust our hash. A table already at that key but holding another hash (the
+ * user's hook sat in that slot before they removed it, and ours moved in) is replaced; Codex
+ * would otherwise keep treating our hook as untrusted. Missing tables are appended.
+ */
 export function addTrust(toml: string, entries: { key: string; hash: string }[]): { text: string; changed: boolean } {
   let text = toml
   let changed = false
   for (const { key, hash } of entries) {
-    if (text.includes(`[hooks.state."${key}"]`)) continue
+    if (trustedWith(text, key, hash)) continue
+    text = text.replace(TABLE_RE, (m, k: string) => (k === key ? "" : m))
     if (text.length && !text.endsWith("\n")) text += "\n"
     if (text.length && !text.endsWith("\n\n")) text += "\n"
     text += block(key, hash)
@@ -52,14 +68,14 @@ export function addTrust(toml: string, entries: { key: string; hash: string }[])
 /** Removes every hooks.state table whose trusted_hash is one of ours — content-addressed, so a
  * group index that shifted after a user edit cannot orphan a block. */
 export function removeTrust(toml: string, hashes: string[]): { text: string; changed: boolean } {
-  const re = /\n?\[hooks\.state\."[^"\n]*"\]\n(?:(?!\[)[^\n]+\n)*/g
   let changed = false
-  const text = toml.replace(re, (m) => {
-    if (!hashes.some((h) => m.includes(`trusted_hash = "${h}"`))) return m
+  const text = toml.replace(TABLE_RE, (m) => {
+    const h = hashIn(m)
+    if (!h || !hashes.includes(h)) return m
     changed = true
     return ""
   })
-  return { text, changed }
+  return { text: changed && text.length && !text.endsWith("\n") ? `${text}\n` : text, changed }
 }
 
 /** Trust keys of every handler that is not ours, per event, in hooks.json order. */

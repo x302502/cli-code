@@ -1,7 +1,7 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
 import { HOOK_COMMAND, hooksInstalled, installHooks, readSettingsFile, uninstallHooks, writeFileAtomic, writeSettingsFile } from "../claude-hooks.js"
-import { addTrust, codexTrustKeys, remapTrust, removeTrust } from "./codex-trust.js"
+import { addTrust, codexTrustKeys, remapTrust, removeTrust, trustedWith } from "./codex-trust.js"
 import { copilotFile, copilotInstalled } from "./copilot.js"
 import { isManagedPlugin, pluginSource, type PluginFlavour } from "./plugin-template.js"
 
@@ -76,7 +76,7 @@ const codex: StatusHookInstaller = {
     const value = readSettingsFile(hooksFile)
     if (!hooksInstalled(value, CODEX_EVENTS)) return false
     const toml = readText(tomlFile) ?? ""
-    return codexTrustKeys(hooksFile, value).every((e) => toml.includes(`[hooks.state."${e.key}"]`))
+    return codexTrustKeys(hooksFile, value).every((e) => trustedWith(toml, e.key, e.hash))
   },
   install: (home) => {
     const [hooksFile, tomlFile] = codex.files(home) as [string, string]
