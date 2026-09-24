@@ -31,4 +31,3 @@ node_modules/**
 !node_modules/node-pty/prebuilds/**
 !node_modules/@xterm/xterm/css/xterm.css
 .playwright-mcp/**
-.superpowers/**
