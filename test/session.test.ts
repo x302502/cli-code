@@ -477,3 +477,16 @@ describe("Session snapshot — a recycled alternate-screen line does not keep it
     replay.dispose()
   })
 })
+
+describe("Session — the mirror holds back a flood like a slow client would", () => {
+  it("a detached tab flooding output pauses its PTY until the mirror caught up, instead of overflowing xterm", async () => {
+    const { session, calls, emit } = makeSession()
+    const chunk = "x".repeat(1024 * 1024)
+    for (let i = 0; i < 9; i++) emit(chunk)
+    expect(calls.paused).toBe(1)
+    const deadline = Date.now() + 20_000
+    while (calls.resumed === 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 20))
+    expect(calls.resumed).toBe(1)
+    session.dispose()
+  }, 30_000)
+})

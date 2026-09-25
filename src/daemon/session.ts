@@ -43,6 +43,10 @@ export class Session {
   oscTitle: string | undefined
   status: { state: AgentState; prompt?: string; cliSessionId?: string } | undefined
   private waitingTool: string | undefined
+  /** Characters written to the mirror it has not parsed yet (see onData). */
+  private mirrorPending = 0
+  private clientHeld = false
+  private mirrorHeld = false
   private waitingAgent: string | undefined
   private reporterPid: number | undefined
   private ownerDecided = false
@@ -63,8 +67,18 @@ export class Session {
     this.pty.onData((data) => {
       for (const osc of this.scan(data)) this.applyOsc(osc)
       // The headless mirror is always fed, even when nobody is attached — this
-      // is what lets a snapshot be rebuilt correctly after a reload.
-      if (!this.disposed) this.mirror.write(data)
+      // is what lets a snapshot be rebuilt correctly after a reload. It parses on its own
+      // schedule, so a flood (a detached tab `cat`-ing a huge file) is held back like a slow
+      // client would hold it: xterm throws once 50 MB wait unparsed, and that would take the
+      // whole daemon — every tab's CLI — down with it.
+      if (!this.disposed) {
+        this.mirrorPending += data.length
+        this.mirror.write(data, () => {
+          this.mirrorPending -= data.length
+          this.applyBackpressure()
+        })
+        this.applyBackpressure()
+      }
       const chunk = new TextEncoder().encode(data)
       // Backpressure only tracks bytes owed to an actual listener: a detached
       // session (client gone during Reload Window) must never pause its PTY,
@@ -163,10 +177,8 @@ export class Session {
     // Start from a clean slate: the new client owes nothing yet, and a
     // previous client's outstanding byte count must not be charged to it.
     this.unacked = 0
-    if (this.paused) {
-      this.paused = false
-      this.pty.resume()
-    }
+    this.clientHeld = false
+    this.applyBackpressure()
     const backlog: Uint8Array[] = []
     this.backlog = backlog
     const gen = ++this.attachGen
@@ -195,10 +207,8 @@ export class Session {
     this.metaListener = undefined
     this.backlog = undefined
     this.unacked = 0
-    if (this.paused) {
-      this.paused = false
-      this.pty.resume()
-    }
+    this.clientHeld = false
+    this.applyBackpressure()
   }
 
   write(data: string | Buffer): void {
@@ -244,7 +254,12 @@ export class Session {
   }
 
   private applyBackpressure(): void {
-    const next = nextPauseState(this.paused, this.unacked)
+    // Held back by the client not acking, or by the mirror not keeping up with parsing — the
+    // latter on a far higher mark (a detached session has no client, and a burst of output is
+    // fine), yet far below the 50 MB at which xterm starts throwing.
+    this.clientHeld = nextPauseState(this.clientHeld, this.unacked)
+    this.mirrorHeld = this.mirrorHeld ? this.mirrorPending >= MIRROR_LOW_WATER : this.mirrorPending > MIRROR_HIGH_WATER
+    const next = this.clientHeld || this.mirrorHeld
     if (next === this.paused) return
     this.paused = next
     if (next) this.pty.pause()
@@ -316,6 +331,9 @@ function oscLinks(term: Terminal): string {
   }
   return runs.length ? `\x1b]${SNAPSHOT_LINKS_OSC};${JSON.stringify(runs)}\x07` : ""
 }
+
+const MIRROR_HIGH_WATER = 8 * 1024 * 1024
+const MIRROR_LOW_WATER = 4 * 1024 * 1024
 
 export function createSession(args: {
   id: string
