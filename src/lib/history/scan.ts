@@ -56,8 +56,8 @@ function newestFiles(dir: string, filter: (name: string) => boolean, limit: numb
     .map((x) => x.f)
 }
 
-function claudeSessions(cwd: string, limit: number): SessionSummary[] {
-  return claudeSessionsInDir(path.join(os.homedir(), ".claude", "projects", encodeClaudeProjectDir(cwd)), limit, cwd)
+function claudeSessions(cwd: string, limit: number, sinceMs?: number): SessionSummary[] {
+  return claudeSessionsInDir(path.join(os.homedir(), ".claude", "projects", encodeClaudeProjectDir(cwd)), limit, cwd, sinceMs)
 }
 
 /**
@@ -67,12 +67,14 @@ function claudeSessions(cwd: string, limit: number): SessionSummary[] {
  * /work/foo-bar and /work/foo/bar share a folder. A transcript without a cwd cannot be
  * attributed and is left out. Filtering happens before the limit.
  */
-export function claudeSessionsInDir(dir: string, limit: number, cwd?: string): SessionSummary[] {
+export function claudeSessionsInDir(dir: string, limit: number, cwd?: string, sinceMs?: number): SessionSummary[] {
   const out: SessionSummary[] = []
   for (const f of newestFiles(dir, (n) => n.endsWith(".jsonl"), cwd === undefined ? limit : Infinity, false)) {
     if (out.length >= limit) break
     const m = safeMtimeMs(f)
     if (m === undefined) continue
+    // Newest first: once one is older than `sinceMs`, so are the rest — their heads go unread.
+    if (sinceMs !== undefined && m < sinceMs) break
     let text: string
     try {
       text = head(f)
@@ -139,7 +141,7 @@ function daysSince(sinceMs: number): string[] {
   return out
 }
 
-export function grokSessions(cwd: string, limit: number): SessionSummary[] {
+export function grokSessions(cwd: string, limit: number, sinceMs = 0): SessionSummary[] {
   const dir = path.join(process.env.GROK_HOME ?? path.join(os.homedir(), ".grok"), "sessions", encodeURIComponent(cwd))
   if (!fs.existsSync(dir)) return []
   let entries: fs.Dirent[]
@@ -152,7 +154,7 @@ export function grokSessions(cwd: string, limit: number): SessionSummary[] {
     .filter((e) => e.isDirectory())
     .map((e) => path.join(dir, e.name))
     .map((d) => ({ d, m: safeMtimeMs(d) }))
-    .filter((x): x is { d: string; m: number } => x.m !== undefined)
+    .filter((x): x is { d: string; m: number } => x.m !== undefined && x.m >= sinceMs)
     .sort((a, b) => b.m - a.m)
     .slice(0, limit)
     .flatMap(({ d, m }) => {
@@ -176,6 +178,8 @@ export function grokSessions(cwd: string, limit: number): SessionSummary[] {
 }
 
 export async function listSessionsForWorkspace(cwd: string, limit = 200, sinceMs?: number): Promise<SessionSummary[]> {
-  const all = [...claudeSessions(cwd, limit), ...codexSessions(cwd, limit, sinceMs), ...grokSessions(cwd, limit)]
+  // `sinceMs` (a restarting tab's spawn time): older sessions cannot be the tab's, so their
+  // transcripts are not read at all.
+  const all = [...claudeSessions(cwd, limit, sinceMs), ...codexSessions(cwd, limit, sinceMs), ...grokSessions(cwd, limit, sinceMs)]
   return all.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, limit)
 }

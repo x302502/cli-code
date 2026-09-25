@@ -71,4 +71,13 @@ describe("claudeSessionsInDir", () => {
     transcript(dir, "unknown", undefined, now)
     expect(claudeSessionsInDir(dir, 2, "/work/foo-bar").map((s) => s.sessionId)).toEqual(["mine"])
   })
+  it("with sinceMs (a restarting tab's spawn time) transcripts older than it are not offered", () => {
+    const dir = path.join(home, "-work-since")
+    fs.mkdirSync(dir, { recursive: true })
+    const now = Date.now()
+    transcript(dir, "new", "/work/since", now - 1_000)
+    transcript(dir, "old", "/work/since", now - 600_000)
+    expect(claudeSessionsInDir(dir, 5, "/work/since", now - 60_000).map((s) => s.sessionId)).toEqual(["new"])
+    expect(claudeSessionsInDir(dir, 5, "/work/since").map((s) => s.sessionId)).toEqual(["new", "old"])
+  })
 })
