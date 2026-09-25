@@ -56,12 +56,15 @@ export async function startDaemon(args: {
           if (frame.type === MSG.StatusReport) {
             // Sent by a CLI hook over its own short-lived connection: it names the
             // session explicitly because it never did a Hello.
-            const report = decodeJsonPayload<{ sessionId: string; state: AgentState; prompt?: string; cliSessionId?: unknown; tool?: unknown; toolDone?: unknown; cliPid?: unknown }>(frame.payload)
+            const report = decodeJsonPayload<{ sessionId: string; state: AgentState; prompt?: string; cliSessionId?: unknown; tool?: unknown; toolDone?: unknown; agent?: unknown; agentDone?: unknown; cliPid?: unknown }>(frame.payload)
             if ((AGENT_STATES as readonly string[]).includes(report.state)) {
               const text = (v: unknown) => (typeof v === "string" ? v : undefined)
               sessions.get(report.sessionId)?.reportStatus(report.state, report.prompt, text(report.cliSessionId), {
                 tool: text(report.tool),
                 toolDone: text(report.toolDone),
+                agent: text(report.agent),
+                agentDone: text(report.agentDone),
+                fromHook: true,
                 cliPid: typeof report.cliPid === "number" ? report.cliPid : undefined,
               })
             }

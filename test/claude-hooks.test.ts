@@ -24,6 +24,7 @@ describe("claude hooks merge", () => {
     expect(hooks.PermissionRequest!.length).toBe(1)
     // PostToolUse chạy sau mỗi tool call: async để không làm chậm turn.
     expect((hooks.PostToolUse![0]!.hooks[0] as { async?: boolean }).async).toBe(true)
+    expect((hooks.PostToolBatch![0]!.hooks[0] as { async?: boolean }).async).toBe(true)
     expect((hooks.Stop!.at(-1)!.hooks[0] as { async?: boolean }).async).toBeUndefined()
     expect(settings.other).toBe(1)
     expect(hooksInstalled(settings)).toBe(true)

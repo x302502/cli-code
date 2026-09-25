@@ -247,14 +247,36 @@ describe("Session", () => {
 
   it("chỉ tiến trình CLI báo đầu tiên sở hữu tab: CLI cùng loại chạy lồng bên trong bị bỏ qua", () => {
     const { session } = makeSession()
-    session.reportStatus("working", "p", "tab-conv", { cliPid: 100 })
-    session.reportStatus("done", undefined, "nested-conv", { cliPid: 200 }) // `claude -p` trong Bash tool
+    const hook = (cliPid?: number) => ({ fromHook: true, cliPid })
+    session.reportStatus("working", "p", "tab-conv", hook(100))
+    session.reportStatus("done", undefined, "nested-conv", hook(200)) // `claude -p` trong Bash tool
     expect(session.status).toEqual({ state: "working", prompt: "p", cliSessionId: "tab-conv" })
-    session.reportStatus("done", undefined, undefined, { cliPid: 100 })
+    session.reportStatus("done", undefined, undefined, hook(100))
     expect(session.status?.state).toBe("done")
-    // Hook cũ không gửi PID: vẫn được nhận.
-    session.reportStatus("working")
+    // Report không có PID (ps lỗi): vẫn được nhận.
+    session.reportStatus("working", undefined, undefined, hook())
     expect(session.status?.state).toBe("working")
+  })
+
+  it("report đầu tiên không có PID (ps lỗi) thì không ghim: CLI lồng về sau không chiếm được tab", () => {
+    const { session } = makeSession()
+    session.reportStatus("working", "p", "tab-conv", { fromHook: true })
+    session.reportStatus("working", undefined, undefined, { fromHook: true, cliPid: 200 })
+    session.reportStatus("done", undefined, undefined, { fromHook: true, cliPid: 100 })
+    expect(session.status?.state).toBe("done")
+  })
+
+  it("PostToolBatch của đúng agent kết thúc waiting, kể cả khi tool bị từ chối (không có PostToolUse khớp)", () => {
+    const { session } = makeSession()
+    session.reportStatus("working", "p")
+    session.reportStatus("waiting", undefined, undefined, { tool: "A", agent: "main" })
+    session.reportStatus("working", undefined, undefined, { agentDone: "sub-1" }) // batch của subagent
+    expect(session.status?.state).toBe("waiting")
+    session.reportStatus("working", undefined, undefined, { agentDone: "main" }) // user bấm deny
+    expect(session.status?.state).toBe("working")
+    session.reportStatus("done")
+    session.reportStatus("working", undefined, undefined, { agentDone: "main" }) // đến trễ sau Stop
+    expect(session.status?.state).toBe("done")
   })
 
   it("detach gỡ meta listener", () => {

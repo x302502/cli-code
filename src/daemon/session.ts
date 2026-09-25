@@ -43,7 +43,9 @@ export class Session {
   oscTitle: string | undefined
   status: { state: AgentState; prompt?: string; cliSessionId?: string } | undefined
   private waitingTool: string | undefined
+  private waitingAgent: string | undefined
   private reporterPid: number | undefined
+  private ownerDecided = false
   private metaListener: ((e: MetaEvent) => void) | undefined
   private readonly scan = createOscScanner()
   private disposed = false
@@ -92,23 +94,40 @@ export class Session {
     this.metaListener = cb
   }
 
-  /** Status pushed from outside the PTY stream (a CLI hook talking to the daemon). `tool` names
-   * the call a permission dialog waits on; `toolDone` a call that finished, which ends that wait
-   * and nothing else. */
-  reportStatus(state: AgentState, prompt?: string, cliSessionId?: string, opts: { tool?: string; toolDone?: string; cliPid?: number } = {}): void {
+  /**
+   * Status pushed from outside the PTY stream (a CLI hook talking to the daemon). While a
+   * permission dialog is up, `tool`/`agent` name the call and the agent it belongs to; it ends
+   * with that call finishing (`toolDone`) or that agent's tool batch resolving (`agentDone`,
+   * which covers a denied or edited call too) — never with another agent's tools.
+   */
+  reportStatus(
+    state: AgentState,
+    prompt?: string,
+    cliSessionId?: string,
+    opts: { tool?: string; toolDone?: string; agent?: string; agentDone?: string; cliPid?: number; fromHook?: boolean } = {},
+  ): void {
     // The first CLI process to report owns the tab; a same-kind CLI nested inside it (which
     // inherits the tab's env, so reaches the same hook) is another process and is ignored.
     // The owner always reports first: a nested CLI only runs once the tab's CLI took a prompt.
-    if (opts.cliPid !== undefined) {
-      this.reporterPid ??= opts.cliPid
-      if (opts.cliPid !== this.reporterPid) return
+    // Only that first hook report decides — if its pid is unknown (ps failed), nothing is
+    // pinned, rather than letting a later nested CLI claim the tab.
+    if (opts.fromHook) {
+      if (!this.ownerDecided) {
+        this.ownerDecided = true
+        this.reporterPid = opts.cliPid
+      } else if (opts.cliPid !== undefined && this.reporterPid !== undefined && opts.cliPid !== this.reporterPid) return
     }
-    if (opts.toolDone !== undefined) {
-      if (this.status?.state !== "waiting" || (this.waitingTool !== undefined && this.waitingTool !== opts.toolDone)) return
+    if (opts.toolDone !== undefined || opts.agentDone !== undefined) {
+      if (this.status?.state !== "waiting") return
+      const tool = opts.toolDone !== undefined && (this.waitingTool === undefined || this.waitingTool === opts.toolDone)
+      const agent = opts.agentDone !== undefined && (this.waitingAgent === undefined || this.waitingAgent === opts.agentDone)
+      if (!tool && !agent) return
     }
     // A later "waiting" without a tool (Claude's permission_prompt Notification) is the same dialog.
-    if (state === "waiting") this.waitingTool = opts.tool ?? this.waitingTool
-    else this.waitingTool = undefined
+    if (state === "waiting") {
+      this.waitingTool = opts.tool ?? this.waitingTool
+      this.waitingAgent = opts.agent ?? this.waitingAgent
+    } else this.waitingTool = this.waitingAgent = undefined
     // The CLI's own session id (from its hook) is kept across later reports that omit it.
     this.status = { state, prompt, cliSessionId: cliSessionId ?? this.status?.cliSessionId }
     this.metaListener?.({ kind: "status", ...this.status })

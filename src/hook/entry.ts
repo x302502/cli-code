@@ -41,7 +41,7 @@ process.stdin.on("data", (c) => (raw += c))
 process.stdin.on("end", () => {
   let mapped: ReturnType<typeof mapHookEvent>
   try {
-    mapped = mapHookEvent(JSON.parse(raw))
+    mapped = mapHookEvent(JSON.parse(raw), from)
   } catch {
     process.exit(0)
   }

@@ -3,7 +3,7 @@ import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
 
-export const HOOK_EVENTS = ["UserPromptSubmit", "Stop", "Notification", "PermissionRequest", "PostToolUse"] as const
+export const HOOK_EVENTS = ["UserPromptSubmit", "Stop", "Notification", "PermissionRequest", "PostToolUse", "PostToolBatch"] as const
 /**
  * Evaluates the per-session command the extension stamps into the CLI's env; a no-op when the
  * CLI runs elsewhere. It names the CLI that ran it (CLI_CODE_FROM): the env is inherited by
@@ -26,7 +26,7 @@ export function isOurCommand(command: unknown): boolean {
 export type HookEntry = { type: string; command: string; timeout?: number; async?: boolean }
 // Fired after every tool call: run in the background so a turn of many tool calls is not
 // slowed by one hook process each.
-const ASYNC_EVENTS = new Set(["PostToolUse"])
+const ASYNC_EVENTS = new Set(["PostToolUse", "PostToolBatch"])
 export type HookGroup = { matcher?: string; hooks: HookEntry[] }
 type Settings = Record<string, unknown> & { hooks?: Record<string, HookGroup[]> }
 

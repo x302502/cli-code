@@ -8,6 +8,19 @@ describe("mapHookEvent", () => {
     expect(mapHookEvent({ hook_event_name: "Notification", message: "needs input" })).toEqual({ state: "waiting", prompt: undefined })
     expect(mapHookEvent({ hook_event_name: "PermissionRequest" })).toMatchObject({ state: "waiting", prompt: undefined })
   })
+  it("PostToolBatch kết thúc dialog của đúng agent: agent chính hay subagent (agent_id)", () => {
+    expect(mapHookEvent({ hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: {} })!.agent).toBe("main")
+    expect(mapHookEvent({ hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: {}, agent_id: "a1" })!.agent).toBe("a1")
+    expect(mapHookEvent({ hook_event_name: "PostToolBatch", tool_calls: [] })).toEqual({ state: "working", prompt: undefined, agentDone: "main" })
+    expect(mapHookEvent({ hook_event_name: "PostToolBatch", tool_calls: [], agent_id: "a1" })!.agentDone).toBe("a1")
+  })
+  it("Notification không có type: chỉ Claude (và Grok) coi là waiting; Droid/Copilot luôn gửi type", () => {
+    expect(mapHookEvent({ hook_event_name: "Notification" }, "claude")?.state).toBe("waiting")
+    expect(mapHookEvent({ hook_event_name: "Notification" })?.state).toBe("waiting")
+    expect(mapHookEvent({ hook_event_name: "Notification" }, "droid")).toBeUndefined()
+    expect(mapHookEvent({ hook_event_name: "Notification" }, "copilot")).toBeUndefined()
+    expect(mapHookEvent({ hook_event_name: "Notification", notificationType: "permission_prompt" }, "copilot")?.state).toBe("waiting")
+  })
   it("PermissionRequest và PostToolUse của cùng một lệnh gọi tool mang cùng khoá tool; lệnh khác thì khác khoá", () => {
     const call = { tool_name: "Bash", tool_input: { command: "rm -rf build" } }
     const asked = mapHookEvent({ hook_event_name: "PermissionRequest", ...call })!
