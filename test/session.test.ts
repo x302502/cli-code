@@ -245,6 +245,18 @@ describe("Session", () => {
     expect(session.status?.state).toBe("working")
   })
 
+  it("chỉ tiến trình CLI báo đầu tiên sở hữu tab: CLI cùng loại chạy lồng bên trong bị bỏ qua", () => {
+    const { session } = makeSession()
+    session.reportStatus("working", "p", "tab-conv", { cliPid: 100 })
+    session.reportStatus("done", undefined, "nested-conv", { cliPid: 200 }) // `claude -p` trong Bash tool
+    expect(session.status).toEqual({ state: "working", prompt: "p", cliSessionId: "tab-conv" })
+    session.reportStatus("done", undefined, undefined, { cliPid: 100 })
+    expect(session.status?.state).toBe("done")
+    // Hook cũ không gửi PID: vẫn được nhận.
+    session.reportStatus("working")
+    expect(session.status?.state).toBe("working")
+  })
+
   it("detach gỡ meta listener", () => {
     const { session, emit } = makeSession()
     const seen: unknown[] = []

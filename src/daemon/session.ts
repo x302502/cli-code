@@ -43,6 +43,7 @@ export class Session {
   oscTitle: string | undefined
   status: { state: AgentState; prompt?: string; cliSessionId?: string } | undefined
   private waitingTool: string | undefined
+  private reporterPid: number | undefined
   private metaListener: ((e: MetaEvent) => void) | undefined
   private readonly scan = createOscScanner()
   private disposed = false
@@ -94,7 +95,14 @@ export class Session {
   /** Status pushed from outside the PTY stream (a CLI hook talking to the daemon). `tool` names
    * the call a permission dialog waits on; `toolDone` a call that finished, which ends that wait
    * and nothing else. */
-  reportStatus(state: AgentState, prompt?: string, cliSessionId?: string, opts: { tool?: string; toolDone?: string } = {}): void {
+  reportStatus(state: AgentState, prompt?: string, cliSessionId?: string, opts: { tool?: string; toolDone?: string; cliPid?: number } = {}): void {
+    // The first CLI process to report owns the tab; a same-kind CLI nested inside it (which
+    // inherits the tab's env, so reaches the same hook) is another process and is ignored.
+    // The owner always reports first: a nested CLI only runs once the tab's CLI took a prompt.
+    if (opts.cliPid !== undefined) {
+      this.reporterPid ??= opts.cliPid
+      if (opts.cliPid !== this.reporterPid) return
+    }
     if (opts.toolDone !== undefined) {
       if (this.status?.state !== "waiting" || (this.waitingTool !== undefined && this.waitingTool !== opts.toolDone)) return
     }
