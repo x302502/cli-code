@@ -3,7 +3,7 @@ import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
 
-export const HOOK_EVENTS = ["UserPromptSubmit", "Stop", "Notification", "PermissionRequest"] as const
+export const HOOK_EVENTS = ["UserPromptSubmit", "Stop", "Notification", "PermissionRequest", "PostToolUse"] as const
 /** Evaluates the per-session command the extension stamps into the CLI's env; a no-op when Claude runs elsewhere. */
 export const HOOK_COMMAND = '[ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true'
 

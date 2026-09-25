@@ -7,6 +7,8 @@ describe("mapHookEvent", () => {
     expect(mapHookEvent({ hook_event_name: "Stop" })).toEqual({ state: "done", prompt: undefined })
     expect(mapHookEvent({ hook_event_name: "Notification", message: "needs input" })).toEqual({ state: "waiting", prompt: undefined })
     expect(mapHookEvent({ hook_event_name: "PermissionRequest" })).toEqual({ state: "waiting", prompt: undefined })
+    // Không hook nào báo đã trả lời permission; tool chạy xong là dấu hiệu agent làm việc tiếp.
+    expect(mapHookEvent({ hook_event_name: "PostToolUse", tool_name: "Bash" })).toEqual({ state: "working", prompt: undefined })
   })
   it("Notification: chỉ permission_prompt/elicitation_dialog là waiting; idle_prompt/auth_success bỏ qua", () => {
     expect(mapHookEvent({ hook_event_name: "Notification", notification_type: "permission_prompt" })).toEqual({ state: "waiting", prompt: undefined })

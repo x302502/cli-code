@@ -1,6 +1,6 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
-import { HOOK_COMMAND, hooksInstalled, installHooks, readSettingsFile, uninstallHooks, writeFileAtomic, writeSettingsFile } from "../claude-hooks.js"
+import { HOOK_COMMAND, HOOK_EVENTS, hooksInstalled, installHooks, readSettingsFile, uninstallHooks, writeFileAtomic, writeSettingsFile } from "../claude-hooks.js"
 import { addTrust, codexTrustKeys, remapTrust, removeTrust, trustedWith } from "./codex-trust.js"
 import { copilotFile, copilotInstalled } from "./copilot.js"
 import { isManagedPlugin, pluginSource, type PluginFlavour } from "./plugin-template.js"
@@ -186,7 +186,7 @@ function plugin(id: string, label: string, binary: string, rel: string[], flavou
 }
 
 export const STATUS_HOOK_INSTALLERS: readonly StatusHookInstaller[] = [
-  settingsHooks("claude", "Claude Code", "claude", [".claude", "settings.json"], ["UserPromptSubmit", "Stop", "Notification", "PermissionRequest"]),
+  settingsHooks("claude", "Claude Code", "claude", [".claude", "settings.json"], HOOK_EVENTS),
   settingsHooks("droid", "Droid", "droid", [".factory", "settings.json"], ["UserPromptSubmit", "Stop", "Notification"]),
   codex,
   ownJsonFile("copilot", "GitHub Copilot", "copilot", [".copilot", "hooks", "cli-code.json"], copilotFile, copilotInstalled),

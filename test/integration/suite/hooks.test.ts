@@ -53,7 +53,7 @@ describe("claude hooks (checklist D)", () => {
     assert.equal(a.hooksInstalledOnDisk(settingsPath), true)
     const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"))
     assert.equal(settings.foo, 1)
-    for (const ev of ["UserPromptSubmit", "Stop", "Notification", "PermissionRequest"]) {
+    for (const ev of ["UserPromptSubmit", "Stop", "Notification", "PermissionRequest", "PostToolUse"]) {
       assert.ok(Array.isArray(settings.hooks?.[ev]), `hooks.${ev} missing`)
     }
     assert.equal(fs.readFileSync(`${settingsPath}.cli-code.bak`, "utf8"), '{"foo":1}\n')

@@ -47,6 +47,10 @@ function mapState(p: Payload): { state: AgentState; prompt?: string } | undefine
     }
     case "PermissionRequest":
       return { state: "waiting", prompt: undefined }
+    // A tool finished: the agent is at work again — the only sign a permission dialog was
+    // answered, since no hook fires for the answer itself.
+    case "PostToolUse":
+      return { state: "working", prompt: undefined }
     default:
       return undefined
   }
