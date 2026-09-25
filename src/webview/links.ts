@@ -91,7 +91,9 @@ export function createTerminalLinkProvider(
  * that text is overwritten. xterm has no markers on the alternate screen (a full-screen TUI),
  * so there a link holds on to its row's line object instead: xterm moves those objects when it
  * scrolls, inserts or deletes lines, so the link's row is wherever that object sits now (the
- * screen has no scrollback: `rows` lines to look through). It lives only on that screen. Only honoured between begin() and end() — while the daemon's own
+ * screen has no scrollback: `rows` lines to look through). A full-screen scroll recycles the
+ * line that left the top as the new bottom one — same object, new text — and announces it with
+ * the list's trim event, which ends that line's links. It lives only on that screen. Only honoured between begin() and end() — while the daemon's own
  * snapshot is being written, never from what a CLI prints.
  */
 export function createSnapshotLinks(
@@ -101,12 +103,26 @@ export function createSnapshotLinks(
   onLeave: () => void,
 ): { provider: ILinkProvider; begin: () => void; end: () => void } {
   type Row = { marker: IMarker } | { alt: unknown }
+  type LineList = { get(i: number): unknown; length: number; onTrim?(listener: (amount: number) => void): { dispose(): void } }
   let links: { row: Row; x: number; cells: number; text: string; uri: string }[] = []
   let writing = false
   const textAt = (y: number, x: number, cells: number) => term.buffer.active.getLine(y)?.translateToString(false, x, x + cells) ?? ""
   const alt = () => term.buffer.active.type === "alternate"
   // xterm's own line list (internal): its entries are the line objects that move with the text.
-  const lineList = () => (term as unknown as { _core?: { buffer?: { lines?: { get(i: number): unknown } } } })._core?.buffer?.lines
+  const lineList = () => (term as unknown as { _core?: { buffer?: { lines?: LineList } } })._core?.buffer?.lines
+  // The alternate list whose recycled (trimmed) lines end their links; re-hooked if xterm swaps it.
+  let trimmed: { list: LineList; sub: { dispose(): void } } | undefined
+  const watchTrims = (list: LineList) => {
+    if (trimmed?.list === list || !list.onTrim) return
+    trimmed?.sub.dispose()
+    const sub = list.onTrim((amount) => {
+      // The recycled objects now sit at the end of the list.
+      const gone = new Set<unknown>()
+      for (let i = Math.max(0, list.length - amount); i < list.length; i++) gone.add(list.get(i))
+      links = links.filter((l) => !("alt" in l.row) || !gone.has(l.row.alt))
+    })
+    trimmed = { list, sub }
+  }
   const altLineAt = (y: number) => lineList()?.get(term.buffer.active.baseY + y)
   /** The link's buffer row now, or undefined once it is gone (trimmed, scrolled off, or its screen left). */
   const lineOf = (row: Row): number | undefined => {
@@ -123,6 +139,8 @@ export function createSnapshotLinks(
         if (alt()) {
           const line = altLineAt(term.buffer.active.cursorY + dy)
           if (line) row = { alt: line }
+          const list = lineList()
+          if (list) watchTrims(list)
         } else {
           const marker = term.registerMarker(dy)
           if (marker) row = { marker }

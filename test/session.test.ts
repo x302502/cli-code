@@ -455,3 +455,25 @@ describe("Session snapshot — same-label links on the alternate screen keep the
     replay.dispose()
   })
 })
+
+describe("Session snapshot — a recycled alternate-screen line does not keep its old link", () => {
+  it("a scroll that reuses the top line for new plain text 'Read report' at the bottom has no link there", async () => {
+    const { createSnapshotLinks } = await import("../src/webview/links.js")
+    const { Terminal } = await import("@xterm/headless")
+    const { session, emit } = makeSession()
+    emit("\x1b[?1049h\x1b[1;1H\x1b]8;;https://a\x07Read report\x1b]8;;\x07")
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    const replay = new Terminal({ cols: 80, rows: 24, allowProposedApi: true })
+    const links = createSnapshotLinks(replay as never, () => {}, () => {}, () => {})
+    links.begin()
+    await new Promise<void>((r) => replay.write(snapshot, r))
+    links.end()
+    const at = (y: number) => new Promise<string[]>((r) => links.provider.provideLinks(y, (l) => r((l ?? []).map((x) => x.text))))
+    expect(await at(1)).toEqual(["https://a"])
+    await new Promise<void>((r) => replay.write("\x1b[24;1H\r\nRead report", r))
+    expect(replay.buffer.active.getLine(23)!.translateToString(true)).toBe("Read report")
+    expect([await at(1), await at(24)]).toEqual([[], []])
+    replay.dispose()
+  })
+})
