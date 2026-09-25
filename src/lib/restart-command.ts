@@ -54,6 +54,12 @@ export function restartCommand(args: {
   return fresh
 }
 
+/** Whether `command` carries on an existing conversation (resume by id, or --continue) rather
+ * than starting a new one — so what named the old one (its first prompt) still names it. */
+export function resumesConversation(tool: CliTool, command: string): boolean {
+  return (tool.resumeCommand !== undefined && matchesTemplate(command, tool.resumeCommand)) || (tool.continueCommand !== undefined && command === tool.continueCommand)
+}
+
 /** The session id in a command built from `template` (a tab opened or restarted by id). */
 export function sessionIdFromCommand(command: string, template: string): string | undefined {
   const [before, after] = template.split("{sessionId}")

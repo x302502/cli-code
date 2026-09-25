@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { continueLatestCommand, restartCommand, sessionIdFromCommand } from "../src/lib/restart-command.js"
+import { continueLatestCommand, restartCommand, resumesConversation, sessionIdFromCommand } from "../src/lib/restart-command.js"
 import type { CliTool } from "../src/lib/config.js"
 import type { SessionSummary } from "../src/lib/history/types.js"
 
@@ -95,5 +95,14 @@ describe("sessionIdFromCommand", () => {
   it("reads the id back out of a filled-in resume command", () => {
     expect(sessionIdFromCommand("claude --resume abc --x", "claude --resume {sessionId} --x")).toBe("abc")
     expect(sessionIdFromCommand("claude --x", "claude --resume {sessionId} --x")).toBeUndefined()
+  })
+})
+
+describe("resumesConversation", () => {
+  const cc: CliTool = { id: "command-code", label: "", icon: "", command: "command-code --yolo", resumeCommand: "command-code --yolo --resume {sessionId}", continueCommand: "command-code --yolo --continue" }
+  it("resume by id and --continue carry the conversation on; the bare command starts a new one", () => {
+    expect(resumesConversation(cc, "command-code --yolo --resume abc")).toBe(true)
+    expect(resumesConversation(cc, "command-code --yolo --continue")).toBe(true)
+    expect(resumesConversation(cc, "command-code --yolo")).toBe(false)
   })
 })

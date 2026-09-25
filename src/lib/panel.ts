@@ -13,7 +13,7 @@ import { detectModel } from "./history/model.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
 import { createPromptTracker } from "./prompt-tracker.js"
 import { canAutoRestart, changedPath, configPathsFor, configSnapshot } from "./config-watch.js"
-import { restartCommand, sessionIdFromCommand } from "./restart-command.js"
+import { restartCommand, resumesConversation, sessionIdFromCommand } from "./restart-command.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
 import { buildEnv } from "./terminal.js"
@@ -453,6 +453,8 @@ export async function openTerminalPanel(
     command?: string
     title?: string
     quickCommandLabel?: string
+    /** The first-prompt title of the conversation this tab resumes. */
+    promptTitle?: string
     initialInput?: { text: string; submit: boolean }
     /** Where the tab goes; default: the group other CLI tabs are in, else beside the editor. */
     viewColumn?: vscode.ViewColumn
@@ -486,6 +488,7 @@ export async function openTerminalPanel(
   tab(panel).configSnapshot = configSnapshot(configPathsFor(tool.id, tool.historyToolId, cwd, os.homedir()))
   if (options.title) tab(panel).customTitle = options.title
   if (options.quickCommandLabel) tab(panel).quickLabel = options.quickCommandLabel
+  if (options.promptTitle) tab(panel).promptTitle = options.promptTitle
   if (options.initialInput) tab(panel).initialInput = options.initialInput
   tab(panel).cwd = cwd
   wirePanel(context, panel, tool, connection)
@@ -510,6 +513,10 @@ export async function restoreTerminalPanel(
   if (state.command) tab(panel).command = state.command
   if (state.spawnedAt) tab(panel).spawnedAt = state.spawnedAt
   if (state.cliSessionId) tab(panel).cliSessionId = state.cliSessionId
+  // The titles too: before wiring, so the first title posted is already right, and before the
+  // attach, so a gone tab's Restart still has them.
+  if (state.promptTitle) tab(panel).promptTitle = state.promptTitle
+  if (state.quickCommandLabel) tab(panel).quickLabel = state.quickCommandLabel
   // The user may close the tab while we wait on the daemon (seconds after a reload); the
   // panel is not registered yet, so track that here.
   let closed = false
@@ -543,9 +550,6 @@ export async function restoreTerminalPanel(
     showGone(context, panel, tool, hung ? UNRESPONSIVE : undefined)
     return
   }
-  // Restore the prompt title before wiring so the first title/state posted is already correct.
-  if (state.promptTitle) tab(panel).promptTitle = state.promptTitle
-  if (state.quickCommandLabel) tab(panel).quickLabel = state.quickCommandLabel
   if (state.configSnapshot) tab(panel).configSnapshot = state.configSnapshot
   if (state.extensionPath) tab(panel).extensionPath = state.extensionPath
   wirePanel(context, panel, tool, connection, { reattached: true })
@@ -664,10 +668,12 @@ export async function restartFromGone(context: vscode.ExtensionContext, panel: v
     const cwd = tab(panel).cwd
     const title = tab(panel).customTitle
     const command = await commandForRestart(panel, tool)
+    // Back in the same conversation: its first prompt still names it (as for a live restart).
+    const promptTitle = resumesConversation(tool, command) ? tab(panel).promptTitle : undefined
     let opened: vscode.WebviewPanel | undefined
     try {
       // Into the gone tab's own group: it left activePanels, so the default would open Beside.
-      opened = await openTerminalPanel(context, tool, { cwd, title, command, viewColumn: panel.viewColumn })
+      opened = await openTerminalPanel(context, tool, { cwd, title, command, promptTitle, viewColumn: panel.viewColumn })
     } catch (err) {
       void vscode.window.showErrorMessage(String(err))
     }
@@ -1049,7 +1055,8 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     }
     tab(panel).status = undefined
     tab(panel).oscTitle = undefined
-    tab(panel).promptTitle = undefined
+    // A new conversation is not named by the old one's first prompt; a resumed one still is.
+    if (!resumesConversation(tool, baseCommand)) tab(panel).promptTitle = undefined
     tab(panel).unread = false
     // The quick command is not re-run, so its label must not name the fresh session.
     tab(panel).quickLabel = undefined
