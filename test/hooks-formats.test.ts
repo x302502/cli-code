@@ -86,4 +86,10 @@ describe("codex trust tables — by hash, not just by key", () => {
     expect(r.changed).toBe(true)
     expect(r.text).toBe(`model = "x"\n`)
   })
+  it("removeTrust stops at an indented table header and keeps the user's table after ours", () => {
+    const toml = `[hooks.state."${key}"]\nenabled = true\ntrusted_hash = "sha256:ours"\n  [mcp_servers.example]\n  command = "npx"\n`
+    const r = removeTrust(toml, ["sha256:ours"])
+    expect(r.changed).toBe(true)
+    expect(r.text).toBe(`  [mcp_servers.example]\n  command = "npx"\n`)
+  })
 })

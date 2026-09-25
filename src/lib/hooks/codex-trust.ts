@@ -36,8 +36,9 @@ export function codexTrustKeys(hooksJsonPath: string, value: unknown): { key: st
 const block = (key: string, hash: string) => `[hooks.state."${key}"]\nenabled = true\ntrusted_hash = "${hash}"\n`
 
 // One `[hooks.state."<key>"]` table: its header and the non-blank lines under it, up to the next
-// header, a blank line or the end of the file (whether or not that ends in a newline).
-const TABLE_RE = /\n?\[hooks\.state\."([^"\n]*)"\]\n?(?:(?!\[)[^\n]+(?:\n|$))*/g
+// header, a blank line or the end of the file (whether or not that ends in a newline). TOML
+// allows whitespace before a header, so an indented `[table]` still ends ours.
+const TABLE_RE = /\n?[ \t]*\[hooks\.state\."([^"\n]*)"\]\n?(?:(?![ \t]*\[)[^\n]+(?:\n|$))*/g
 const hashIn = (table: string) => /trusted_hash = "([^"]*)"/.exec(table)?.[1]
 
 /** Whether the table at `key` trusts exactly `hash`. */
