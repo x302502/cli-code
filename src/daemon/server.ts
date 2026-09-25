@@ -98,7 +98,9 @@ export async function startDaemon(args: {
       }
       connections--
       clientSockets.delete(socket)
-      if (connections === 0) scheduleIdleExit()
+      // Every new connection cancels the timer; one that leaves nothing to host (a late hook
+      // report, a failed attach) must arm it again even while a keep-alive client stays open.
+      if (connections === 0 || sessions.size === 0) scheduleIdleExit()
     }
     socket.on("close", onGone)
     socket.on("error", () => {})

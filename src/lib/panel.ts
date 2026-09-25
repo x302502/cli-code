@@ -305,7 +305,9 @@ async function ensureDaemonUncached(context: vscode.ExtensionContext): Promise<s
       } catch {
         // pre-stamp daemon: treat as outdated
       }
-      if (stamped === build) return socketPath
+      // A daemon this window spawned runs the current build even if it could not write its
+      // stamp (tmpdir full / read-only); retiring it would spawn a new one on every call.
+      if (stamped === build || (stamped === undefined && spawnedDaemonPid !== undefined)) return socketPath
       // The daemon runs the previous build (the extension was updated while it kept the
       // sessions alive). It cannot be restarted without killing them, so start a fresh one
       // under a new id: restored tabs still attach to the old daemon through
@@ -492,13 +494,10 @@ export async function restoreTerminalPanel(
   let closed = false
   const closing = panel.onDidDispose(() => (closed = true))
   let connection: SessionConnection | undefined
-  try {
-    const socketPath = await ensureDaemon(context)
-    connection = await connectSession(socketPath, { op: "attach", sessionId: state.sessionId })
-  } catch {
-    // Daemon unresponsive or failed to start: fall through to the gone page (with Restart).
-  }
-  for (const id of [...previousDaemonIds(context)].reverse()) {
+  // Attaching never needs a new daemon: one spawned here holds no session, and waiting for it
+  // only delays the gone page. The current daemon first, then outdated ones, newest first.
+  const current = context.workspaceState.get<string>(DAEMON_ID_KEY)
+  for (const id of [...(current ? [current] : []), ...[...previousDaemonIds(context)].reverse()]) {
     if (connection || closed) break
     connection = await connectSession(daemonSocketPath(id), { op: "attach", sessionId: state.sessionId })
   }
@@ -513,7 +512,9 @@ export async function restoreTerminalPanel(
     // The session is gone (the app quit, or the daemon cleaned it up itself). Be honest with the user.
     panel.iconPath = iconFor(context, tool)
     panel.title = tool.label
-    showGone(context, panel, tool)
+    // A hung daemon is not an ended session: say so, the CLI may still be running in it.
+    const hung = current !== undefined && (await probeSocket(daemonSocketPath(current))) === "unknown"
+    showGone(context, panel, tool, hung ? UNRESPONSIVE : undefined)
     return
   }
   // Restore the prompt title before wiring so the first title/state posted is already correct.
@@ -528,7 +529,7 @@ export async function restoreTerminalPanel(
 /** Renders the "session gone" view and wires its restart button. Shared by a failed
  * attach (restoreTerminalPanel) and a live connection closing (daemon died/evicted).
  * Disposes the panel's wiring listener so a stale input/resize/ack handler doesn't linger. */
-function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, tool: CliTool): void {
+function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, tool: CliTool, reason?: string): void {
   panelWiring.get(panel)?.listener?.dispose()
   panelConnections.delete(panel)
   // A "gone" panel has no session, so it must not be picked by cli-code.open (reuse)
@@ -541,7 +542,7 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   // The failed-attach path (restoreTerminalPanel) reaches here without wirePanel, so the
   // tool must be recorded now or restartFromGone finds nothing and silently does nothing.
   panelTools.set(panel, tool)
-  panel.webview.html = goneHtml(tool.label)
+  panel.webview.html = goneHtml(tool.label, reason)
   panel.webview.onDidReceiveMessage((m) => {
     if (m.type === "restart") void restartFromGone(context, panel)
   })
@@ -1067,13 +1068,13 @@ function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview)
 </body></html>`
 }
 
-function goneHtml(label: string): string {
+function goneHtml(label: string, reason?: string): string {
   const nonce = randomBytes(16).toString("base64")
   const csp = `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}';`
   return `<!DOCTYPE html><html lang="en"><head>
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 </head><body style="font-family: var(--vscode-font-family); padding: 24px">
-<p>Session <strong>${escapeHtml(label)}</strong> has ended.</p>
+<p>${reason ? escapeHtml(reason) : `Session <strong>${escapeHtml(label)}</strong> has ended.`}</p>
 <button id="restart">Restart</button>
 <script nonce="${nonce}">
   const vscode = acquireVsCodeApi()

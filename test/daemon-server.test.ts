@@ -211,6 +211,26 @@ describe("startDaemon", () => {
     hold.socket.destroy()
   })
 
+  it("một kết nối ngắn (hook trễ, attach hỏng) sau khi hết phiên không huỷ idle-exit khi client bám giữ vẫn mở", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    let exited = false
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty, idleMs: 30, onIdleExit: () => (exited = true) })
+    stop = daemon.close
+    const hold = connect(p)
+    const owner = connect(p)
+    owner.socket.write(encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }))
+    await owner.waitFor(MSG.HelloOk)
+    owner.socket.write(encodeFrame(MSG.Kill, new Uint8Array(0)))
+    await new Promise((r) => setTimeout(r, 5))
+    const late = connect(p)
+    await new Promise<void>((r) => late.socket.once("connect", () => r()))
+    late.socket.destroy()
+    await new Promise((r) => setTimeout(r, 150))
+    expect(exited).toBe(true)
+    hold.socket.destroy()
+  })
+
   it("gửi khung Exit khi PTY thoát trong lúc client đang nối", async () => {
     const p = socketPath()
     const harness = scriptedPty()
