@@ -41,6 +41,7 @@ export class Session {
   cwd: string | undefined
   oscTitle: string | undefined
   status: { state: AgentState; prompt?: string; cliSessionId?: string } | undefined
+  private waitingTool: string | undefined
   private metaListener: ((e: MetaEvent) => void) | undefined
   private readonly scan = createOscScanner()
   private disposed = false
@@ -86,8 +87,16 @@ export class Session {
     this.metaListener = cb
   }
 
-  /** Status pushed from outside the PTY stream (a CLI hook talking to the daemon). */
-  reportStatus(state: AgentState, prompt?: string, cliSessionId?: string): void {
+  /** Status pushed from outside the PTY stream (a CLI hook talking to the daemon). `tool` names
+   * the call a permission dialog waits on; `toolDone` a call that finished, which ends that wait
+   * and nothing else. */
+  reportStatus(state: AgentState, prompt?: string, cliSessionId?: string, opts: { tool?: string; toolDone?: string } = {}): void {
+    if (opts.toolDone !== undefined) {
+      if (this.status?.state !== "waiting" || (this.waitingTool !== undefined && this.waitingTool !== opts.toolDone)) return
+    }
+    // A later "waiting" without a tool (Claude's permission_prompt Notification) is the same dialog.
+    if (state === "waiting") this.waitingTool = opts.tool ?? this.waitingTool
+    else this.waitingTool = undefined
     // The CLI's own session id (from its hook) is kept across later reports that omit it.
     this.status = { state, prompt, cliSessionId: cliSessionId ?? this.status?.cliSessionId }
     this.metaListener?.({ kind: "status", ...this.status })

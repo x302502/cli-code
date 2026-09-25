@@ -27,7 +27,7 @@ process.stdin.on("end", () => {
   const socket = net.createConnection(sock!)
   socket.on("error", () => process.exit(0))
   socket.on("connect", () => {
-    socket.end(encodeJsonFrame(MSG.StatusReport, { sessionId, state: mapped!.state, prompt: mapped!.prompt, cliSessionId: mapped!.cliSessionId }), () =>
+    socket.end(encodeJsonFrame(MSG.StatusReport, { sessionId, ...mapped! }), () =>
       process.exit(0),
     )
   })

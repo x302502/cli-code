@@ -6,9 +6,15 @@ describe("mapHookEvent", () => {
     expect(mapHookEvent({ hook_event_name: "UserPromptSubmit", prompt: "sửa bug" })).toEqual({ state: "working", prompt: "sửa bug" })
     expect(mapHookEvent({ hook_event_name: "Stop" })).toEqual({ state: "done", prompt: undefined })
     expect(mapHookEvent({ hook_event_name: "Notification", message: "needs input" })).toEqual({ state: "waiting", prompt: undefined })
-    expect(mapHookEvent({ hook_event_name: "PermissionRequest" })).toEqual({ state: "waiting", prompt: undefined })
-    // Không hook nào báo đã trả lời permission; tool chạy xong là dấu hiệu agent làm việc tiếp.
-    expect(mapHookEvent({ hook_event_name: "PostToolUse", tool_name: "Bash" })).toEqual({ state: "working", prompt: undefined })
+    expect(mapHookEvent({ hook_event_name: "PermissionRequest" })).toMatchObject({ state: "waiting", prompt: undefined })
+  })
+  it("PermissionRequest và PostToolUse của cùng một lệnh gọi tool mang cùng khoá tool; lệnh khác thì khác khoá", () => {
+    const call = { tool_name: "Bash", tool_input: { command: "rm -rf build" } }
+    const asked = mapHookEvent({ hook_event_name: "PermissionRequest", ...call })!
+    const done = mapHookEvent({ hook_event_name: "PostToolUse", ...call, tool_response: {}, tool_use_id: "t1" })!
+    expect(done.state).toBe("working")
+    expect(done.toolDone).toBe(asked.tool!)
+    expect(mapHookEvent({ hook_event_name: "PostToolUse", tool_name: "Read", tool_input: { file_path: "/x" } })!.toolDone).not.toBe(asked.tool!)
   })
   it("Notification: chỉ permission_prompt/elicitation_dialog là waiting; idle_prompt/auth_success bỏ qua", () => {
     expect(mapHookEvent({ hook_event_name: "Notification", notification_type: "permission_prompt" })).toEqual({ state: "waiting", prompt: undefined })

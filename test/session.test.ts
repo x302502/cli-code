@@ -226,6 +226,25 @@ describe("Session", () => {
     expect(seen).toEqual([{ kind: "status", state: "done", prompt: undefined }])
   })
 
+  it("toolDone chỉ kết thúc waiting khi đúng tool đang chờ permission; không bao giờ kéo done/working", () => {
+    const { session } = makeSession()
+    session.reportStatus("working", "p")
+    session.reportStatus("waiting", undefined, undefined, { tool: "A" })
+    // Notification permission_prompt (không có tool) là cùng một dialog.
+    session.reportStatus("waiting")
+    session.reportStatus("working", undefined, undefined, { toolDone: "B" }) // tool của subagent
+    expect(session.status?.state).toBe("waiting")
+    session.reportStatus("working", undefined, undefined, { toolDone: "A" })
+    expect(session.status?.state).toBe("working")
+    session.reportStatus("done")
+    session.reportStatus("working", undefined, undefined, { toolDone: "C" }) // background agent sau Stop
+    expect(session.status?.state).toBe("done")
+    // waiting chỉ từ Notification (không biết tool): tool nào xong cũng kết thúc nó.
+    session.reportStatus("waiting")
+    session.reportStatus("working", undefined, undefined, { toolDone: "D" })
+    expect(session.status?.state).toBe("working")
+  })
+
   it("detach gỡ meta listener", () => {
     const { session, emit } = makeSession()
     const seen: unknown[] = []

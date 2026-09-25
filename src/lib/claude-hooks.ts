@@ -7,7 +7,10 @@ export const HOOK_EVENTS = ["UserPromptSubmit", "Stop", "Notification", "Permiss
 /** Evaluates the per-session command the extension stamps into the CLI's env; a no-op when Claude runs elsewhere. */
 export const HOOK_COMMAND = '[ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true'
 
-export type HookEntry = { type: string; command: string; timeout?: number }
+export type HookEntry = { type: string; command: string; timeout?: number; async?: boolean }
+// Fired after every tool call: run in the background so a turn of many tool calls is not
+// slowed by one hook process each.
+const ASYNC_EVENTS = new Set(["PostToolUse"])
 export type HookGroup = { matcher?: string; hooks: HookEntry[] }
 type Settings = Record<string, unknown> & { hooks?: Record<string, HookGroup[]> }
 
@@ -48,7 +51,9 @@ export function installHooks(value: unknown, events: readonly string[] = HOOK_EV
     const groups = groupsOf(hooks, e)
     if (!groups.some(isOurs)) {
       // Appended, never prepended: Codex keys its trust entries by group index.
-      groups.push({ hooks: [timeout === undefined ? { type: "command", command: HOOK_COMMAND } : { type: "command", command: HOOK_COMMAND, timeout }] })
+      const entry: HookEntry = timeout === undefined ? { type: "command", command: HOOK_COMMAND } : { type: "command", command: HOOK_COMMAND, timeout }
+      if (ASYNC_EVENTS.has(e)) entry.async = true
+      groups.push({ hooks: [entry] })
       changed = true
     }
     hooks[e] = groups
