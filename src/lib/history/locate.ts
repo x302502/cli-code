@@ -26,13 +26,13 @@ type Locator = (cwd: string, sinceMs: number, home: string) => string | undefine
  * Like locateLatestSession, but the path of the session's own file — for CLIs that keep one
  * jsonl/json per session; used to read the model in play. Undefined for SQLite/dir stores.
  */
-export function locateLatestSessionFile(toolId: string, cwd: string, sinceMs: number, home: string): string | undefined {
+export function locateLatestSessionFile(toolId: string, cwd: string, sinceMs: number, home: string, sessionId?: string): string | undefined {
   const root = FILE_ROOTS[toolId]
   if (!root) return undefined
   try {
     const dir = root(home)
     const c = path.resolve(cwd)
-    return toolId === "cline" ? clineHit(dir, c, sinceMs)?.file : jsonlHit(dir, c, sinceMs)?.file
+    return toolId === "cline" ? clineHit(dir, c, sinceMs, sessionId)?.file : jsonlHit(dir, c, sinceMs, sessionId)?.file
   } catch {
     return undefined
   }
@@ -140,7 +140,9 @@ function jsonlHeader(root: string, cwd: string, since: number): string | undefin
   return jsonlHit(root, cwd, since)?.id
 }
 
-function jsonlHit(root: string, cwd: string, since: number): { id: string; file: string } | undefined {
+/** Newest session file for `cwd`; with `sessionId`, that session's file wins when found. */
+function jsonlHit(root: string, cwd: string, since: number, sessionId?: string): { id: string; file: string } | undefined {
+  let newest: { id: string; file: string } | undefined
   for (const file of recentFiles(root, since, (n) => n.endsWith(".jsonl") && !n.endsWith(".checkpoints.jsonl"))) {
     for (const line of head(file).split("\n").slice(0, 5)) {
       let rec: { type?: unknown; id?: unknown; cwd?: unknown }
@@ -150,12 +152,15 @@ function jsonlHit(root: string, cwd: string, since: number): { id: string; file:
         continue
       }
       if ((rec.type === "session" || rec.type === "session_start") && typeof rec.id === "string") {
-        if (typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) return { id: rec.id, file }
+        if (typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) {
+          if (!sessionId || rec.id === sessionId) return { id: rec.id, file }
+          newest ??= { id: rec.id, file }
+        }
         break
       }
     }
   }
-  return undefined
+  return newest
 }
 
 /** `~/.copilot/session-state/<id>/workspace.yaml` with `id:` and `cwd:` lines. */
@@ -174,16 +179,20 @@ function cline(root: string, cwd: string, since: number): string | undefined {
   return clineHit(root, cwd, since)?.id
 }
 
-function clineHit(root: string, cwd: string, since: number): { id: string; file: string } | undefined {
+function clineHit(root: string, cwd: string, since: number, sessionId?: string): { id: string; file: string } | undefined {
+  let newest: { id: string; file: string } | undefined
   for (const file of recentFiles(root, since, (n) => n.endsWith(".json") && !n.endsWith(".messages.json"))) {
     try {
       const rec = JSON.parse(fs.readFileSync(file, "utf8")) as { session_id?: unknown; cwd?: unknown }
-      if (typeof rec.session_id === "string" && typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) return { id: rec.session_id, file }
+      if (typeof rec.session_id === "string" && typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) {
+        if (!sessionId || rec.session_id === sessionId) return { id: rec.session_id, file }
+        newest ??= { id: rec.session_id, file }
+      }
     } catch {
       continue
     }
   }
-  return undefined
+  return newest
 }
 
 /** Session id = name of the newest subdirectory (kimi, cursor). */
@@ -230,12 +239,13 @@ export function openDb(file: string): SqliteDb | undefined {
   }
 }
 
-/** opencode and its forks: `session(id, directory, time_updated)`. */
+/** opencode and its forks: `session(id, parent_id, directory, time_updated)`; child
+ * sessions (parent_id set) are subagents, never the tab's own conversation. */
 function opencodeDb(file: string, cwd: string, since: number): string | undefined {
   const db = openDb(file)
   if (!db) return undefined
   try {
-    const row = db.prepare("SELECT id FROM session WHERE directory = ? AND time_updated >= ? ORDER BY time_updated DESC LIMIT 1").get(cwd, since)
+    const row = db.prepare("SELECT id FROM session WHERE directory = ? AND parent_id IS NULL AND time_updated >= ? ORDER BY time_updated DESC LIMIT 1").get(cwd, since)
     return typeof row?.id === "string" ? row.id : undefined
   } finally {
     db.close()

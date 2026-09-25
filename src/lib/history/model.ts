@@ -94,7 +94,7 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
         return id ? modelFromCopilotDb(path.join(home, ".copilot", "session-store.db"), id) : undefined
       }
       default: {
-        const file = locateLatestSessionFile(toolId, cwd, sinceMs, home)
+        const file = locateLatestSessionFile(toolId, cwd, sinceMs, home, sessionId)
         return file ? modelFromFile(file) : undefined
       }
     }
@@ -126,7 +126,7 @@ function modelFromOpencodeDb(file: string, cwd: string, sinceMs: number, session
   if (!db) return undefined
   try {
     // The tab's own session (reported by its hook) wins; the folder's newest is only a fallback.
-    const session = sessionId ? { id: sessionId } : db.prepare("SELECT id FROM session WHERE directory = ? AND time_updated >= ? ORDER BY time_updated DESC LIMIT 1").get(cwd, sinceMs)
+    const session = sessionId ? { id: sessionId } : db.prepare("SELECT id FROM session WHERE directory = ? AND parent_id IS NULL AND time_updated >= ? ORDER BY time_updated DESC LIMIT 1").get(cwd, sinceMs)
     if (!session || typeof session.id !== "string") return undefined
     const row = db.prepare("SELECT data FROM message WHERE session_id = ? AND data LIKE '%\"modelID\"%' ORDER BY time_created DESC LIMIT 1").get(session.id)
     return typeof row?.data === "string" ? modelFromText(row.data) : undefined

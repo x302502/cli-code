@@ -42,6 +42,12 @@ describe("detectModel — per-CLI session stores", () => {
     write(".pi/agent/sessions/--w-proj--/a.jsonl", '{"type":"session","id":"s1","cwd":"/w/proj"}\n{"type":"model_change","modelId":"gpt-5.5"}\n{"type":"model_change","modelId":"claude-sonnet-5"}\n')
     expect(detectModel("pi", cwd, T0, home)).toBe("claude-sonnet-5")
   })
+  it("pi/omp: a known session id wins over the folder's newest transcript", () => {
+    write(".pi/agent/sessions/--w-proj--/a.jsonl", '{"type":"session","id":"sA","cwd":"/w/proj"}\n{"type":"model_change","modelId":"model-a"}\n', T0 + 1000)
+    write(".pi/agent/sessions/--w-proj--/b.jsonl", '{"type":"session","id":"sB","cwd":"/w/proj"}\n{"type":"model_change","modelId":"model-b"}\n', T0 + 2000)
+    expect(detectModel("pi", cwd, T0, home, "sA")).toBe("model-a")
+    expect(detectModel("pi", cwd, T0, home)).toBe("model-b")
+  })
   it("cline: session json", () => {
     write(".cline/data/sessions/c1/c1.json", '{"session_id":"c1","cwd":"/w/proj","provider":"cline-pass","model":"cline-pass/deepseek-v4-pro"}')
     expect(detectModel("cline", cwd, T0, home)).toBe("cline-pass/deepseek-v4-pro")
@@ -50,9 +56,9 @@ describe("detectModel — per-CLI session stores", () => {
     const { Database } = require("bun:sqlite") as { Database: new (p: string) => { exec(s: string): void; close(): void } }
     fs.mkdirSync(path.join(home, ".local/share/opencode"), { recursive: true })
     const db = new Database(path.join(home, ".local/share/opencode/opencode.db"))
-    db.exec("CREATE TABLE session (id text, project_id text, directory text, time_updated integer)")
+    db.exec("CREATE TABLE session (id text, project_id text, parent_id text, directory text, time_updated integer)")
     db.exec("CREATE TABLE message (id text, session_id text, time_created integer, time_updated integer, data text)")
-    db.exec(`INSERT INTO session VALUES ('ses_1','p','/w/proj',${T0 + 1})`)
+    db.exec(`INSERT INTO session VALUES ('ses_1','p',NULL,'/w/proj',${T0 + 1})`)
     db.exec(`INSERT INTO message VALUES ('m1','ses_1',1,1,'{"role":"assistant","modelID":"old-model","providerID":"x"}'), ('m2','ses_1',2,2,'{"role":"assistant","modelID":"mimo-v2.5-free","providerID":"opencode"}')`)
     db.close()
     expect(detectModel("opencode", cwd, T0, home)).toBe("mimo-v2.5-free")
@@ -61,9 +67,9 @@ describe("detectModel — per-CLI session stores", () => {
     const { Database } = require("bun:sqlite") as { Database: new (p: string) => { exec(s: string): void; close(): void } }
     fs.mkdirSync(path.join(home, ".local/share/opencode"), { recursive: true })
     const db = new Database(path.join(home, ".local/share/opencode/opencode.db"))
-    db.exec("CREATE TABLE session (id text, project_id text, directory text, time_updated integer)")
+    db.exec("CREATE TABLE session (id text, project_id text, parent_id text, directory text, time_updated integer)")
     db.exec("CREATE TABLE message (id text, session_id text, time_created integer, time_updated integer, data text)")
-    db.exec(`INSERT INTO session VALUES ('ses_a','p','/w/proj',${T0 + 1}), ('ses_b','p','/w/proj',${T0 + 2})`)
+    db.exec(`INSERT INTO session VALUES ('ses_a','p',NULL,'/w/proj',${T0 + 1}), ('ses_b','p',NULL,'/w/proj',${T0 + 2})`)
     db.exec(`INSERT INTO message VALUES ('m1','ses_a',1,1,'{"role":"assistant","modelID":"model-a"}'), ('m2','ses_b',2,2,'{"role":"assistant","modelID":"model-b"}')`)
     db.close()
     expect(detectModel("opencode", cwd, T0, home, "ses_a")).toBe("model-a")

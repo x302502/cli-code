@@ -78,8 +78,8 @@ describe("locateLatestSession", () => {
     const { Database: DatabaseSync } = require("bun:sqlite") as { Database: new (p: string) => { exec(s: string): void; close(): void } }
     fs.mkdirSync(path.join(home, ".local/share/opencode"), { recursive: true })
     const db = new DatabaseSync(path.join(home, ".local/share/opencode/opencode.db"))
-    db.exec("CREATE TABLE session (id text, project_id text, directory text, time_updated integer)")
-    db.exec(`INSERT INTO session VALUES ('ses_old','p','/w/proj',${T0 - 1}), ('ses_new','p','/w/proj',${T0 + 1}), ('ses_x','p','/w/other',${T0 + 9})`)
+    db.exec("CREATE TABLE session (id text, project_id text, parent_id text, directory text, time_updated integer)")
+    db.exec(`INSERT INTO session VALUES ('ses_old','p',NULL,'/w/proj',${T0 - 1}), ('ses_new','p',NULL,'/w/proj',${T0 + 1}), ('ses_x','p',NULL,'/w/other',${T0 + 9}), ('ses_child','p','ses_new','/w/proj',${T0 + 5})`)
     db.close()
     expect(locateLatestSession("opencode", cwd, T0, home)).toBe("ses_new")
     fs.mkdirSync(path.join(home, ".local/share/goose/sessions"), { recursive: true })
