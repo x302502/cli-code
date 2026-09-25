@@ -266,3 +266,30 @@ describe("Session snapshot — mouse encoding", () => {
     expect(snapshot).not.toContain("\x1b[?1006h")
   })
 })
+
+describe("Session snapshot — scroll region", () => {
+  it("restores a DECSTBM region and the cursor, so a newline at the region's bottom leaves the footer alone", async () => {
+    const { session, emit } = makeSession()
+    // Header on row 1, footer on row 24, region 2..23, cursor at the region's last row.
+    emit("\x1b[1;1HHEADER\x1b[24;1HFOOTER\x1b[2;23r\x1b[23;5H")
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    const { Terminal } = await import("@xterm/headless")
+    const replay = new Terminal({ cols: 80, rows: 24, allowProposedApi: true })
+    await new Promise<void>((r) => replay.write(snapshot, r))
+    expect(replay.buffer.active.cursorY).toBe(22)
+    expect(replay.buffer.active.cursorX).toBe(4)
+    await new Promise<void>((r) => replay.write("\nnew", r))
+    const line = (y: number) => replay.buffer.active.getLine(y)!.translateToString(true)
+    expect(line(0)).toBe("HEADER")
+    expect(line(23)).toBe("FOOTER")
+    replay.dispose()
+  })
+  it("adds nothing for the full-screen default region", async () => {
+    const { session, emit } = makeSession()
+    emit("hello")
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    expect(snapshot).not.toMatch(/\x1b\[\d+;\d+r/)
+  })
+})

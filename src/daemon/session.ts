@@ -192,7 +192,7 @@ export class Session {
    * macrotask, so awaiting an earlier write's callback is not a stable cut point.
    */
   snapshot(): Promise<string> {
-    return new Promise<string>((resolve) => this.mirror.write("", () => resolve(this.serializer.serialize() + mouseEncoding(this.mirror))))
+    return new Promise<string>((resolve) => this.mirror.write("", () => resolve(this.serializer.serialize() + mouseEncoding(this.mirror) + scrollRegion(this.mirror))))
   }
 
   private forward(chunk: Uint8Array): void {
@@ -220,6 +220,20 @@ function mouseEncoding(term: Terminal): string {
   if (encoding === "SGR") return "\x1b[?1006h"
   if (encoding === "SGR_PIXELS") return "\x1b[?1016h"
   return ""
+}
+
+/**
+ * The scroll region (DECSTBM) the program set, then the cursor put back where it was — setting
+ * a region homes the cursor. The serializer drops the region, so after a reload a TUI with a
+ * fixed header/footer would scroll the whole screen and overwrite them.
+ */
+function scrollRegion(term: Terminal): string {
+  const buf = (term as unknown as { _core?: { buffer?: { scrollTop?: number; scrollBottom?: number } } })._core?.buffer
+  const top = buf?.scrollTop
+  const bottom = buf?.scrollBottom
+  if (top === undefined || bottom === undefined || (top === 0 && bottom === term.rows - 1)) return ""
+  const cur = term.buffer.active
+  return `\x1b[${top + 1};${bottom + 1}r\x1b[${cur.cursorY + 1};${cur.cursorX + 1}H`
 }
 
 export function createSession(args: {
