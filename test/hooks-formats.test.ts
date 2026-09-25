@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { HOOK_COMMAND, hooksInstalled, installHooks, uninstallHooks } from "../src/lib/claude-hooks.js"
+import { HOOK_COMMAND, hookCommand, hooksInstalled, installHooks, uninstallHooks } from "../src/lib/claude-hooks.js"
 import { codexHookHash, codexTrustKeys, addTrust, removeTrust, trustedWith } from "../src/lib/hooks/codex-trust.js"
 import { copilotFile, copilotInstalled } from "../src/lib/hooks/copilot.js"
 
@@ -51,7 +51,7 @@ describe("copilot hook file", () => {
     const file = copilotFile()
     expect(file.version).toBe(1)
     expect(Object.keys(file.hooks).sort()).toEqual(["Notification", "PermissionRequest", "Stop", "UserPromptSubmit"])
-    expect(file.hooks.Stop).toEqual([{ type: "command", bash: HOOK_COMMAND, timeoutSec: 5 }])
+    expect(file.hooks.Stop).toEqual([{ type: "command", bash: hookCommand("copilot"), timeoutSec: 5 }])
     expect(copilotInstalled(file)).toBe(true)
     expect(copilotInstalled({ version: 1, hooks: { Stop: [{ type: "command", bash: "other" }] } })).toBe(false)
     expect(copilotInstalled(undefined)).toBe(false)

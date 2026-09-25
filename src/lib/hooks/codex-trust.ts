@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { HOOK_COMMAND, isOurs, type HookGroup } from "../claude-hooks.js"
+import { isOurCommand, isOurs, type HookGroup } from "../claude-hooks.js"
 
 /**
  * Codex only runs hooks it has been told to trust: `~/.codex/config.toml` carries one
@@ -25,7 +25,7 @@ export function codexTrustKeys(hooksJsonPath: string, value: unknown): { key: st
     groups.forEach((g, gi) => {
       if (!isOurs(g)) return
       g.hooks.forEach((h, hi) => {
-        if (h.command !== HOOK_COMMAND) return
+        if (!isOurCommand(h.command)) return
         out.push({ key: `${hooksJsonPath}:${snake(event)}:${gi}:${hi}`, hash: codexHookHash(snake(event), h.command, h.timeout ?? 10) })
       })
     })
@@ -90,7 +90,7 @@ function userKeys(hooksJsonPath: string, value: unknown): Map<string, string[]> 
     groups.forEach((g, gi) => {
       if (!Array.isArray(g?.hooks)) return
       g.hooks.forEach((h, hi) => {
-        if (h?.command !== HOOK_COMMAND) keys.push(`${hooksJsonPath}:${snake(event)}:${gi}:${hi}`)
+        if (!isOurCommand(h?.command)) keys.push(`${hooksJsonPath}:${snake(event)}:${gi}:${hi}`)
       })
     })
     out.set(event, keys)

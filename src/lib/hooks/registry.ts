@@ -1,13 +1,13 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
-import { HOOK_COMMAND, HOOK_EVENTS, hooksInstalled, installHooks, readSettingsFile, uninstallHooks, writeFileAtomic, writeSettingsFile } from "../claude-hooks.js"
+import { HOOK_EVENTS, hookCommand, hooksInstalled, isOurCommand, installHooks, readSettingsFile, uninstallHooks, writeFileAtomic, writeSettingsFile } from "../claude-hooks.js"
 import { addTrust, codexTrustKeys, remapTrust, removeTrust, trustedWith } from "./codex-trust.js"
 import { copilotFile, copilotInstalled } from "./copilot.js"
 import { isManagedPlugin, pluginSource, type PluginFlavour } from "./plugin-template.js"
 
 /**
- * One installer per CLI that can tell us its agent state. All of them register the same
- * `HOOK_COMMAND`, so a CLI started outside CLI Code runs a no-op. Every method takes the home
+ * One installer per CLI that can tell us its agent state. Each registers `hookCommand(id)`,
+ * which names the CLI and is a no-op when the CLI was started outside CLI Code. Every method takes the home
  * directory explicitly so tests never touch the real one. Disk writes back the file up once
  * (`<file>.cli-code.bak`) and are atomic.
  */
@@ -45,9 +45,9 @@ function settingsHooks(id: string, label: string, binary: string, rel: string[],
     label,
     binary,
     files: (home) => [file(home)],
-    installed: (home) => hooksInstalled(readSettingsFile(file(home)), events),
+    installed: (home) => hooksInstalled(readSettingsFile(file(home)), events, hookCommand(id)),
     install: (home) => {
-      const { settings, changed } = installHooks(readSettingsFile(file(home)), events, timeout)
+      const { settings, changed } = installHooks(readSettingsFile(file(home)), events, timeout, hookCommand(id))
       if (changed) writeSettingsFile(file(home), settings)
       return changed
     },
@@ -74,13 +74,13 @@ const codex: StatusHookInstaller = {
   installed: (home) => {
     const [hooksFile, tomlFile] = codex.files(home) as [string, string]
     const value = readSettingsFile(hooksFile)
-    if (!hooksInstalled(value, CODEX_EVENTS)) return false
+    if (!hooksInstalled(value, CODEX_EVENTS, hookCommand("codex"))) return false
     const toml = readText(tomlFile) ?? ""
     return codexTrustKeys(hooksFile, value).every((e) => trustedWith(toml, e.key, e.hash))
   },
   install: (home) => {
     const [hooksFile, tomlFile] = codex.files(home) as [string, string]
-    const { settings, changed } = installHooks(readSettingsFile(hooksFile), CODEX_EVENTS, 10)
+    const { settings, changed } = installHooks(readSettingsFile(hooksFile), CODEX_EVENTS, 10, hookCommand("codex"))
     if (changed) writeSettingsFile(hooksFile, settings)
     const trust = addTrust(readText(tomlFile) ?? "", codexTrustKeys(hooksFile, settings))
     if (trust.changed) writeText(tomlFile, trust.text)
@@ -113,7 +113,7 @@ function hookCommands(value: unknown): string[] {
 /** A file CLI Code wrote, possibly by an older build: it holds hook commands and all are ours. */
 function managedHooksFile(value: unknown): boolean {
   const cmds = hookCommands(value)
-  return cmds.length > 0 && cmds.every((c) => c === HOOK_COMMAND || c === GROK_HOOK_COMMAND)
+  return cmds.length > 0 && cmds.every((c) => isOurCommand(c) || c === GROK_HOOK_COMMAND || c === LEGACY_GROK_HOOK_COMMAND)
 }
 
 function ownJsonFile(id: string, label: string, binary: string, rel: string[], content: () => unknown, isOurs: (value: unknown) => boolean): StatusHookInstaller {
@@ -147,7 +147,8 @@ const GROK_EVENTS = ["UserPromptSubmit", "Stop", "StopFailure", "StopCancelled",
 // Grok expands `$VAR` references in a hook command up front and refuses to run it when one is
 // unset ("required env var(s) not set") — outside CLI Code that would print a warning on every
 // prompt. Reading the variable through printenv keeps the reference out of Grok's scanner.
-export const GROK_HOOK_COMMAND = '[ -n "$(printenv CLI_CODE_HOOK)" ] && eval "$(printenv CLI_CODE_HOOK)" || true'
+export const GROK_HOOK_COMMAND = '[ -n "$(printenv CLI_CODE_HOOK)" ] && eval "CLI_CODE_FROM=grok $(printenv CLI_CODE_HOOK)" || true'
+const LEGACY_GROK_HOOK_COMMAND = '[ -n "$(printenv CLI_CODE_HOOK)" ] && eval "$(printenv CLI_CODE_HOOK)" || true'
 function grokFile(): unknown {
   const hooks: Record<string, { hooks: { type: string; command: string }[] }[]> = {}
   for (const e of GROK_EVENTS) hooks[e] = [{ hooks: [{ type: "command", command: GROK_HOOK_COMMAND }] }]
@@ -167,13 +168,13 @@ function plugin(id: string, label: string, binary: string, rel: string[], flavou
     label,
     binary,
     files: (home) => [file(home)],
-    installed: (home) => readText(file(home)) === pluginSource(flavour),
+    installed: (home) => readText(file(home)) === pluginSource(flavour, id),
     install: (home) => {
       const current = readText(file(home))
-      if (current === pluginSource(flavour)) return false
+      if (current === pluginSource(flavour, id)) return false
       // Never overwrite a file the user wrote under our name.
       if (current !== undefined && !isManagedPlugin(current)) throw new Error(`${file(home)} exists and is not managed by CLI Code`)
-      writeText(file(home), pluginSource(flavour))
+      writeText(file(home), pluginSource(flavour, id))
       return true
     },
     uninstall: (home) => {

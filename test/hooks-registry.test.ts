@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { HOOK_COMMAND } from "../src/lib/claude-hooks.js"
+import { HOOK_COMMAND, hookCommand } from "../src/lib/claude-hooks.js"
 import { MANAGED_HEADER } from "../src/lib/hooks/plugin-template.js"
 import { GROK_HOOK_COMMAND, STATUS_HOOK_INSTALLERS } from "../src/lib/hooks/registry.js"
 
@@ -46,11 +46,23 @@ describe("status hook installers", () => {
     byId("droid").install(home)
     const s = JSON.parse(read(".factory/settings.json"))
     expect(s.model).toBe("x")
-    expect(s.hooks.Stop.map((g: { hooks: { command: string }[] }) => g.hooks[0]!.command)).toEqual(["say done", HOOK_COMMAND])
+    expect(s.hooks.Stop.map((g: { hooks: { command: string }[] }) => g.hooks[0]!.command)).toEqual(["say done", hookCommand("droid")])
     expect(Object.keys(s.hooks).sort()).toEqual(["Notification", "Stop", "UserPromptSubmit"])
     expect(read(".factory/settings.json.cli-code.bak")).toContain('"say done"')
     byId("droid").uninstall(home)
     expect(JSON.parse(read(".factory/settings.json")).hooks.Stop.length).toBe(1)
+  })
+  it("a hook an older build wrote (no CLI_CODE_FROM) is upgraded where it sits; Codex re-trusts it at the same key", () => {
+    const legacy = '[ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true'
+    write(".codex/hooks.json", JSON.stringify({ hooks: { Stop: [{ hooks: [{ type: "command", command: "mine", timeout: 5 }] }, { hooks: [{ type: "command", command: legacy, timeout: 10 }] }] } }))
+    const codex = byId("codex")
+    expect(codex.installed(home)).toBe(false)
+    codex.install(home)
+    const hooks = JSON.parse(read(".codex/hooks.json")).hooks
+    expect(hooks.Stop.map((g: { hooks: { command: string }[] }) => g.hooks[0]!.command)).toEqual(["mine", hookCommand("codex")])
+    expect(read(".codex/config.toml")).toContain(`hooks.json:stop:1:0"]`)
+    expect(codex.installed(home)).toBe(true)
+    expect(codex.install(home)).toBe(false)
   })
   it("codex: appends our group to hooks.json and trust tables to config.toml; uninstall removes both", () => {
     write(".codex/hooks.json", '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"mine","timeout":5}]}]}}')
@@ -59,7 +71,7 @@ describe("status hook installers", () => {
     codex.install(home)
     const hooks = JSON.parse(read(".codex/hooks.json")).hooks
     expect(hooks.Stop[0].hooks[0].command).toBe("mine")
-    expect(hooks.Stop[1].hooks[0]).toEqual({ type: "command", command: HOOK_COMMAND, timeout: 10 })
+    expect(hooks.Stop[1].hooks[0]).toEqual({ type: "command", command: hookCommand("codex"), timeout: 10 })
     const toml = read(".codex/config.toml")
     const hooksFile = path.join(home, ".codex", "hooks.json")
     for (const key of ["stop:1:0", "user_prompt_submit:0:0", "permission_request:0:0"]) {

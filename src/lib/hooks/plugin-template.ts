@@ -6,14 +6,15 @@ export const MANAGED_HEADER = "// @cli-code-managed v1 — CLI Code status plugi
 
 export type PluginFlavour = "opencode" | "pi" | "omp"
 
-const COMMON = `
+const common = (from: string) => `
 import { spawn } from "node:child_process"
 const HOOK = process.env.CLI_CODE_HOOK
 /** Pipes a Claude-shaped payload into CLI Code's hook; fire-and-forget, never throws. */
 function report(payload: Record<string, unknown>): void {
   if (!HOOK) return
   try {
-    const child = spawn("sh", ["-c", HOOK], { stdio: ["pipe", "ignore", "ignore"], detached: true })
+    // Names this CLI, so a report from another CLI started inside it is not taken for the tab's.
+    const child = spawn("sh", ["-c", HOOK], { env: { ...process.env, CLI_CODE_FROM: "${from}" }, stdio: ["pipe", "ignore", "ignore"], detached: true })
     child.on("error", () => {})
     child.stdin?.on("error", () => {})
     child.stdin?.end(JSON.stringify(payload))
@@ -79,9 +80,9 @@ export default function CliCodeStatus(api: any) {
 }
 `
 
-export function pluginSource(flavour: PluginFlavour): string {
+export function pluginSource(flavour: PluginFlavour, from: string): string {
   const body = flavour === "opencode" ? OPENCODE : flavour === "pi" ? PI_OMP("agent_settled", "ui_prompt_start") : PI_OMP("agent_end", "tool_approval_requested")
-  return `${MANAGED_HEADER}\n${COMMON}${body}`
+  return `${MANAGED_HEADER}\n${common(from)}${body}`
 }
 
 export function isManagedPlugin(text: string | undefined): boolean {

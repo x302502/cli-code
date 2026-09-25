@@ -4,8 +4,24 @@ import * as os from "node:os"
 import * as path from "node:path"
 
 export const HOOK_EVENTS = ["UserPromptSubmit", "Stop", "Notification", "PermissionRequest", "PostToolUse"] as const
-/** Evaluates the per-session command the extension stamps into the CLI's env; a no-op when Claude runs elsewhere. */
-export const HOOK_COMMAND = '[ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true'
+/**
+ * Evaluates the per-session command the extension stamps into the CLI's env; a no-op when the
+ * CLI runs elsewhere. It names the CLI that ran it (CLI_CODE_FROM): the env is inherited by
+ * everything a CLI starts, so a `codex exec` run from a Claude tab reaches the same hook, and
+ * the hook drops a report whose CLI is not the tab's. The assignment sits inside the eval'd
+ * text — a prefix on a simple command — since `VAR=x eval …` does not reach eval's children
+ * in zsh, dash or ksh.
+ */
+export function hookCommand(from: string): string {
+  return `[ -n "$CLI_CODE_HOOK" ] && eval "CLI_CODE_FROM=${from} $CLI_CODE_HOOK" || true`
+}
+export const HOOK_COMMAND = hookCommand("claude")
+// Written by builds before CLI_CODE_FROM: still ours, upgraded in place on the next install.
+const LEGACY_HOOK_COMMAND = '[ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true'
+const TAGGED_HOOK_RE = /^\[ -n "\$CLI_CODE_HOOK" \] && eval "CLI_CODE_FROM=[\w-]+ \$CLI_CODE_HOOK" \|\| true$/
+export function isOurCommand(command: unknown): boolean {
+  return command === LEGACY_HOOK_COMMAND || (typeof command === "string" && TAGGED_HOOK_RE.test(command))
+}
 
 export type HookEntry = { type: string; command: string; timeout?: number; async?: boolean }
 // Fired after every tool call: run in the background so a turn of many tool calls is not
@@ -30,17 +46,17 @@ function groupsOf(hooks: Record<string, unknown> | undefined, event: string): Ho
   return Array.isArray(groups) ? groups : []
 }
 export function isOurs(group: HookGroup): boolean {
-  return Array.isArray(group?.hooks) && group.hooks.some((h) => h?.command === HOOK_COMMAND)
+  return Array.isArray(group?.hooks) && group.hooks.some((h) => isOurCommand(h?.command))
 }
 
 // The Claude `hooks` shape is shared by Droid, Codex and Grok; they differ only in which events
 // exist and whether a timeout is expected, hence the optional parameters.
-export function hooksInstalled(value: unknown, events: readonly string[] = HOOK_EVENTS): boolean {
+export function hooksInstalled(value: unknown, events: readonly string[] = HOOK_EVENTS, command = HOOK_COMMAND): boolean {
   const s = asSettings(value)
-  return events.every((e) => groupsOf(hooksRecord(s), e).some(isOurs))
+  return events.every((e) => groupsOf(hooksRecord(s), e).some((g) => Array.isArray(g?.hooks) && g.hooks.some((h) => h?.command === command && (!ASYNC_EVENTS.has(e) || h.async === true))))
 }
 
-export function installHooks(value: unknown, events: readonly string[] = HOOK_EVENTS, timeout?: number): { settings: Settings; changed: boolean } {
+export function installHooks(value: unknown, events: readonly string[] = HOOK_EVENTS, timeout?: number, command = HOOK_COMMAND): { settings: Settings; changed: boolean } {
   const s = asSettings(value)
   // A non-plain-object hooks field (null, array, primitive) is replaced, not preserved: there is
   // nothing sane to merge into.
@@ -49,9 +65,22 @@ export function installHooks(value: unknown, events: readonly string[] = HOOK_EV
   let changed = false
   for (const e of events) {
     const groups = groupsOf(hooks, e)
+    // An entry an older build wrote is brought up to date where it sits (Codex keys its trust
+    // entries by position, so moving it would orphan them).
+    for (const h of groups.filter(isOurs).flatMap((g) => g.hooks)) {
+      if (!isOurCommand(h?.command)) continue
+      if (h.command !== command) {
+        h.command = command
+        changed = true
+      }
+      if (ASYNC_EVENTS.has(e) && h.async !== true) {
+        h.async = true
+        changed = true
+      }
+    }
     if (!groups.some(isOurs)) {
       // Appended, never prepended: Codex keys its trust entries by group index.
-      const entry: HookEntry = timeout === undefined ? { type: "command", command: HOOK_COMMAND } : { type: "command", command: HOOK_COMMAND, timeout }
+      const entry: HookEntry = timeout === undefined ? { type: "command", command } : { type: "command", command, timeout }
       if (ASYNC_EVENTS.has(e)) entry.async = true
       groups.push({ hooks: [entry] })
       changed = true
@@ -73,7 +102,7 @@ export function uninstallHooks(value: unknown, events: readonly string[] = HOOK_
       const kept = groups.flatMap((g) => {
         if (!isOurs(g)) return [g]
         changed = true
-        const rest = g.hooks.filter((h) => h?.command !== HOOK_COMMAND)
+        const rest = g.hooks.filter((h) => !isOurCommand(h?.command))
         return rest.length ? [{ ...g, hooks: rest }] : []
       })
       if (kept.length) hooks[e] = kept

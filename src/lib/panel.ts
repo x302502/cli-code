@@ -390,7 +390,8 @@ export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise
 /** Per-tool extras for a new CLI process; PATH and the rest come from the daemon's interactive
  * login shell (see daemon/entry.ts). */
 function spawnEnv(context: vscode.ExtensionContext, tool: CliTool): Record<string, string> {
-  return { ...buildEnv(tool), CLI_CODE_HOOK: hookCommand(context) }
+  // CLI_CODE_FAMILY: the CLI whose hook reports count for this tab (see hook/entry.ts).
+  return { ...buildEnv(tool), CLI_CODE_HOOK: hookCommand(context), CLI_CODE_FAMILY: tool.historyToolId ?? tool.id }
 }
 
 /** Shell snippet Claude's hook entry evaluates; the editor's own binary runs our bundle as node.

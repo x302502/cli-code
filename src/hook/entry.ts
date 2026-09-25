@@ -12,6 +12,12 @@ const sessionId = process.env.CLI_CODE_SESSION_ID
 const deadline = setTimeout(() => process.exit(0), 1000)
 
 if (!sock || !sessionId) process.exit(0)
+// Everything a CLI starts inherits the tab's env, so a CLI run from inside another (a
+// `codex exec` in Claude's Bash tool) reaches this hook too: only the tab's own CLI may report.
+// A hook without CLI_CODE_FROM was installed by an older build and is let through.
+const from = process.env.CLI_CODE_FROM
+const family = process.env.CLI_CODE_FAMILY
+if (from && family && from !== family) process.exit(0)
 
 let raw = ""
 process.stdin.setEncoding("utf8")
