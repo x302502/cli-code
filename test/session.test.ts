@@ -304,6 +304,20 @@ describe("Session snapshot — scroll region", () => {
     expect(line(23)).toBe("FOOTER")
     replay.dispose()
   })
+  it("under origin mode (DECOM) the cursor goes back to the same absolute row", async () => {
+    const { session, emit } = makeSession()
+    // Region 3..8, origin mode on, cursor at region row 2 = absolute row 4.
+    emit("\x1b[3;8r\x1b[?6h\x1b[2;5H")
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    const { Terminal } = await import("@xterm/headless")
+    const replay = new Terminal({ cols: 80, rows: 24, allowProposedApi: true })
+    await new Promise<void>((r) => replay.write(snapshot, r))
+    expect(replay.buffer.active.cursorY).toBe(3)
+    expect(replay.buffer.active.cursorX).toBe(4)
+    expect(replay.modes.originMode).toBe(true)
+    replay.dispose()
+  })
   it("adds nothing for the full-screen default region", async () => {
     const { session, emit } = makeSession()
     emit("hello")

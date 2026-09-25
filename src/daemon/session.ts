@@ -242,7 +242,10 @@ function scrollRegion(term: Terminal): string {
   const bottom = buf?.scrollBottom
   if (top === undefined || bottom === undefined || (top === 0 && bottom === term.rows - 1)) return ""
   const cur = term.buffer.active
-  return `\x1b[${top + 1};${bottom + 1}r\x1b[${cur.cursorY + 1};${cur.cursorX + 1}H`
+  // Under origin mode (DECOM, which the serializer already switched back on) rows count from
+  // the region's top.
+  const row = term.modes.originMode ? cur.cursorY - top : cur.cursorY
+  return `\x1b[${top + 1};${bottom + 1}r\x1b[${row + 1};${cur.cursorX + 1}H`
 }
 
 export function createSession(args: {
