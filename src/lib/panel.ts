@@ -97,6 +97,8 @@ const panelOscTitles = new WeakMap<vscode.WebviewPanel, string>()
 const panelStatus = new WeakMap<vscode.WebviewPanel, { state: AgentState; prompt?: string }>()
 const panelPromptTitles = new WeakMap<vscode.WebviewPanel, string>()
 const panelUnread = new WeakSet<vscode.WebviewPanel>()
+// Tabs whose CLI exited: they stay open (for Restart) but take no input and are not reused.
+const panelExited = new WeakSet<vscode.WebviewPanel>()
 const panelTrackers = new WeakMap<vscode.WebviewPanel, ReturnType<typeof createPromptTracker>>()
 
 /** Shows a completion notification for a panel that just left "working" while hidden,
@@ -220,7 +222,7 @@ export function inspectPanel(panel: vscode.WebviewPanel): {
 /** First open panel for a given tool, if any. */
 export function findExistingPanel(tool: CliTool): vscode.WebviewPanel | undefined {
   for (const panel of activePanels) {
-    if (panelTools.get(panel) === tool) return panel
+    if (panelTools.get(panel) === tool && !panelExited.has(panel)) return panel
   }
   return undefined
 }
@@ -230,7 +232,7 @@ export function findExistingPanel(tool: CliTool): vscode.WebviewPanel | undefine
  * paste, not as line-by-line submissions. Returns false if there is no panel. */
 export function pasteToActivePanel(text: string, submit: boolean): boolean {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
-  if (!panel || !panelConnections.has(panel)) return false
+  if (!panel || !panelConnections.has(panel) || panelExited.has(panel)) return false
   sendTo(panel, { type: "pasteText", text, submit })
   panel.reveal()
   return true
@@ -248,7 +250,7 @@ export async function openNewSessionLikeActive(context: vscode.ExtensionContext)
 /** Writes text into the active (or last-focused) panel's session. Returns false if there is none. */
 export function writeToActivePanel(text: string): boolean {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
-  if (!panel) return false
+  if (!panel || panelExited.has(panel)) return false
   const connection = panelConnections.get(panel)
   if (!connection) return false
   connection.write(text)
@@ -712,6 +714,7 @@ function attachConnection(
   if (!wiring) return
   wiring.listener?.dispose()
   panelConnections.set(panel, connection)
+  panelExited.delete(panel)
   // A CLI that kept running through a reload may have an unsent prompt we never saw typed.
   const tracker = createPromptTracker({ draftUnknown: opts.reattached })
   panelTrackers.set(panel, tracker)
@@ -737,7 +740,10 @@ function attachConnection(
       quietTimer = setTimeout(flushInitialInput, 400)
     }
   })
-  connection.onExit((e) => sendTo(panel, { type: "exit", code: e.code }))
+  connection.onExit((e) => {
+    panelExited.add(panel)
+    sendTo(panel, { type: "exit", code: e.code })
+  })
   connection.onMeta((e) => {
     // cwd and the CLI's session id are part of the serialized state; re-post when they arrive.
     if (e.kind === "cwd") {

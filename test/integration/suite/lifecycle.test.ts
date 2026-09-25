@@ -45,6 +45,9 @@ describe("lifecycle (checklist B, A-e)", () => {
     const firstPid = Number(env.pid)
     await waitFor(() => !pidAlive(firstPid), 5_000, "tool to exit")
     assert.ok(a.activePanels().includes(panel), "an exited tab stays open for restart")
+    // …but takes no input: a quick command must open a new session instead of vanishing.
+    await waitFor(() => !a.pasteToActivePanel("x", false), 5_000, "exited tab to refuse a paste")
+    assert.equal(a.writeToActivePanel("x"), false)
 
     await a.restartPanel(a.context, panel)
     await waitFor(() => Number(readEnvFile("exit")?.pid) !== firstPid, 15_000, "restarted tool")
