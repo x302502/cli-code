@@ -39,7 +39,11 @@ export async function startDaemon(args: {
   const server = net.createServer((socket) => {
     connections++
     clientSockets.add(socket)
-    if (idleTimer) clearTimeout(idleTimer)
+    // A daemon with sessions stays up while anyone is connected. An empty one only gets a fresh
+    // countdown — time for this client to spawn — so a bare keep-alive socket does not keep
+    // it alive until the window closes.
+    if (sessions.size === 0) scheduleIdleExit()
+    else if (idleTimer) clearTimeout(idleTimer)
 
     const decode = createFrameDecoder()
     let session: Session | undefined

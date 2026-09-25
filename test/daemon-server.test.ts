@@ -231,6 +231,19 @@ describe("startDaemon", () => {
     hold.socket.destroy()
   })
 
+  it("một socket bám giữ nối vào daemon rỗng không giữ nó sống mãi: vẫn idle-exit", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    let exited = false
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty, idleMs: 30, onIdleExit: () => (exited = true) })
+    stop = daemon.close
+    const hold = connect(p)
+    await new Promise<void>((r) => hold.socket.once("connect", () => r()))
+    await new Promise((r) => setTimeout(r, 150))
+    expect(exited).toBe(true)
+    hold.socket.destroy()
+  })
+
   it("gửi khung Exit khi PTY thoát trong lúc client đang nối", async () => {
     const p = socketPath()
     const harness = scriptedPty()
