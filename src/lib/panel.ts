@@ -99,6 +99,9 @@ const panelPromptTitles = new WeakMap<vscode.WebviewPanel, string>()
 const panelUnread = new WeakSet<vscode.WebviewPanel>()
 // Tabs whose CLI exited: they stay open (for Restart) but take no input and are not reused.
 const panelExited = new WeakSet<vscode.WebviewPanel>()
+// When a tab last checked its CLI's config on becoming visible (see onDidChangeViewState).
+const panelStaleCheckedAt = new WeakMap<vscode.WebviewPanel, number>()
+const STALE_CHECK_MS = 2_000
 const panelTrackers = new WeakMap<vscode.WebviewPanel, ReturnType<typeof createPromptTracker>>()
 
 /** Shows a completion notification for a panel that just left "working" while hidden,
@@ -438,6 +441,8 @@ export async function openTerminalPanel(
     title?: string
     quickCommandLabel?: string
     initialInput?: { text: string; submit: boolean }
+    /** Where the tab goes; default: the group other CLI tabs are in, else beside the editor. */
+    viewColumn?: vscode.ViewColumn
   } = {},
 ): Promise<vscode.WebviewPanel | undefined> {
   const socketPath = await ensureDaemon(context)
@@ -459,7 +464,7 @@ export async function openTerminalPanel(
   }
 
   // Stack CLIs as tabs in one editor group: reuse the column of an existing CLI panel.
-  const column = [...activePanels][0]?.viewColumn ?? vscode.ViewColumn.Beside
+  const column = options.viewColumn ?? [...activePanels][0]?.viewColumn ?? vscode.ViewColumn.Beside
   const panel = vscode.window.createWebviewPanel(VIEW_TYPE, tool.label, column, {
     enableScripts: true,
     retainContextWhenHidden: true,
@@ -645,7 +650,8 @@ export async function restartFromGone(context: vscode.ExtensionContext, panel: v
     const command = await commandForRestart(panel, tool)
     let opened: vscode.WebviewPanel | undefined
     try {
-      opened = await openTerminalPanel(context, tool, { cwd, title, command })
+      // Into the gone tab's own group: it left activePanels, so the default would open Beside.
+      opened = await openTerminalPanel(context, tool, { cwd, title, command, viewColumn: panel.viewColumn })
     } catch (err) {
       void vscode.window.showErrorMessage(String(err))
     }
@@ -687,7 +693,13 @@ function wirePanel(
     if (e.webviewPanel.visible) {
       panelUnread.delete(panel)
       updateTitle(panel)
-      void checkStale(context, panel)
+      // Flipping between tabs fires this constantly; the config walk behind it (stat + two
+      // levels of readdir per path) needs to run at most once every couple of seconds.
+      const now = Date.now()
+      if (now - (panelStaleCheckedAt.get(panel) ?? 0) >= STALE_CHECK_MS) {
+        panelStaleCheckedAt.set(panel, now)
+        void checkStale(context, panel)
+      }
     }
   })
 
@@ -752,7 +764,12 @@ function attachConnection(
   })
   connection.onExit((e) => {
     panelExited.add(panel)
+    // A CLI that died mid-turn leaves no "working"/"waiting" behind (glyph, banner), as for a gone tab.
+    panelStatus.delete(panel)
+    panelUnread.delete(panel)
+    sendTo(panel, { type: "agentStatus", state: "none" })
     sendTo(panel, { type: "exit", code: e.code })
+    updateTitle(panel)
   })
   connection.onMeta((e) => {
     // cwd and the CLI's session id are part of the serialized state; re-post when they arrive.
