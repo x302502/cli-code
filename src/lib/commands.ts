@@ -52,7 +52,8 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
   quickPick.busy = true
   quickPick.show()
   let picked: Item | undefined
-  // Esc while the lookups run: stop there — no filling a disposed picker, no late toast.
+  // The picker closed while the lookups run: stop filling it (no late toast either) — but a
+  // session picked from what was already listed still opens.
   let hidden = false
   const done = new Promise<void>((resolve) => {
     quickPick.onDidAccept(() => {
@@ -67,7 +68,10 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
   })
 
   const sessions = await listSessionsForWorkspace(cwd)
-  if (hidden) return
+  if (hidden) {
+    await picked?.run()
+    return
+  }
   // The id is spliced into a shell command line; anything outside [\w.-] is not a session id.
   quickPick.items = sessions
     .filter((s) => /^[\w.-]+$/.test(s.sessionId))
@@ -84,7 +88,10 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
   // entry: this folder's newest session from the CLI's own store when it has one, else
   // --continue. Only installed CLIs are asked.
   const installed = await detectInstalled(CLI_TOOLS.map((t) => extractBinary(t.command)))
-  if (hidden) return
+  if (hidden) {
+    await picked?.run()
+    return
+  }
   const continueEntries = CLI_TOOLS.filter((t) => installed.get(extractBinary(t.command)) && !sessions.some((s) => s.toolId === t.id))
     .map((tool) => ({ tool, command: continueLatestCommand(tool, locateLatestSession(tool.historyToolId ?? tool.id, cwd, 0, os.homedir())) }))
     .filter((e): e is { tool: CliTool; command: string } => e.command !== undefined)
