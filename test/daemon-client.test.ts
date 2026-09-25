@@ -70,6 +70,22 @@ describe("connectSession", () => {
     expect(await connectSession(p, { op: "attach", sessionId: "khong-ton-tai" })).toBeUndefined()
   })
 
+  it("spawn lỗi (không chạy được shell): daemon vẫn sống, trả lời kèm lý do thay vì cắt kết nối", async () => {
+    const p = tmpSocket()
+    const daemon = await startDaemon({
+      socketPath: p,
+      spawnPty: () => {
+        throw new Error("spawn /bin/zsh EACCES")
+      },
+    })
+    stop = daemon.close
+    let reason: string | undefined
+    expect(await connectSession(p, spawnHello, { onRefused: (r) => (reason = r) })).toBeUndefined()
+    expect(reason).toBe("spawn /bin/zsh EACCES")
+    // The daemon is fine: the next Hello on a new connection is answered too.
+    expect(await connectSession(p, { op: "attach", sessionId: "x" })).toBeUndefined()
+  })
+
   it("trả undefined khi không có daemon nào ở đường dẫn đó", async () => {
     expect(await connectSession(tmpSocket(), spawnHello)).toBeUndefined()
   })
@@ -133,7 +149,7 @@ describe("connectSession", () => {
     const silent = net.createServer(() => {})
     await new Promise<void>((r) => silent.listen(p, r))
     try {
-      expect(await connectSession(p, spawnHello, 100)).toBeUndefined()
+      expect(await connectSession(p, spawnHello, { timeoutMs: 100 })).toBeUndefined()
     } finally {
       await new Promise<void>((r) => silent.close(() => r()))
     }

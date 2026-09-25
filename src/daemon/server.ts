@@ -50,7 +50,14 @@ export async function startDaemon(args: {
       try {
         for (const frame of decode(new Uint8Array(chunk))) {
           if (frame.type === MSG.Hello) {
-            session = handleHello(frame.payload, socket, sessions, owners, args.spawnPty, args.socketPath)
+            try {
+              session = handleHello(frame.payload, socket, sessions, owners, args.spawnPty, args.socketPath)
+            } catch (err) {
+              // The CLI could not be spawned (e.g. EACCES on the shell): the daemon is fine, so
+              // say why instead of dropping the connection like a malformed frame.
+              socket.end(encodeJsonFrame(MSG.HelloFail, { reason: err instanceof Error ? err.message : String(err) }))
+              return
+            }
             continue
           }
           if (frame.type === MSG.StatusReport) {

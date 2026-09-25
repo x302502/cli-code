@@ -462,17 +462,14 @@ export async function openTerminalPanel(
   const cwd = usableCwd(options.cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
   const baseCommand = options.command ?? tool.command
 
-  const connection = await connectSession(socketPath, {
-    op: "spawn",
-    toolId: tool.id,
-    command: baseCommand,
-    cwd,
-    env: spawnEnv(context, tool),
-    cols: 80,
-    rows: 24,
-  })
+  let refused: string | undefined
+  const connection = await connectSession(
+    socketPath,
+    { op: "spawn", toolId: tool.id, command: baseCommand, cwd, env: spawnEnv(context, tool), cols: 80, rows: 24 },
+    { onRefused: (reason) => (refused = reason) },
+  )
   if (!connection) {
-    void vscode.window.showErrorMessage("Could not open the terminal: the daemon is not responding.")
+    void vscode.window.showErrorMessage(`Could not open the terminal: ${refused ? `the CLI could not be started (${refused}).` : "the daemon is not responding."}`)
     return undefined
   }
 
@@ -1017,19 +1014,24 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     tab(panel).spawnedAt = Date.now()
     tab(panel).extensionPath = context.extensionPath
     tab(panel).configSnapshot = configSnapshot(configPathsFor(tool.id, tool.historyToolId, usableCwd(tab(panel).cwd), os.homedir()))
+    let refused: string | undefined
     const connection = socketPath
-      ? await connectSession(socketPath, {
-          op: "spawn",
-          toolId: tool.id,
-          command: baseCommand,
-          cwd: usableCwd(tab(panel).cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
-          env: spawnEnv(context, tool),
-          cols: 80,
-          rows: 24,
-        })
+      ? await connectSession(
+          socketPath,
+          {
+            op: "spawn",
+            toolId: tool.id,
+            command: baseCommand,
+            cwd: usableCwd(tab(panel).cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
+            env: spawnEnv(context, tool),
+            cols: 80,
+            rows: 24,
+          },
+          { onRefused: (reason) => (refused = reason) },
+        )
       : undefined
     if (!connection) {
-      void vscode.window.showErrorMessage("Could not restart: the daemon is not responding.")
+      void vscode.window.showErrorMessage(`Could not restart: ${refused ? `the CLI could not be started (${refused}).` : "the daemon is not responding."}`)
       // The old session is already killed: leave the tab on the honest "gone" page (with its
       // Restart button), not a live-looking terminal whose keystrokes go into a dead socket.
       if (activePanels.has(panel)) showGone(context, panel, tool)

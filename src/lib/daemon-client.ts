@@ -43,11 +43,14 @@ export function daemonBuildStampPath(id: string): string {
   return path.join(os.tmpdir(), `cli-code-${id}.build`)
 }
 
+/** `onRefused`: the daemon answered but turned the Hello down (e.g. the CLI could not be
+ * spawned), with its reason — unlike a timeout, that is not an unresponsive daemon. */
 export function connectSession(
   socketPath: string,
   hello: SpawnHello | AttachHello,
-  timeoutMs = DEFAULT_HANDSHAKE_TIMEOUT_MS,
+  opts: { timeoutMs?: number; onRefused?: (reason: string) => void } = {},
 ): Promise<SessionConnection | undefined> {
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_HANDSHAKE_TIMEOUT_MS
   return new Promise((resolve) => {
     const socket = net.createConnection(socketPath)
     const decode = createFrameDecoder()
@@ -99,7 +102,11 @@ export function connectSession(
       if (disposed) return
       try {
         for (const frame of decode(new Uint8Array(chunk))) {
-          if (frame.type === MSG.HelloFail) return fail()
+          if (frame.type === MSG.HelloFail) {
+            const { reason } = decodeJsonPayload<{ reason?: unknown }>(frame.payload)
+            if (!settled && typeof reason === "string") opts.onRefused?.(reason)
+            return fail()
+          }
           if (frame.type === MSG.HelloOk) {
             if (settled) continue
             settled = true
