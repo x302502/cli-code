@@ -5,56 +5,8 @@ import { samePath } from "../same-path.js"
 import { encodeClaudeProjectDir, parseClaudeSession } from "./claude.js"
 import { parseCodexRollout } from "./codex.js"
 import { parseGrokSession } from "./grok.js"
+import { head, mtimeMs, newestFiles } from "./files.js"
 import type { SessionSummary } from "./types.js"
-
-const HEAD_BYTES = 64 * 1024
-
-/** First 64 KB of a file — enough for session meta and the first prompt, cheap on huge transcripts. */
-function head(file: string): string {
-  const fd = fs.openSync(file, "r")
-  try {
-    const buf = Buffer.alloc(HEAD_BYTES)
-    const n = fs.readSync(fd, buf, 0, HEAD_BYTES, 0)
-    return buf.subarray(0, n).toString("utf8")
-  } finally {
-    fs.closeSync(fd)
-  }
-}
-
-/** mtime of a file, or undefined if it was removed since it was listed. */
-function safeMtimeMs(file: string): number | undefined {
-  try {
-    return fs.statSync(file).mtimeMs
-  } catch {
-    return undefined
-  }
-}
-
-function newestFiles(dir: string, filter: (name: string) => boolean, limit: number, recursive: boolean): string[] {
-  if (!fs.existsSync(dir)) return []
-  const walk = (d: string, out: string[]) => {
-    let entries: fs.Dirent[]
-    try {
-      entries = fs.readdirSync(d, { withFileTypes: true })
-    } catch {
-      return
-    }
-    for (const e of entries) {
-      const p = path.join(d, e.name)
-      if (e.isDirectory()) {
-        if (recursive) walk(p, out)
-      } else if (filter(e.name)) out.push(p)
-    }
-  }
-  const files: string[] = []
-  walk(dir, files)
-  return files
-    .map((f) => ({ f, m: safeMtimeMs(f) }))
-    .filter((x): x is { f: string; m: number } => x.m !== undefined)
-    .sort((a, b) => b.m - a.m)
-    .slice(0, limit)
-    .map((x) => x.f)
-}
 
 function claudeSessions(cwd: string, limit: number, sinceMs?: number): SessionSummary[] {
   return claudeSessionsInDir(path.join(os.homedir(), ".claude", "projects", encodeClaudeProjectDir(cwd)), limit, cwd, sinceMs)
@@ -69,9 +21,9 @@ function claudeSessions(cwd: string, limit: number, sinceMs?: number): SessionSu
  */
 export function claudeSessionsInDir(dir: string, limit: number, cwd?: string, sinceMs?: number): SessionSummary[] {
   const out: SessionSummary[] = []
-  for (const f of newestFiles(dir, (n) => n.endsWith(".jsonl"), cwd === undefined ? limit : Infinity, false)) {
+  for (const f of newestFiles(dir, (n) => n.endsWith(".jsonl"), { limit: cwd === undefined ? limit : Infinity })) {
     if (out.length >= limit) break
-    const m = safeMtimeMs(f)
+    const m = mtimeMs(f)
     if (m === undefined) continue
     // Newest first: once one is older than `sinceMs`, so are the rest — their heads go unread.
     if (sinceMs !== undefined && m < sinceMs) break
@@ -100,10 +52,10 @@ export function codexSessions(cwd: string, limit: number, sinceMs?: number): Ses
   const isRollout = (n: string) => n.startsWith("rollout-") && n.endsWith(".jsonl")
   const files =
     sinceMs === undefined
-      ? newestFiles(dir, isRollout, Infinity, true)
+      ? newestFiles(dir, isRollout, { depth: Infinity })
       : daysSince(sinceMs)
-          .flatMap((d) => newestFiles(path.join(dir, d), isRollout, Infinity, false))
-          .map((f) => ({ f, m: safeMtimeMs(f) ?? 0 }))
+          .flatMap((d) => newestFiles(path.join(dir, d), isRollout))
+          .map((f) => ({ f, m: mtimeMs(f) ?? 0 }))
           .filter((x) => x.m >= sinceMs)
           .sort((a, b) => b.m - a.m)
           .map((x) => x.f)
@@ -113,7 +65,7 @@ export function codexSessions(cwd: string, limit: number, sinceMs?: number): Ses
   const out: SessionSummary[] = []
   for (const f of files) {
     if (out.length >= limit) break
-    const m = safeMtimeMs(f)
+    const m = mtimeMs(f)
     if (m === undefined) continue
     let text: string
     try {
@@ -153,7 +105,7 @@ export function grokSessions(cwd: string, limit: number, sinceMs = 0): SessionSu
   return entries
     .filter((e) => e.isDirectory())
     .map((e) => path.join(dir, e.name))
-    .map((d) => ({ d, m: safeMtimeMs(d) }))
+    .map((d) => ({ d, m: mtimeMs(d) }))
     .filter((x): x is { d: string; m: number } => x.m !== undefined && x.m >= sinceMs)
     .sort((a, b) => b.m - a.m)
     .slice(0, limit)

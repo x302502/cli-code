@@ -2,6 +2,10 @@ import { createHash } from "node:crypto"
 import * as fs from "node:fs"
 import * as path from "node:path"
 import { samePath } from "../same-path.js"
+import { head, mtimeMs, newestFiles } from "./files.js"
+
+// Session headers sit in the first lines; no need for the 64 KB the history list reads.
+const HEAD_BYTES = 16 * 1024
 
 /**
  * Finds the id of the session a CLI tab most likely owns: the newest session record that
@@ -73,27 +77,6 @@ const LOCATORS: Record<string, Locator> = {
   goose: (cwd, since, home) => gooseDb(path.join(home, ".local", "share", "goose", "sessions", "sessions.db"), cwd, since),
 }
 
-const HEAD_BYTES = 16 * 1024
-
-function head(file: string): string {
-  const fd = fs.openSync(file, "r")
-  try {
-    const buf = Buffer.alloc(HEAD_BYTES)
-    const n = fs.readSync(fd, buf, 0, HEAD_BYTES, 0)
-    return buf.subarray(0, n).toString("utf8")
-  } finally {
-    fs.closeSync(fd)
-  }
-}
-
-function mtime(p: string): number | undefined {
-  try {
-    return fs.statSync(p).mtimeMs
-  } catch {
-    return undefined
-  }
-}
-
 function sameDir(a: string, b: string): boolean {
   return samePath(a, b)
 }
@@ -107,33 +90,8 @@ function antigravity(root: string, cwd: string, since: number): string | undefin
   const map = JSON.parse(fs.readFileSync(index, "utf8")) as Record<string, string>
   const id = Object.entries(map).find(([dir]) => sameDir(dir, cwd))?.[1]
   if (!id) return undefined
-  const m = mtime(path.join(root, "conversations", `${id}.db`))
+  const m = mtimeMs(path.join(root, "conversations", `${id}.db`))
   return m !== undefined && m >= since ? id : undefined
-}
-
-/** Files under `root` (up to two levels deep) modified at/after `since`, newest first. */
-function recentFiles(root: string, since: number, keep: (name: string) => boolean): string[] {
-  if (!fs.existsSync(root)) return []
-  const out: { f: string; m: number }[] = []
-  const visit = (dir: string, depth: number) => {
-    let entries: fs.Dirent[]
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true })
-    } catch {
-      return
-    }
-    for (const e of entries) {
-      const p = path.join(dir, e.name)
-      if (e.isDirectory()) {
-        if (depth < 2) visit(p, depth + 1)
-      } else if (keep(e.name)) {
-        const m = mtime(p)
-        if (m !== undefined && m >= since) out.push({ f: p, m })
-      }
-    }
-  }
-  visit(root, 0)
-  return out.sort((a, b) => b.m - a.m).map((x) => x.f)
 }
 
 function jsonlHeader(root: string, cwd: string, since: number): string | undefined {
@@ -143,8 +101,8 @@ function jsonlHeader(root: string, cwd: string, since: number): string | undefin
 /** Newest session file for `cwd`; with `sessionId`, that session's file wins when found. */
 function jsonlHit(root: string, cwd: string, since: number, sessionId?: string): { id: string; file: string } | undefined {
   let newest: { id: string; file: string } | undefined
-  for (const file of recentFiles(root, since, (n) => n.endsWith(".jsonl") && !n.endsWith(".checkpoints.jsonl"))) {
-    for (const line of head(file).split("\n").slice(0, 5)) {
+  for (const file of newestFiles(root, (n) => n.endsWith(".jsonl") && !n.endsWith(".checkpoints.jsonl"), { depth: 2, sinceMs: since })) {
+    for (const line of head(file, HEAD_BYTES).split("\n").slice(0, 5)) {
       let rec: { type?: unknown; id?: unknown; cwd?: unknown }
       try {
         rec = JSON.parse(line)
@@ -165,8 +123,8 @@ function jsonlHit(root: string, cwd: string, since: number, sessionId?: string):
 
 /** `~/.copilot/session-state/<id>/workspace.yaml` with `id:` and `cwd:` lines. */
 function copilot(root: string, cwd: string, since: number): string | undefined {
-  for (const file of recentFiles(root, since, (n) => n === "workspace.yaml")) {
-    const text = head(file)
+  for (const file of newestFiles(root, (n) => n === "workspace.yaml", { depth: 2, sinceMs: since })) {
+    const text = head(file, HEAD_BYTES)
     const id = /^id:\s*(\S+)/m.exec(text)?.[1]
     const dir = /^cwd:\s*(.+)$/m.exec(text)?.[1]?.trim()
     if (id && dir && sameDir(dir, cwd)) return id
@@ -181,7 +139,7 @@ function cline(root: string, cwd: string, since: number): string | undefined {
 
 function clineHit(root: string, cwd: string, since: number, sessionId?: string): { id: string; file: string } | undefined {
   let newest: { id: string; file: string } | undefined
-  for (const file of recentFiles(root, since, (n) => n.endsWith(".json") && !n.endsWith(".messages.json"))) {
+  for (const file of newestFiles(root, (n) => n.endsWith(".json") && !n.endsWith(".messages.json"), { depth: 2, sinceMs: since })) {
     try {
       const rec = JSON.parse(fs.readFileSync(file, "utf8")) as { session_id?: unknown; cwd?: unknown }
       if (typeof rec.session_id === "string" && typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) {
@@ -201,7 +159,7 @@ function newestSubdir(root: string, since: number): string | undefined {
   let best: { id: string; m: number } | undefined
   for (const e of fs.readdirSync(root, { withFileTypes: true })) {
     if (!e.isDirectory()) continue
-    const m = mtime(path.join(root, e.name))
+    const m = mtimeMs(path.join(root, e.name))
     if (m === undefined || m < since) continue
     if (!best || m > best.m) best = { id: e.name, m }
   }
@@ -209,7 +167,7 @@ function newestSubdir(root: string, since: number): string | undefined {
 }
 
 function amp(root: string, since: number): string | undefined {
-  for (const file of recentFiles(root, since, (n) => n.startsWith("T-") && n.endsWith(".json"))) {
+  for (const file of newestFiles(root, (n) => n.startsWith("T-") && n.endsWith(".json"), { depth: 2, sinceMs: since })) {
     const id = path.basename(file, ".json")
     if (id) return id
   }
