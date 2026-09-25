@@ -86,7 +86,8 @@ export function createTerminalLinkProvider(
 
 /** Selects the cells a link occupies, so a plain Cmd+C copies the whole link. */
 export function selectRange(term: Terminal, range: IBufferRange): void {
-  term.select(range.start.x - 1, range.start.y - 1, range.end.x - range.start.x + 1)
+  // The length runs on across rows, so a link wrapped over several rows is selected whole.
+  term.select(range.start.x - 1, range.start.y - 1, (range.end.y - range.start.y) * term.cols + range.end.x - range.start.x + 1)
 }
 
 /**

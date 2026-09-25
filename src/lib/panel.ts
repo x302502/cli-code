@@ -498,9 +498,15 @@ export async function restoreTerminalPanel(
   let connection: SessionConnection | undefined
   // Attaching never needs a new daemon: one spawned here holds no session, and waiting for it
   // only delays the gone page. The current daemon first, then outdated ones, newest first.
+  // Each is probed first (500 ms): a missing or hung daemon must not cost a 5 s handshake
+  // timeout while the tab sits blank.
   const current = context.workspaceState.get<string>(DAEMON_ID_KEY)
+  let hung = false
   for (const id of [...(current ? [current] : []), ...[...previousDaemonIds(context)].reverse()]) {
     if (connection || closed) break
+    const probe = await probeSocket(daemonSocketPath(id))
+    if (probe === "unknown" && id === current) hung = true
+    if (probe !== "listening") continue
     connection = await connectSession(daemonSocketPath(id), { op: "attach", sessionId: state.sessionId })
   }
   closing.dispose()
@@ -515,7 +521,6 @@ export async function restoreTerminalPanel(
     panel.iconPath = iconFor(context, tool)
     panel.title = tool.label
     // A hung daemon is not an ended session: say so, the CLI may still be running in it.
-    const hung = current !== undefined && (await probeSocket(daemonSocketPath(current))) === "unknown"
     showGone(context, panel, tool, hung ? UNRESPONSIVE : undefined)
     return
   }
@@ -594,7 +599,8 @@ async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Pro
   let sessions: Awaited<ReturnType<typeof listSessionsForWorkspace>> = []
   if (!reportedSessionId && cwd && HISTORY_TOOLS.has(tool.historyToolId ?? tool.id)) {
     try {
-      sessions = await listSessionsForWorkspace(cwd)
+      // Older sessions are dropped by restartCommand anyway: skip Codex's older day folders.
+      sessions = await listSessionsForWorkspace(cwd, undefined, spawnedAt || undefined)
     } catch {
       // History is best effort; a scan failure just means a fresh session.
     }
@@ -913,7 +919,8 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
 export async function checkStale(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
   const tool = panelTools.get(panel)
   const spawnedAt = panelSpawnedAt.get(panel)
-  if (!tool || !spawnedAt || !activePanels.has(panel) || !panelConnections.has(panel)) return
+  // A CLI the user quit stays quit: a config change must not spawn it again.
+  if (!tool || !spawnedAt || !activePanels.has(panel) || !panelConnections.has(panel) || panelExited.has(panel)) return
   const before = panelConfigSnapshot.get(panel)
   const reason =
     // CLI_CODE_HOOK points into the extension folder of the build that spawned the tab; after
