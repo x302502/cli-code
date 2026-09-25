@@ -576,13 +576,19 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
 
 const BAR_COMMANDS = new Set(["openNew", "newSession", "resume", "renameTab", "restart", "copyContext", "quickCommand"])
 
+/** Opens a web/mail link. A hostile CLI must not be able to trigger file:/custom-scheme
+ * handlers via a printed "link" — only http(s) and mailto are allowed through to the OS. */
+function openWebLink(text: string): void {
+  const uri = vscode.Uri.parse(text)
+  if (uri.scheme === "http" || uri.scheme === "https" || uri.scheme === "mailto") void vscode.env.openExternal(uri)
+}
+
 /** Right-click on a link: open it (or, with `alt`, with the default app / in Finder). */
 export function openLinkTextInActivePanel(text: string, alt: boolean): void {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
   if (!panel) return
   if (/^(https?|mailto):/i.test(text)) {
-    const uri = vscode.Uri.parse(text)
-    if (uri.scheme === "http" || uri.scheme === "https" || uri.scheme === "mailto") void vscode.env.openExternal(uri)
+    openWebLink(text)
     return
   }
   const parsed = parsePathLink(text) ?? { path: text }
@@ -848,10 +854,7 @@ function attachConnection(
       void vscode.env.clipboard.writeText(message.text)
     }
     else if (message.type === "openLink" && typeof message.uri === "string") {
-      // A hostile CLI must not be able to trigger file:/custom-scheme handlers via a printed "link" —
-      // only http(s) and mailto are allowed through to the OS.
-      const uri = vscode.Uri.parse(message.uri)
-      if (uri.scheme === "http" || uri.scheme === "https" || uri.scheme === "mailto") void vscode.env.openExternal(uri)
+      openWebLink(message.uri)
     }
     else if (message.type === "context" && typeof message.text === "string" && typeof message.lines === "number") {
       void vscode.env.clipboard.writeText(message.text)
