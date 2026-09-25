@@ -80,7 +80,8 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
         return file ? modelFromFile(file) : undefined
       }
       case "grok": {
-        const s = grokSessions(cwd, 50).find((x) => x.updatedAt >= sinceMs)
+        // Newest session dir only: parsing more to pick one would be wasted on every refresh.
+        const s = grokSessions(cwd, 1).find((x) => x.updatedAt >= sinceMs)
         return s ? modelFromFile(path.join(s.source, "chat_history.jsonl")) : undefined
       }
       case "opencode":
