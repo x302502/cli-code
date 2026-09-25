@@ -3,6 +3,15 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to VS Code Marketplace"
+        type: boolean
+        default: false
+
+# Read-only by default; only the job that creates the release gets write access.
+permissions:
+  contents: read
 
 jobs:
   prebuild-linux:
@@ -36,6 +45,8 @@ jobs:
   package:
     needs: prebuild-linux
     runs-on: macos-14
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -60,3 +71,20 @@ jobs:
       - run: for f in cli-code-*.vsix; do node scripts/verify-vsix.mjs "$f" || exit 1; done
       - uses: actions/upload-artifact@v4
         with: { name: vsix, path: "cli-code-*.vsix" }
+
+      - name: Publish to VS Code Marketplace
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.publish == true
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          for f in cli-code-*.vsix; do
+            echo "Publishing $f..."
+            npx @vscode/vsce publish --packagePath "$f" --skip-duplicate
+          done
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: cli-code-*.vsix
+          generate_release_notes: true
