@@ -49,6 +49,14 @@ export function claudeSessionsInDir(dir: string, limit: number, cwd?: string, si
  * a resumed session stays in the folder of the day it began, so only mtimes tell which are
  * newest — and the heads of the newest MAX_ROLLOUTS_READ are read.
  */
+/** The rollout of a known Codex session, wherever it is filed: Codex names each file
+ * `rollout-<start time>-<session id>.jsonl` under the day the session began, which for a
+ * resumed session is no day since the tab was spawned. */
+export function codexRolloutById(sessionId: string): string | undefined {
+  const dir = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "sessions")
+  return newestFiles(dir, (n) => n.startsWith("rollout-") && n.endsWith(`-${sessionId}.jsonl`), { depth: Infinity, limit: 1 })[0]
+}
+
 export function codexSessions(cwd: string, limit: number, sinceMs?: number): SessionSummary[] {
   const dir = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "sessions")
   const isRollout = (n: string) => n.startsWith("rollout-") && n.endsWith(".jsonl")

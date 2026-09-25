@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { claudeSessionsInDir, codexSessions } from "../src/lib/history/scan.js"
+import { claudeSessionsInDir, codexRolloutById, codexSessions } from "../src/lib/history/scan.js"
 
 let home: string
 beforeEach(() => {
@@ -50,6 +50,14 @@ describe("codexSessions with a spawn time (model pill, restart)", () => {
     rollout("old-day", "/w/mine", now - 5_000, new Date(2020, 0, 1))
     expect(codexSessions("/w/mine", 5, now - 60_000).map((s) => s.sessionId)).toEqual(["today"])
     expect(codexSessions("/w/mine", 5).map((s) => s.sessionId).sort()).toEqual(["old-day", "today"])
+  })
+})
+
+describe("codexRolloutById", () => {
+  it("finds a resumed session's rollout under the old day it began", () => {
+    rollout("2026-09-01T08-00-00-abc-123", "/w/mine", Date.now(), new Date(2020, 0, 1))
+    expect(codexRolloutById("abc-123")).toContain(path.join("2020", "01", "01"))
+    expect(codexRolloutById("nope")).toBeUndefined()
   })
 })
 

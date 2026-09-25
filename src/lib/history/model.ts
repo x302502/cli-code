@@ -2,7 +2,7 @@ import * as fs from "node:fs"
 import * as path from "node:path"
 import { encodeClaudeProjectDir } from "./claude.js"
 import { locateLatestSession, locateLatestSessionFile, openDb } from "./locate.js"
-import { codexSessions, grokSessions } from "./scan.js"
+import { codexRolloutById, codexSessions, grokSessions } from "./scan.js"
 
 // The model id shows up under a handful of spellings across CLIs' transcripts; the latest
 // occurrence in the file is the model in play (Pi/OMP log a model_change on /model).
@@ -65,12 +65,14 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
         return file ? modelFromFile(file) : undefined
       }
       case "codex": {
-        // Only the day folders since the spawn are walked; a tab's rollout file never moves once
-        // found, so remember it and only look again until there is one.
-        const key = `${cwd}\0${sinceMs}`
+        // The hook's session id names the rollout wherever it is filed (a resumed session stays
+        // under the day it began); without one only the day folders since the spawn are walked.
+        // A tab's rollout file never moves once found, so remember it and only look again until
+        // there is one.
+        const key = sessionId ?? `${cwd}\0${sinceMs}`
         let file = codexRollouts.get(key)
         if (!file || !fs.existsSync(file)) {
-          file = codexSessions(cwd, 1, sinceMs)[0]?.source
+          file = sessionId ? codexRolloutById(sessionId) : codexSessions(cwd, 1, sinceMs)[0]?.source
           if (file) {
             codexRollouts.set(key, file)
             // Map iterates in insertion order, so the first key is the oldest.
