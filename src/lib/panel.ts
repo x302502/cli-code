@@ -47,69 +47,82 @@ export type PanelState = {
 // Registries for rename (Task 10) and Task 11 (focus tracking, writing at-mentions
 // into the active session).
 const activePanels = new Set<vscode.WebviewPanel>()
-const panelTools = new WeakMap<vscode.WebviewPanel, CliTool>()
-const panelConnections = new WeakMap<vscode.WebviewPanel, SessionConnection>()
-const customTitles = new WeakMap<vscode.WebviewPanel, string>()
-const panelQuickLabels = new WeakMap<vscode.WebviewPanel, string>()
-const panelInitialInputs = new WeakMap<vscode.WebviewPanel, { text: string; submit: boolean }>()
-// The command the panel was spawned with (e.g. `claude --resume <id>`), so a restart re-runs it.
-const panelCommands = new WeakMap<vscode.WebviewPanel, string>()
-// When the tab's CLI was spawned, and the CLI's own session id (Claude reports it through its
-// hook) — together they let a restart resume the same conversation instead of starting over.
-const panelSpawnedAt = new WeakMap<vscode.WebviewPanel, number>()
-// Signatures of the CLI's config files as they were when its process started.
-const panelConfigSnapshot = new WeakMap<vscode.WebviewPanel, Record<string, string>>()
-// The extension folder (i.e. build) whose hook the tab's CLI was started with.
-const panelExtensionPaths = new WeakMap<vscode.WebviewPanel, string>()
-// When the PTY last produced output — a quiet terminal is one that can be restarted safely.
-const panelLastOutput = new WeakMap<vscode.WebviewPanel, number>()
-const panelCliSessionIds = new WeakMap<vscode.WebviewPanel, string>()
-// Last model id shown in the tab's action bar, so unchanged detections post nothing.
-const panelModels = new WeakMap<vscode.WebviewPanel, string>()
+
+type Wiring = { ready: boolean; pending: unknown[]; listener?: vscode.Disposable }
+
+/** Everything the extension keeps about one CLI tab, in one record (see `tab`). */
+type TabState = {
+  tool?: CliTool
+  connection?: SessionConnection
+  customTitle?: string
+  quickLabel?: string
+  initialInput?: { text: string; submit: boolean }
+  /** The command the panel was spawned with (e.g. `claude --resume <id>`), so a restart re-runs it. */
+  command?: string
+  /** When the tab's CLI was spawned, and the CLI's own session id (Claude reports it through its
+   * hook) — together they let a restart resume the same conversation instead of starting over. */
+  spawnedAt?: number
+  cliSessionId?: string
+  /** Signatures of the CLI's config files as they were when its process started. */
+  configSnapshot?: Record<string, string>
+  /** The extension folder (i.e. build) whose hook the tab's CLI was started with. */
+  extensionPath?: string
+  /** When the PTY last produced output — a quiet terminal is one that can be restarted safely. */
+  lastOutputAt?: number
+  /** Last model id shown in the tab's action bar, so unchanged detections post nothing. */
+  model?: string
+  modelCheckedAt?: number
+  wiring?: Wiring
+  cwd?: string
+  oscTitle?: string
+  status?: { state: AgentState; prompt?: string }
+  promptTitle?: string
+  tracker?: ReturnType<typeof createPromptTracker>
+  unread: boolean
+  /** The CLI exited: the tab stays open (for Restart) but takes no input and is not reused. */
+  exited: boolean
+  /** When the tab last checked its CLI's config on becoming visible (see onDidChangeViewState). */
+  staleCheckedAt?: number
+  restarting: boolean
+}
+const tabs = new WeakMap<vscode.WebviewPanel, TabState>()
+/** The panel's record, created on first use; it goes away with the panel. */
+function tab(panel: vscode.WebviewPanel): TabState {
+  let t = tabs.get(panel)
+  if (!t) tabs.set(panel, (t = { unread: false, exited: false, restarting: false }))
+  return t
+}
+
 const MODEL_REFRESH_MS = 30_000
 // Every hook event asks for the model too, and the lookup walks the CLI's session store on the
 // extension host's thread; one scan per this many ms is enough to notice a /model change.
 const MODEL_THROTTLE_MS = 5_000
-const panelModelCheckedAt = new WeakMap<vscode.WebviewPanel, number>()
 
 /** Reads the CLI's current model from its session store and tells the webview when it changed. */
 function refreshModel(panel: vscode.WebviewPanel): void {
-  const tool = panelTools.get(panel)
-  const cwd = usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  const tool = tab(panel).tool
+  const cwd = usableCwd(tab(panel).cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
   if (!tool || !cwd || !activePanels.has(panel)) return
   const now = Date.now()
-  if (now - (panelModelCheckedAt.get(panel) ?? 0) < MODEL_THROTTLE_MS) return
-  panelModelCheckedAt.set(panel, now)
-  const model = detectModel(tool.historyToolId ?? tool.id, cwd, panelSpawnedAt.get(panel) ?? 0, os.homedir(), panelCliSessionIds.get(panel))
-  if (model === panelModels.get(panel)) return
-  if (model) panelModels.set(panel, model)
-  else panelModels.delete(panel)
+  if (now - (tab(panel).modelCheckedAt ?? 0) < MODEL_THROTTLE_MS) return
+  tab(panel).modelCheckedAt = now
+  const model = detectModel(tool.historyToolId ?? tool.id, cwd, tab(panel).spawnedAt ?? 0, os.homedir(), tab(panel).cliSessionId)
+  if (model === tab(panel).model) return
+  tab(panel).model = model || undefined
   sendTo(panel, { type: "model", model: model ?? "" })
 }
 // The last panel to have editor focus, so addFilepathToTerminal (invoked from a text
 // editor, where no panel is `active`) still knows which session to write into.
 let lastFocusedPanel: vscode.WebviewPanel | undefined
 
-type Wiring = { ready: boolean; pending: unknown[]; listener?: vscode.Disposable }
-const panelWiring = new WeakMap<vscode.WebviewPanel, Wiring>()
-const panelCwds = new WeakMap<vscode.WebviewPanel, string>()
-const panelOscTitles = new WeakMap<vscode.WebviewPanel, string>()
-const panelStatus = new WeakMap<vscode.WebviewPanel, { state: AgentState; prompt?: string }>()
-const panelPromptTitles = new WeakMap<vscode.WebviewPanel, string>()
-const panelUnread = new WeakSet<vscode.WebviewPanel>()
-// Tabs whose CLI exited: they stay open (for Restart) but take no input and are not reused.
-const panelExited = new WeakSet<vscode.WebviewPanel>()
-// When a tab last checked its CLI's config on becoming visible (see onDidChangeViewState).
-const panelStaleCheckedAt = new WeakMap<vscode.WebviewPanel, number>()
 const STALE_CHECK_MS = 2_000
-const panelTrackers = new WeakMap<vscode.WebviewPanel, ReturnType<typeof createPromptTracker>>()
 
 /** Shows a completion notification for a panel that just left "working" while hidden,
  * unless the user turned notifications off. */
 function notifyFinished(panel: vscode.WebviewPanel, state: AgentState): void {
   if (!vscode.workspace.getConfiguration("cliCode").get<boolean>("notifications", true)) return
-  const tool = panelTools.get(panel)
-  const what = panelPromptTitles.get(panel) ?? customTitles.get(panel) ?? ""
+  const tool = tab(panel).tool
+  const what = tab(panel).promptTitle ?? tab(panel).customTitle ?? ""
   const verb = state === "done" ? "finished" : "is waiting for you"
   void vscode.window
     .showInformationMessage(`${tool?.label ?? "CLI"} ${verb}${what ? `: ${what}` : ""}`, "Open tab")
@@ -121,21 +134,21 @@ function notifyFinished(panel: vscode.WebviewPanel, state: AgentState): void {
 
 /** The tab title without the status glyph / unread marker (what rename should start from). */
 export function baseTitle(panel: vscode.WebviewPanel): string {
-  const tool = panelTools.get(panel)
+  const tool = tab(panel).tool
   if (!tool) return panel.title
   return resolveTabTitle({
-    customTitle: customTitles.get(panel),
-    quickCommandLabel: panelQuickLabels.get(panel),
-    oscTitle: panelOscTitles.get(panel),
-    promptTitle: panelPromptTitles.get(panel),
+    customTitle: tab(panel).customTitle,
+    quickCommandLabel: tab(panel).quickLabel,
+    oscTitle: tab(panel).oscTitle,
+    promptTitle: tab(panel).promptTitle,
     toolLabel: tool.label,
   })
 }
 
 /** Single place that turns the registries into what the tab shows. */
 function updateTitle(panel: vscode.WebviewPanel): void {
-  if (!panelTools.has(panel)) return
-  panel.title = decorateTitle(baseTitle(panel), panelStatus.get(panel)?.state, panelUnread.has(panel))
+  if (!tab(panel).tool) return
+  panel.title = decorateTitle(baseTitle(panel), tab(panel).status?.state, tab(panel).unread)
 }
 
 /** A cwd is only usable as a spawn cwd if it exists locally as a directory. OSC 7 drops the
@@ -149,11 +162,11 @@ function usableCwd(p: string | undefined): string | undefined {
 /** cwd reported (OSC 7) by the active/last-focused CLI panel, if it exists locally. */
 export function activePanelCwd(): string | undefined {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
-  return usableCwd(panel ? panelCwds.get(panel) : undefined)
+  return usableCwd(panel ? tab(panel).cwd : undefined)
 }
 
 function sendTo(panel: vscode.WebviewPanel, msg: unknown): void {
-  const wiring = panelWiring.get(panel)
+  const wiring = tab(panel).wiring
   // A closed panel (e.g. while a modal paste confirm was up) has no webview to post into.
   if (!wiring || !activePanels.has(panel)) return
   if (wiring.ready) void panel.webview.postMessage(msg)
@@ -187,7 +200,7 @@ export async function applyFontZoom(context: vscode.ExtensionContext, delta: num
 
 /** Sets a panel's custom title, updates the tab, and persists it across Reload Window. */
 export function setCustomTitle(panel: vscode.WebviewPanel, title: string): void {
-  customTitles.set(panel, title)
+  tab(panel).customTitle = title
   updateTitle(panel)
   postState(panel)
 }
@@ -214,18 +227,18 @@ export function inspectPanel(panel: vscode.WebviewPanel): {
   gone: boolean
 } {
   return {
-    sessionId: panelConnections.get(panel)?.sessionId,
-    cwd: panelCwds.get(panel),
-    status: panelStatus.get(panel),
-    ready: panelWiring.get(panel)?.ready ?? false,
-    gone: panelTools.has(panel) && !activePanels.has(panel),
+    sessionId: tab(panel).connection?.sessionId,
+    cwd: tab(panel).cwd,
+    status: tab(panel).status,
+    ready: tab(panel).wiring?.ready ?? false,
+    gone: tab(panel).tool !== undefined && !activePanels.has(panel),
   }
 }
 
 /** First open panel for a given tool, if any. */
 export function findExistingPanel(tool: CliTool): vscode.WebviewPanel | undefined {
   for (const panel of activePanels) {
-    if (panelTools.get(panel) === tool && !panelExited.has(panel)) return panel
+    if (tab(panel).tool === tool && !tab(panel).exited) return panel
   }
   return undefined
 }
@@ -235,7 +248,7 @@ export function findExistingPanel(tool: CliTool): vscode.WebviewPanel | undefine
  * paste, not as line-by-line submissions. Returns false if there is no panel. */
 export function pasteToActivePanel(text: string, submit: boolean): boolean {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
-  if (!panel || !panelConnections.has(panel) || panelExited.has(panel)) return false
+  if (!panel || !tab(panel).connection || tab(panel).exited) return false
   sendTo(panel, { type: "pasteText", text, submit })
   panel.reveal()
   return true
@@ -244,21 +257,21 @@ export function pasteToActivePanel(text: string, submit: boolean): boolean {
 /** "New Session": opens another tab of the same CLI as the active tab, in the same directory. */
 export async function openNewSessionLikeActive(context: vscode.ExtensionContext): Promise<boolean> {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
-  const tool = panel && panelTools.get(panel)
+  const tool = panel && tab(panel).tool
   if (!panel || !tool) return false
-  await openTerminalPanel(context, tool, { cwd: panelCwds.get(panel) })
+  await openTerminalPanel(context, tool, { cwd: tab(panel).cwd })
   return true
 }
 
 /** Writes text into the active (or last-focused) panel's session. Returns false if there is none. */
 export function writeToActivePanel(text: string): boolean {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
-  if (!panel || panelExited.has(panel)) return false
-  const connection = panelConnections.get(panel)
+  if (!panel || tab(panel).exited) return false
+  const connection = tab(panel).connection
   if (!connection) return false
   connection.write(text)
   // What we type for the user is part of their prompt: an auto-restart must not wipe it.
-  panelTrackers.get(panel)?.feed(text)
+  tab(panel).tracker?.feed(text)
   panel.reveal()
   return true
 }
@@ -470,14 +483,14 @@ export async function openTerminalPanel(
     retainContextWhenHidden: true,
     localResourceRoots: [vscode.Uri.file(context.extensionPath)],
   })
-  panelCommands.set(panel, baseCommand)
-  panelSpawnedAt.set(panel, Date.now())
-  panelExtensionPaths.set(panel, context.extensionPath)
-  panelConfigSnapshot.set(panel, configSnapshot(configPathsFor(tool.id, tool.historyToolId, cwd, os.homedir())))
-  if (options.title) customTitles.set(panel, options.title)
-  if (options.quickCommandLabel) panelQuickLabels.set(panel, options.quickCommandLabel)
-  if (options.initialInput) panelInitialInputs.set(panel, options.initialInput)
-  panelCwds.set(panel, cwd)
+  tab(panel).command = baseCommand
+  tab(panel).spawnedAt = Date.now()
+  tab(panel).extensionPath = context.extensionPath
+  tab(panel).configSnapshot = configSnapshot(configPathsFor(tool.id, tool.historyToolId, cwd, os.homedir()))
+  if (options.title) tab(panel).customTitle = options.title
+  if (options.quickCommandLabel) tab(panel).quickLabel = options.quickCommandLabel
+  if (options.initialInput) tab(panel).initialInput = options.initialInput
+  tab(panel).cwd = cwd
   wirePanel(context, panel, tool, connection)
   return panel
 }
@@ -495,11 +508,11 @@ export async function restoreTerminalPanel(
 
   // Restore the title, cwd and restart identity first: even a failed attach must keep them for
   // "Restart Session", or two tabs in one folder would both resume the folder's newest session.
-  if (state.customTitle) customTitles.set(panel, state.customTitle)
-  if (state.cwd) panelCwds.set(panel, state.cwd)
-  if (state.command) panelCommands.set(panel, state.command)
-  if (state.spawnedAt) panelSpawnedAt.set(panel, state.spawnedAt)
-  if (state.cliSessionId) panelCliSessionIds.set(panel, state.cliSessionId)
+  if (state.customTitle) tab(panel).customTitle = state.customTitle
+  if (state.cwd) tab(panel).cwd = state.cwd
+  if (state.command) tab(panel).command = state.command
+  if (state.spawnedAt) tab(panel).spawnedAt = state.spawnedAt
+  if (state.cliSessionId) tab(panel).cliSessionId = state.cliSessionId
   // The user may close the tab while we wait on the daemon (seconds after a reload); the
   // panel is not registered yet, so track that here.
   let closed = false
@@ -534,10 +547,10 @@ export async function restoreTerminalPanel(
     return
   }
   // Restore the prompt title before wiring so the first title/state posted is already correct.
-  if (state.promptTitle) panelPromptTitles.set(panel, state.promptTitle)
-  if (state.quickCommandLabel) panelQuickLabels.set(panel, state.quickCommandLabel)
-  if (state.configSnapshot) panelConfigSnapshot.set(panel, state.configSnapshot)
-  if (state.extensionPath) panelExtensionPaths.set(panel, state.extensionPath)
+  if (state.promptTitle) tab(panel).promptTitle = state.promptTitle
+  if (state.quickCommandLabel) tab(panel).quickLabel = state.quickCommandLabel
+  if (state.configSnapshot) tab(panel).configSnapshot = state.configSnapshot
+  if (state.extensionPath) tab(panel).extensionPath = state.extensionPath
   wirePanel(context, panel, tool, connection, { reattached: true })
   void checkStale(context, panel)
 }
@@ -546,18 +559,18 @@ export async function restoreTerminalPanel(
  * attach (restoreTerminalPanel) and a live connection closing (daemon died/evicted).
  * Disposes the panel's wiring listener so a stale input/resize/ack handler doesn't linger. */
 function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, tool: CliTool, reason?: string): void {
-  panelWiring.get(panel)?.listener?.dispose()
-  panelConnections.delete(panel)
+  tab(panel).wiring?.listener?.dispose()
+  tab(panel).connection = undefined
   // A "gone" panel has no session, so it must not be picked by cli-code.open (reuse)
   // or addFilepath — they should open/target a working CLI instead.
   activePanels.delete(panel)
-  panelStatus.delete(panel)
-  panelUnread.delete(panel)
+  tab(panel).status = undefined
+  tab(panel).unread = false
   panel.title = tool.label
   if (lastFocusedPanel === panel) lastFocusedPanel = undefined
   // The failed-attach path (restoreTerminalPanel) reaches here without wirePanel, so the
   // tool must be recorded now or restartFromGone finds nothing and silently does nothing.
-  panelTools.set(panel, tool)
+  tab(panel).tool = tool
   panel.webview.html = goneHtml(tool.label, reason)
   panel.webview.onDidReceiveMessage((m) => {
     if (m.type === "restart") void restartFromGone(context, panel)
@@ -599,11 +612,11 @@ const HISTORY_TOOLS = new Set(["claude", "codex", "grok"])
  * spawned), otherwise the CLI's continue command, otherwise what the tab was opened with.
  */
 async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Promise<string> {
-  const baseCommand = panelCommands.get(panel) ?? tool.command
-  const cwd = usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-  const spawnedAt = panelSpawnedAt.get(panel) ?? 0
+  const baseCommand = tab(panel).command ?? tool.command
+  const cwd = usableCwd(tab(panel).cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  const spawnedAt = tab(panel).spawnedAt ?? 0
   // Claude reports its id through its hook; every other CLI is asked via its own session store.
-  const reportedSessionId = panelCliSessionIds.get(panel)
+  const reportedSessionId = tab(panel).cliSessionId
   // Both lookups below only matter when the hook named no session: skip them otherwise.
   let sessions: Awaited<ReturnType<typeof listSessionsForWorkspace>> = []
   if (!reportedSessionId && cwd && HISTORY_TOOLS.has(tool.historyToolId ?? tool.id)) {
@@ -626,27 +639,27 @@ function siblingIdentities(panel: vscode.WebviewPanel, tool: CliTool, cwd: strin
   return [...activePanels]
     .filter((p) => p !== panel)
     .filter((p) => {
-      const t = panelTools.get(p)
-      const c = usableCwd(panelCwds.get(p)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+      const t = tab(p).tool
+      const c = usableCwd(tab(p).cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
       return t !== undefined && (t.historyToolId ?? t.id) === family && c !== undefined && path.resolve(c) === here
     })
     .map((p) => {
-      const t = panelTools.get(p)!
-      const cmd = panelCommands.get(p)
-      return { sessionId: panelCliSessionIds.get(p) ?? (t.resumeCommand && cmd ? sessionIdFromCommand(cmd, t.resumeCommand) : undefined) }
+      const t = tab(p).tool!
+      const cmd = tab(p).command
+      return { sessionId: tab(p).cliSessionId ?? (t.resumeCommand && cmd ? sessionIdFromCommand(cmd, t.resumeCommand) : undefined) }
     })
 }
 
 /** Reopens a gone panel's tool in a fresh tab with the same cwd and title, resuming its conversation. */
 export async function restartFromGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
-  const tool = panelTools.get(panel)
+  const tool = tab(panel).tool
   // A second click (or a click while the history scan is still running) must not open a
   // second tab resuming the same conversation.
-  if (!tool || restarting.has(panel)) return
-  restarting.add(panel)
+  if (!tool || tab(panel).restarting) return
+  tab(panel).restarting = true
   try {
-    const cwd = panelCwds.get(panel)
-    const title = customTitles.get(panel)
+    const cwd = tab(panel).cwd
+    const title = tab(panel).customTitle
     const command = await commandForRestart(panel, tool)
     let opened: vscode.WebviewPanel | undefined
     try {
@@ -659,7 +672,7 @@ export async function restartFromGone(context: vscode.ExtensionContext, panel: v
     // Restart button, resume id and title) stays so the user can try again.
     if (opened) panel.dispose()
   } finally {
-    restarting.delete(panel)
+    tab(panel).restarting = false
   }
 }
 
@@ -677,27 +690,27 @@ function wirePanel(
   panel.webview.html = terminalHtml(context, panel.webview)
 
   activePanels.add(panel)
-  panelTools.set(panel, tool)
+  tab(panel).tool = tool
   updateTitle(panel)
   lastFocusedPanel = panel
 
   // Host -> webview messages must queue until the webview signals it is ready (its
   // terminal is open and focused) — otherwise the daemon's Snapshot on attach, which
   // can arrive before the page finishes loading, would be posted into the void.
-  panelWiring.set(panel, { ready: false, pending: [] })
+  tab(panel).wiring = { ready: false, pending: [] }
 
   panel.onDidChangeViewState((e) => {
     // A "gone" panel keeps this listener but must keep its plain tool.label title.
     if (!activePanels.has(panel)) return
     if (e.webviewPanel.active) lastFocusedPanel = panel
     if (e.webviewPanel.visible) {
-      panelUnread.delete(panel)
+      tab(panel).unread = false
       updateTitle(panel)
       // Flipping between tabs fires this constantly; the config walk behind it (stat + two
       // levels of readdir per path) needs to run at most once every couple of seconds.
       const now = Date.now()
-      if (now - (panelStaleCheckedAt.get(panel) ?? 0) >= STALE_CHECK_MS) {
-        panelStaleCheckedAt.set(panel, now)
+      if (now - (tab(panel).staleCheckedAt ?? 0) >= STALE_CHECK_MS) {
+        tab(panel).staleCheckedAt = now
         void checkStale(context, panel)
       }
     }
@@ -712,7 +725,7 @@ function wirePanel(
   // handler and kill every session — the very thing the daemon exists to prevent.
   panel.onDidDispose(() => {
     activePanels.delete(panel)
-    const connection = panelConnections.get(panel)
+    const connection = tab(panel).connection
     if (connection) {
       connection.kill()
       connection.dispose()
@@ -732,14 +745,14 @@ function attachConnection(
   connection: SessionConnection,
   opts: { reattached?: boolean } = {},
 ): void {
-  const wiring = panelWiring.get(panel)
+  const wiring = tab(panel).wiring
   if (!wiring) return
   wiring.listener?.dispose()
-  panelConnections.set(panel, connection)
-  panelExited.delete(panel)
+  tab(panel).connection = connection
+  tab(panel).exited = false
   // A CLI that kept running through a reload may have an unsent prompt we never saw typed.
   const tracker = createPromptTracker({ draftUnknown: opts.reattached })
-  panelTrackers.set(panel, tracker)
+  tab(panel).tracker = tracker
 
   connection.onSnapshot((text) => sendTo(panel, { type: "snapshot", text }))
   // A quick command's text is pasted once the CLI has drawn its prompt: after the first
@@ -749,24 +762,24 @@ function attachConnection(
   const flushInitialInput = () => {
     clearTimeout(quietTimer)
     clearTimeout(capTimer)
-    const initial = panelInitialInputs.get(panel)
+    const initial = tab(panel).initialInput
     if (!initial) return
-    panelInitialInputs.delete(panel)
+    tab(panel).initialInput = undefined
     sendTo(panel, { type: "pasteText", ...initial })
   }
   connection.onData((bytes) => {
-    panelLastOutput.set(panel, Date.now())
+    tab(panel).lastOutputAt = Date.now()
     sendTo(panel, { type: "data", bytes })
-    if (panelInitialInputs.has(panel)) {
+    if (tab(panel).initialInput) {
       clearTimeout(quietTimer)
       quietTimer = setTimeout(flushInitialInput, 400)
     }
   })
   connection.onExit((e) => {
-    panelExited.add(panel)
+    tab(panel).exited = true
     // A CLI that died mid-turn leaves no "working"/"waiting" behind (glyph, banner), as for a gone tab.
-    panelStatus.delete(panel)
-    panelUnread.delete(panel)
+    tab(panel).status = undefined
+    tab(panel).unread = false
     sendTo(panel, { type: "agentStatus", state: "none" })
     sendTo(panel, { type: "exit", code: e.code })
     updateTitle(panel)
@@ -774,37 +787,37 @@ function attachConnection(
   connection.onMeta((e) => {
     // cwd and the CLI's session id are part of the serialized state; re-post when they arrive.
     if (e.kind === "cwd") {
-      panelCwds.set(panel, e.cwd)
+      tab(panel).cwd = e.cwd
       postState(panel)
     } else if (e.kind === "title") {
-      panelOscTitles.set(panel, e.title)
+      tab(panel).oscTitle = e.title
       updateTitle(panel)
     } else if (e.kind === "status") {
-      const previous = panelStatus.get(panel)?.state
-      panelStatus.set(panel, { state: e.state, prompt: e.prompt })
+      const previous = tab(panel).status?.state
+      tab(panel).status = { state: e.state, prompt: e.prompt }
       // Keys typed while the CLI waited on a dialog (y, 1, …) answered it; they are not a draft.
       // A prompt being submitted (→ working) also means the input is empty now — but only on a
       // real transition, not the status replayed on attach (a queued draft may sit there), and
       // not over keys typed after the Enter (the hook can arrive after them).
       if (previous === "waiting" && e.state !== "waiting") tracker.reset()
       else if (previous !== undefined && previous !== "working" && e.state === "working") tracker.promptStarted()
-      if (e.cliSessionId && e.cliSessionId !== panelCliSessionIds.get(panel)) {
-        panelCliSessionIds.set(panel, e.cliSessionId)
+      if (e.cliSessionId && e.cliSessionId !== tab(panel).cliSessionId) {
+        tab(panel).cliSessionId = e.cliSessionId
         // A newly known session id makes the model readable from one file: re-read now
         // rather than waiting out the throttle.
-        panelModelCheckedAt.delete(panel)
+        tab(panel).modelCheckedAt = undefined
         postState(panel)
       }
       sendTo(panel, { type: "agentStatus", state: e.state })
       refreshModel(panel)
       if (e.state === "done" || e.state === "waiting" || e.state === "blocked") {
         if (!panel.visible) {
-          panelUnread.add(panel)
+          tab(panel).unread = true
           // waiting → done too: a turn whose permission was denied (no hook fires for the
           // answer) still finished.
           if (previous === "working" || (previous === "waiting" && e.state === "done")) notifyFinished(panel, e.state)
         }
-      } else panelUnread.delete(panel)
+      } else tab(panel).unread = false
       updateTitle(panel)
     }
   })
@@ -816,7 +829,7 @@ function attachConnection(
       connection.write(message.data)
       const title = tracker.feed(message.data)
       if (title) {
-        panelPromptTitles.set(panel, title)
+        tab(panel).promptTitle = title
         updateTitle(panel)
         postState(panel)
       }
@@ -832,7 +845,7 @@ function attachConnection(
       setTimeout(() => refreshModel(panel), 3_000)
       const modelTimer = setInterval(() => refreshModel(panel), MODEL_REFRESH_MS)
       panel.onDidDispose(() => clearInterval(modelTimer))
-      if (panelInitialInputs.has(panel)) capTimer = setTimeout(flushInitialInput, 5000)
+      if (tab(panel).initialInput) capTimer = setTimeout(flushInitialInput, 5000)
     } else if (message.type === "restart") void restartPanel(context, panel)
     else if (message.type === "clipboard" && typeof message.text === "string" && message.text.length <= 1024 * 1024) {
       void vscode.env.clipboard.writeText(message.text)
@@ -893,7 +906,7 @@ function statKind(p: string): "file" | "dir" | undefined {
 
 function resolveTarget(panel: vscode.WebviewPanel, parsed: { path: string; line?: number; col?: number }): LinkTarget | undefined {
   const folders = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath)
-  return resolveLinkTarget(parsed, panelCwds.get(panel), folders, os.homedir(), statKind)
+  return resolveLinkTarget(parsed, tab(panel).cwd, folders, os.homedir(), statKind)
 }
 
 /** Opens a path link from the terminal (resolved against the panel's cwd, then each workspace
@@ -940,16 +953,16 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
  * same conversation by themselves; busy ones show a notice until the user restarts.
  */
 export async function checkStale(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
-  const tool = panelTools.get(panel)
-  const spawnedAt = panelSpawnedAt.get(panel)
+  const tool = tab(panel).tool
+  const spawnedAt = tab(panel).spawnedAt
   // A CLI the user quit stays quit: a config change must not spawn it again.
-  if (!tool || !spawnedAt || !activePanels.has(panel) || !panelConnections.has(panel) || panelExited.has(panel)) return
-  const before = panelConfigSnapshot.get(panel)
+  if (!tool || !spawnedAt || !activePanels.has(panel) || !tab(panel).connection || tab(panel).exited) return
+  const before = tab(panel).configSnapshot
   const reason =
     // CLI_CODE_HOOK points into the extension folder of the build that spawned the tab; after
     // an update that folder is gone and the hooks silently stop. Tabs saved before this field
     // existed come from such a build too.
-    panelExtensionPaths.get(panel) !== context.extensionPath
+    tab(panel).extensionPath !== context.extensionPath
       ? "CLI Code was updated"
       : (() => {
           if (!before) return undefined
@@ -960,8 +973,8 @@ export async function checkStale(context: vscode.ExtensionContext, panel: vscode
     sendTo(panel, { type: "configStale", reason: "" })
     return
   }
-  const hasDraft = panelTrackers.get(panel)?.hasDraft() ?? false
-  if (canAutoRestart({ state: panelStatus.get(panel)?.state, lastOutputAt: panelLastOutput.get(panel) ?? 0, now: Date.now(), hasDraft })) {
+  const hasDraft = tab(panel).tracker?.hasDraft() ?? false
+  if (canAutoRestart({ state: tab(panel).status?.state, lastOutputAt: tab(panel).lastOutputAt ?? 0, now: Date.now(), hasDraft })) {
     await restartPanel(context, panel)
     return
   }
@@ -970,7 +983,7 @@ export async function checkStale(context: vscode.ExtensionContext, panel: vscode
 
 /** Restarts every open tab into its own conversation (config/MCP/plugins are re-read). */
 export async function restartAllPanels(context: vscode.ExtensionContext): Promise<void> {
-  for (const panel of [...activePanels]) if (panelConnections.has(panel)) await restartPanel(context, panel)
+  for (const panel of [...activePanels]) if (tab(panel).connection) await restartPanel(context, panel)
 }
 
 /** Re-checks every open tab; used after the status hooks were (re)installed. */
@@ -980,37 +993,36 @@ export function checkAllStale(context: vscode.ExtensionContext): void {
 
 // Guards against a second restart request (e.g. a doubled click, or the palette command
 // firing while a "restart" webview message is still in flight) racing the same panel.
-const restarting = new WeakSet<vscode.WebviewPanel>()
 
 /** Spawns a fresh session for the panel's tool and re-attaches it to the same tab. */
 export async function restartPanel(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
-  if (restarting.has(panel)) return
-  restarting.add(panel)
+  if (tab(panel).restarting) return
+  tab(panel).restarting = true
   try {
-    const tool = panelTools.get(panel)
+    const tool = tab(panel).tool
     if (!tool) return
     // A client close only detaches in the daemon; the old session keeps running until it is
     // explicitly killed. Without this it leaks an orphan CLI process on every restart.
-    const old = panelConnections.get(panel)
+    const old = tab(panel).connection
     if (old) {
       old.kill()
       old.dispose()
     }
-    panelConnections.delete(panel)
+    tab(panel).connection = undefined
     // ensureDaemon throws when the daemon does not come up; treated like a refused spawn.
     const socketPath = await ensureDaemon(context).catch(() => undefined)
     const baseCommand = await commandForRestart(panel, tool)
     // From now on the tab is a resume tab: later restarts keep landing in the same conversation.
-    panelCommands.set(panel, baseCommand)
-    panelSpawnedAt.set(panel, Date.now())
-    panelExtensionPaths.set(panel, context.extensionPath)
-    panelConfigSnapshot.set(panel, configSnapshot(configPathsFor(tool.id, tool.historyToolId, usableCwd(panelCwds.get(panel)), os.homedir())))
+    tab(panel).command = baseCommand
+    tab(panel).spawnedAt = Date.now()
+    tab(panel).extensionPath = context.extensionPath
+    tab(panel).configSnapshot = configSnapshot(configPathsFor(tool.id, tool.historyToolId, usableCwd(tab(panel).cwd), os.homedir()))
     const connection = socketPath
       ? await connectSession(socketPath, {
           op: "spawn",
           toolId: tool.id,
           command: baseCommand,
-          cwd: usableCwd(panelCwds.get(panel)) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
+          cwd: usableCwd(tab(panel).cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
           env: spawnEnv(context, tool),
           cols: 80,
           rows: 24,
@@ -1030,44 +1042,44 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
       connection.dispose()
       return
     }
-    panelStatus.delete(panel)
-    panelOscTitles.delete(panel)
-    panelPromptTitles.delete(panel)
-    panelUnread.delete(panel)
+    tab(panel).status = undefined
+    tab(panel).oscTitle = undefined
+    tab(panel).promptTitle = undefined
+    tab(panel).unread = false
     // The quick command is not re-run, so its label must not name the fresh session.
-    panelQuickLabels.delete(panel)
-    panelInitialInputs.delete(panel)
+    tab(panel).quickLabel = undefined
+    tab(panel).initialInput = undefined
     // A connection that died before the webview signaled ready may have left a stale
     // snapshot/data queued; drop it before the new connection posts its own.
-    const wiring = panelWiring.get(panel)
+    const wiring = tab(panel).wiring
     if (wiring) wiring.pending.length = 0
     sendTo(panel, { type: "reset" })
     attachConnection(context, panel, tool, connection)
     updateTitle(panel)
   } finally {
-    restarting.delete(panel)
+    tab(panel).restarting = false
   }
 }
 
 /** Posts the state VS Code hands back to the serializer after a Reload Window. */
 function postState(panel: vscode.WebviewPanel): void {
-  const connection = panelConnections.get(panel)
-  const tool = panelTools.get(panel)
+  const connection = tab(panel).connection
+  const tool = tab(panel).tool
   if (!connection || !tool) return
   void panel.webview.postMessage({
     type: "state",
     state: {
       sessionId: connection.sessionId,
       toolId: tool.id,
-      cwd: panelCwds.get(panel),
-      customTitle: customTitles.get(panel),
-      promptTitle: panelPromptTitles.get(panel),
-      quickCommandLabel: panelQuickLabels.get(panel),
-      command: panelCommands.get(panel),
-      spawnedAt: panelSpawnedAt.get(panel),
-      cliSessionId: panelCliSessionIds.get(panel),
-      configSnapshot: panelConfigSnapshot.get(panel),
-      extensionPath: panelExtensionPaths.get(panel),
+      cwd: tab(panel).cwd,
+      customTitle: tab(panel).customTitle,
+      promptTitle: tab(panel).promptTitle,
+      quickCommandLabel: tab(panel).quickLabel,
+      command: tab(panel).command,
+      spawnedAt: tab(panel).spawnedAt,
+      cliSessionId: tab(panel).cliSessionId,
+      configSnapshot: tab(panel).configSnapshot,
+      extensionPath: tab(panel).extensionPath,
     },
   })
 }
