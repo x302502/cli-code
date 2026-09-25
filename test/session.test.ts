@@ -326,3 +326,31 @@ describe("Session snapshot — scroll region", () => {
     expect(snapshot).not.toMatch(/\x1b\[\d+;\d+r/)
   })
 })
+
+describe("Session snapshot — OSC 8 links survive a reload", () => {
+  it("a link whose label holds no URL is clickable again after the snapshot is replayed", async () => {
+    const { createSnapshotLinks } = await import("../src/webview/links.js")
+    const { Terminal } = await import("@xterm/headless")
+    const { session, emit } = makeSession()
+    emit("see \x1b]8;id=1;https://example.com/report\x07Read report\x1b]8;;\x07 now\r\n".repeat(1) + "next line\r\n")
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    const replay = new Terminal({ cols: 80, rows: 24, allowProposedApi: true })
+    const opened: string[] = []
+    const links = createSnapshotLinks(replay as never, (_e, uri) => opened.push(uri), () => {}, () => {})
+    links.begin()
+    await new Promise<void>((r) => replay.write(snapshot, r))
+    links.end()
+    const found = await new Promise<{ text: string; range: unknown; activate(e: unknown, t: string): void }[]>((r) =>
+      links.provider.provideLinks(1, (l) => r((l ?? []) as never)),
+    )
+    expect(found.map((l) => [l.text, l.range])).toEqual([["https://example.com/report", { start: { x: 5, y: 1 }, end: { x: 15, y: 1 } }]])
+    found[0]!.activate({}, "")
+    expect(opened).toEqual(["https://example.com/report"])
+    // Overwriting the label drops the link; a CLI printing the private OSC itself places none.
+    await new Promise<void>((r) => replay.write("\x1b[1;5HXXXXXXXXXXX\x1b]9998;[[0,0,4,\"https://evil\"]]\x07", r))
+    const after = await new Promise<unknown[]>((r) => links.provider.provideLinks(1, (l) => r(l ?? [])))
+    expect(after).toEqual([])
+    replay.dispose()
+  })
+})

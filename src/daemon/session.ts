@@ -1,7 +1,8 @@
-import { Terminal } from "@xterm/headless"
+import { Terminal, type IBufferCell } from "@xterm/headless"
 import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { SerializeAddon } from "@xterm/addon-serialize"
 import { COALESCE_MS, createCoalescer, nextPauseState } from "../lib/flow-control.js"
+import { SNAPSHOT_LINKS_OSC } from "../lib/osc-link.js"
 import { createOscScanner } from "../lib/osc-scan.js"
 import { AGENT_STATES, type AgentState, type MetaEvent } from "../lib/protocol.js"
 
@@ -201,7 +202,7 @@ export class Session {
    * macrotask, so awaiting an earlier write's callback is not a stable cut point.
    */
   snapshot(): Promise<string> {
-    return new Promise<string>((resolve) => this.mirror.write("", () => resolve(this.serializer.serialize() + mouseEncoding(this.mirror) + scrollRegion(this.mirror))))
+    return new Promise<string>((resolve) => this.mirror.write("", () => resolve(this.serializer.serialize() + mouseEncoding(this.mirror) + scrollRegion(this.mirror) + oscLinks(this.mirror))))
   }
 
   private forward(chunk: Uint8Array): void {
@@ -246,6 +247,42 @@ function scrollRegion(term: Terminal): string {
   // the region's top.
   const row = term.modes.originMode ? cur.cursorY - top : cur.cursorY
   return `\x1b[${top + 1};${bottom + 1}r\x1b[${row + 1};${cur.cursorX + 1}H`
+}
+
+/**
+ * OSC 8 hyperlinks on screen and in scrollback. The serializer keeps a link's text but drops
+ * its target, so a label like "Read report" stops being clickable after a reload. Each run of
+ * cells with one link goes out as [row offset from the cursor's row, column, cells, uri] in one
+ * private OSC at the end of the snapshot; the webview puts the links back (webview/main.ts).
+ */
+function oscLinks(term: Terminal): string {
+  const links = (term as unknown as { _core?: { _oscLinkService?: { getLinkData(id: number): { uri: string } | undefined } } })._core?._oscLinkService
+  if (!links) return ""
+  const buf = term.buffer.active
+  const cursorRow = buf.baseY + buf.cursorY
+  const runs: [number, number, number, string][] = []
+  let cell: IBufferCell | undefined
+  for (let y = 0; y < buf.length; y++) {
+    const line = buf.getLine(y)
+    if (!line) continue
+    let open: { x: number; id: number } | undefined
+    const close = (end: number) => {
+      const uri = open && links.getLinkData(open.id)?.uri
+      if (open && uri) runs.push([y - cursorRow, open.x, end - open.x, uri])
+      open = undefined
+    }
+    for (let x = 0; x < line.length; x++) {
+      cell = line.getCell(x, cell)
+      // The public cell is xterm's CellData; its extended attributes carry the link id. A reused
+      // cell keeps the last `extended` it saw, so only a cell flagged as having one counts.
+      const data = cell as unknown as { hasExtendedAttrs?(): number; extended?: { urlId?: number } } | undefined
+      const id = data?.hasExtendedAttrs?.() ? (data.extended?.urlId ?? 0) : 0
+      if (open && id !== open.id) close(x)
+      if (id && !open) open = { x, id }
+    }
+    close(line.length)
+  }
+  return runs.length ? `\x1b]${SNAPSHOT_LINKS_OSC};${JSON.stringify(runs)}\x07` : ""
 }
 
 export function createSession(args: {

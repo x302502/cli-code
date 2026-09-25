@@ -1,5 +1,9 @@
 import { parseFileUrlPath } from "./osc-scan.js"
 
+/** Private OSC a snapshot ends with to carry its OSC 8 links (daemon/session.ts oscLinks):
+ * `[row offset from the cursor's row, column, cells, uri][]` as JSON. */
+export const SNAPSHOT_LINKS_OSC = 9998
+
 /** What the webview should do with an OSC 8 hyperlink target when it is activated. */
 export type OscLinkTarget =
   | { kind: "link"; uri: string }

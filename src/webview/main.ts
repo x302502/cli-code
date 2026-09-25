@@ -1,4 +1,4 @@
-import { Terminal } from "@xterm/xterm"
+import { Terminal, type IBufferRange } from "@xterm/xterm"
 import { FitAddon } from "@xterm/addon-fit"
 import { WebglAddon } from "@xterm/addon-webgl"
 import { SearchAddon } from "@xterm/addon-search"
@@ -8,7 +8,7 @@ import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createActionBar } from "./action-bar.js"
 import { createComposer } from "./composer.js"
 import { createExitOverlay } from "./exit-overlay.js"
-import { createTerminalLinkProvider, selectRange, type HoveredLink, type ProbeResult } from "./links.js"
+import { createSnapshotLinks, createTerminalLinkProvider, selectRange, type HoveredLink, type ProbeResult } from "./links.js"
 import { createLinkTooltip } from "./link-tooltip.js"
 import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
@@ -127,25 +127,31 @@ const term = new Terminal({
   // so clicks would silently do nothing. Same semantics as the addons: meta/ctrl+click opens.
   linkHandler: {
     allowNonHttpProtocols: true,
-    hover: (event, uri) => {
-      const t = classifyOscLink(uri)
-      setHovered(
-        t.kind === "link" ? { text: t.uri, kind: "url", path: t.uri, event } : t.kind === "path" ? { text: t.path, kind: "file", path: t.path, event } : undefined,
-      )
-    },
+    hover: (event, uri) => oscLinkHover(event, uri),
     leave: () => setHovered(undefined),
-    activate: (event, uri, range) => {
-      if (wasDrag()) return
-      // A plain click selects the link so a normal Cmd/Ctrl+C copies all of it.
-      if (!isOpenClick(event)) return selectRange(term, range)
-      const target = classifyOscLink(uri)
-      if (target.kind === "link") vscode.postMessage({ type: "openLink", uri: target.uri })
-      else if (target.kind === "path") {
-        vscode.postMessage({ type: "openFile", path: target.path, line: target.line, col: target.col, alt: event.shiftKey })
-      }
-    },
+    activate: (event, uri, range) => oscLinkActivate(event, uri, range),
   },
 })
+
+function oscLinkHover(event: MouseEvent, uri: string): void {
+  const t = classifyOscLink(uri)
+  setHovered(t.kind === "link" ? { text: t.uri, kind: "url", path: t.uri, event } : t.kind === "path" ? { text: t.path, kind: "file", path: t.path, event } : undefined)
+}
+
+function oscLinkActivate(event: MouseEvent, uri: string, range: IBufferRange): void {
+  if (wasDrag()) return
+  // A plain click selects the link so a normal Cmd/Ctrl+C copies all of it.
+  if (!isOpenClick(event)) return selectRange(term, range)
+  const target = classifyOscLink(uri)
+  if (target.kind === "link") vscode.postMessage({ type: "openLink", uri: target.uri })
+  else if (target.kind === "path") {
+    vscode.postMessage({ type: "openFile", path: target.path, line: target.line, col: target.col, alt: event.shiftKey })
+  }
+}
+
+// OSC 8 links from before a reload: same behaviour as live ones (xterm's linkHandler above).
+const snapshotLinks = createSnapshotLinks(term, oscLinkActivate, oscLinkHover, () => setHovered(undefined))
+term.registerLinkProvider(snapshotLinks.provider)
 
 const fit = new FitAddon()
 term.loadAddon(fit)
@@ -354,7 +360,8 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     term.write(bytes, () => vscode.postMessage({ type: "ack", bytes: bytes.length }))
   } else if (message.type === "snapshot") {
     term.reset()
-    term.write(message.text)
+    snapshotLinks.begin()
+    term.write(message.text, snapshotLinks.end)
   } else if (message.type === "exit") {
     term.write(`\r\n\x1b[2m[process exited, code ${message.code}]\x1b[0m\r\n`)
     overlay.show(message.code)

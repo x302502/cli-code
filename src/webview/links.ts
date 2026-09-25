@@ -1,4 +1,5 @@
-import type { IBufferLine, IBufferRange, ILink, ILinkProvider, Terminal } from "@xterm/xterm"
+import type { IBufferLine, IBufferRange, ILink, ILinkProvider, IMarker, Terminal } from "@xterm/xterm"
+import { SNAPSHOT_LINKS_OSC } from "../lib/osc-link.js"
 import { findPathTokens, findUrlTokens } from "../lib/path-link.js"
 
 export type ProbeResult = Record<string, { kind: "file" | "dir"; path: string } | null>
@@ -80,6 +81,55 @@ export function createTerminalLinkProvider(
         },
         () => build(),
       )
+    },
+  }
+}
+
+/**
+ * OSC 8 links a snapshot carries in SNAPSHOT_LINKS_OSC (the serializer keeps only their text).
+ * Each is pinned to its row with a marker, so it scrolls with the text, and is dropped once
+ * that text is overwritten. Only honoured between begin() and end() — while the daemon's own
+ * snapshot is being written, never from what a CLI prints.
+ */
+export function createSnapshotLinks(
+  term: Terminal,
+  onActivate: (event: MouseEvent, uri: string, range: IBufferRange) => void,
+  onHover: (event: MouseEvent, uri: string) => void,
+  onLeave: () => void,
+): { provider: ILinkProvider; begin: () => void; end: () => void } {
+  let links: { marker: IMarker; x: number; cells: number; text: string; uri: string }[] = []
+  let writing = false
+  const textAt = (y: number, x: number, cells: number) => term.buffer.active.getLine(y)?.translateToString(false, x, x + cells) ?? ""
+  term.parser.registerOscHandler(SNAPSHOT_LINKS_OSC, (data) => {
+    if (!writing) return true
+    try {
+      for (const [dy, x, cells, uri] of JSON.parse(data) as [number, number, number, string][]) {
+        const marker = term.registerMarker(dy)
+        if (marker) links.push({ marker, x, cells, uri, text: textAt(marker.line, x, cells) })
+      }
+    } catch {
+      // malformed: no links restored
+    }
+    return true
+  })
+  return {
+    begin: () => {
+      for (const l of links) l.marker.dispose()
+      links = []
+      writing = true
+    },
+    end: () => (writing = false),
+    provider: {
+      provideLinks(y, callback) {
+        links = links.filter((l) => !l.marker.isDisposed && textAt(l.marker.line, l.x, l.cells) === l.text)
+        const out = links
+          .filter((l) => l.marker.line === y - 1)
+          .map((l): ILink => {
+            const range = { start: { x: l.x + 1, y }, end: { x: l.x + l.cells, y } }
+            return { text: l.uri, range, activate: (e) => onActivate(e, l.uri, range), hover: (e) => onHover(e, l.uri), leave: onLeave }
+          })
+        callback(out.length ? out : undefined)
+      },
     },
   }
 }
