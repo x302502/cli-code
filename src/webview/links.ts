@@ -89,9 +89,9 @@ export function createTerminalLinkProvider(
  * OSC 8 links a snapshot carries in SNAPSHOT_LINKS_OSC (the serializer keeps only their text).
  * Each is pinned to its row with a marker, so it scrolls with the text, and is dropped once
  * that text is overwritten. xterm has no markers on the alternate screen (a full-screen TUI),
- * so there a link follows its text instead: when a scroll or an inserted/deleted line moved it,
- * it goes to the nearest row showing the same text in the same columns. It lives only on that
- * screen, which has no scrollback and only `rows` rows to look through. Only honoured between begin() and end() — while the daemon's own
+ * so there a link holds on to its row's line object instead: xterm moves those objects when it
+ * scrolls, inserts or deletes lines, so the link's row is wherever that object sits now (the
+ * screen has no scrollback: `rows` lines to look through). It lives only on that screen. Only honoured between begin() and end() — while the daemon's own
  * snapshot is being written, never from what a CLI prints.
  */
 export function createSnapshotLinks(
@@ -100,20 +100,30 @@ export function createSnapshotLinks(
   onHover: (event: MouseEvent, uri: string) => void,
   onLeave: () => void,
 ): { provider: ILinkProvider; begin: () => void; end: () => void } {
-  type Row = { marker: IMarker } | { alt: number }
+  type Row = { marker: IMarker } | { alt: unknown }
   let links: { row: Row; x: number; cells: number; text: string; uri: string }[] = []
   let writing = false
   const textAt = (y: number, x: number, cells: number) => term.buffer.active.getLine(y)?.translateToString(false, x, x + cells) ?? ""
   const alt = () => term.buffer.active.type === "alternate"
-  /** The link's buffer row now, or undefined once it is gone (trimmed, or its screen left). */
-  const lineOf = (row: Row) => ("marker" in row ? (row.marker.isDisposed || alt() ? undefined : row.marker.line) : alt() ? row.alt : undefined)
+  // xterm's own line list (internal): its entries are the line objects that move with the text.
+  const lineList = () => (term as unknown as { _core?: { buffer?: { lines?: { get(i: number): unknown } } } })._core?.buffer?.lines
+  const altLineAt = (y: number) => lineList()?.get(term.buffer.active.baseY + y)
+  /** The link's buffer row now, or undefined once it is gone (trimmed, scrolled off, or its screen left). */
+  const lineOf = (row: Row): number | undefined => {
+    if ("marker" in row) return row.marker.isDisposed || alt() ? undefined : row.marker.line
+    if (!alt()) return undefined
+    for (let y = 0; y < term.rows; y++) if (altLineAt(y) === row.alt) return term.buffer.active.baseY + y
+    return undefined
+  }
   term.parser.registerOscHandler(SNAPSHOT_LINKS_OSC, (data) => {
     if (!writing) return true
     try {
       for (const [dy, x, cells, uri] of JSON.parse(data) as [number, number, number, string][]) {
         let row: Row | undefined
-        if (alt()) row = { alt: term.buffer.active.baseY + term.buffer.active.cursorY + dy }
-        else {
+        if (alt()) {
+          const line = altLineAt(term.buffer.active.cursorY + dy)
+          if (line) row = { alt: line }
+        } else {
           const marker = term.registerMarker(dy)
           if (marker) row = { marker }
         }
@@ -136,18 +146,9 @@ export function createSnapshotLinks(
         // A link whose screen is not showing is kept (it may come back); one whose text is gone is not.
         links = links.filter((l) => {
           const line = lineOf(l.row)
-          if (line === undefined) return "marker" in l.row ? !l.row.marker.isDisposed : true
-          if (textAt(line, l.x, l.cells) === l.text) return true
-          if (!("alt" in l.row)) return false
-          for (let d = 1; d < term.rows; d++) {
-            for (const y of [line - d, line + d]) {
-              if (y >= 0 && y < term.rows && textAt(y, l.x, l.cells) === l.text) {
-                l.row.alt = y
-                return true
-              }
-            }
-          }
-          return false
+          // An alternate-screen link whose line scrolled off is gone for good.
+          if (line === undefined) return "marker" in l.row ? !l.row.marker.isDisposed : !alt()
+          return textAt(line, l.x, l.cells) === l.text
         })
         const out = links
           .filter((l) => lineOf(l.row) === y - 1)

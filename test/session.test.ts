@@ -429,3 +429,29 @@ describe("Session snapshot — OSC 8 links on the alternate screen", () => {
     replay.dispose()
   })
 })
+
+describe("Session snapshot — same-label links on the alternate screen keep their own targets", () => {
+  it("two 'Read report' links (A, B) on adjacent rows: after a scroll each row still opens its own URL", async () => {
+    const { createSnapshotLinks } = await import("../src/webview/links.js")
+    const { Terminal } = await import("@xterm/headless")
+    const { session, emit } = makeSession()
+    const link = (uri: string) => `\x1b]8;;${uri}\x07Read report\x1b]8;;\x07`
+    emit(`\x1b[?1049h\x1b[3;1H${link("https://a")}\x1b[4;1H${link("https://b")}`)
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    const replay = new Terminal({ cols: 80, rows: 24, allowProposedApi: true })
+    const links = createSnapshotLinks(replay as never, () => {}, () => {}, () => {})
+    links.begin()
+    await new Promise<void>((r) => replay.write(snapshot, r))
+    links.end()
+    const at = (y: number) => new Promise<string[]>((r) => links.provider.provideLinks(y, (l) => r((l ?? []).map((x) => x.text))))
+    expect([await at(3), await at(4)]).toEqual([["https://a"], ["https://b"]])
+    await new Promise<void>((r) => replay.write("\x1b[1S", r))
+    expect([await at(2), await at(3), await at(4)]).toEqual([["https://a"], ["https://b"], []])
+    // Inside a scroll region (rows 1..3, now [blank, A, B]) two lines up: A scrolls off, B
+    // reaches row 1 and keeps its own URL.
+    await new Promise<void>((r) => replay.write("\x1b[1;3r\x1b[2S\x1b[r", r))
+    expect([await at(1), await at(2), await at(3)]).toEqual([["https://b"], [], []])
+    replay.dispose()
+  })
+})
