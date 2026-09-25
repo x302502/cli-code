@@ -25,6 +25,11 @@ describe("resolveShellEnv", () => {
     expect(calls[0]!.args[0]).toBe("-ilc")
     expect(await resolveShellEnv("/bin/zsh", async () => { throw new Error("timeout") })).toBeUndefined()
   })
+  it("probes the same shell the daemon uses: a non-POSIX $SHELL (nushell) falls back", async () => {
+    let file = ""
+    await resolveShellEnv("/opt/homebrew/bin/nu", async (f) => ((file = f), block([])))
+    expect(file).toBe(process.platform === "darwin" ? "/bin/zsh" : "/bin/bash")
+  })
   it("really works against this machine's shell (PATH comes back non-empty)", async () => {
     const env = await resolveShellEnv()
     expect(env?.PATH ?? "").not.toBe("")

@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process"
+import { loginShell } from "./command-env.js"
 
 /**
  * The environment a CLI would get in the user's real terminal, asked of an interactive login
@@ -37,7 +38,8 @@ const defaultExec: Exec = (file, args, opts) =>
 /** Resolves the interactive login shell's environment; undefined on Windows or when the probe fails. */
 export async function resolveShellEnv(shell: string | undefined = process.env.SHELL, exec: Exec = defaultExec): Promise<Record<string, string> | undefined> {
   if (process.platform === "win32") return undefined
-  const sh = shell || (process.platform === "darwin" ? "/bin/zsh" : "/bin/bash")
+  // The same shell the daemon runs the CLIs in (see daemon/entry.ts).
+  const sh = loginShell(shell, process.platform === "darwin" ? "/bin/zsh" : "/bin/bash")
   const env = { ...process.env }
   delete env.ELECTRON_RUN_AS_NODE
   try {

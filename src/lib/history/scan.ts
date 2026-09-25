@@ -175,7 +175,7 @@ export function grokSessions(cwd: string, limit: number): SessionSummary[] {
     })
 }
 
-export async function listSessionsForWorkspace(cwd: string, limit = 200): Promise<SessionSummary[]> {
-  const all = [...claudeSessions(cwd, limit), ...codexSessions(cwd, limit), ...grokSessions(cwd, limit)]
+export async function listSessionsForWorkspace(cwd: string, limit = 200, sinceMs?: number): Promise<SessionSummary[]> {
+  const all = [...claudeSessions(cwd, limit), ...codexSessions(cwd, limit, sinceMs), ...grokSessions(cwd, limit)]
   return all.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, limit)
 }
