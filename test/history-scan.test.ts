@@ -53,6 +53,15 @@ describe("codexSessions with a spawn time (model pill, restart)", () => {
   })
 })
 
+describe("codexSessions — the history picker (no sinceMs)", () => {
+  it("a session resumed today but filed under the day it began still counts among the newest", () => {
+    const now = Date.now()
+    for (let i = 0; i < 3; i++) rollout(`yesterday-${i}`, "/w/mine", now - 86_400_000 - i * 1000)
+    rollout("resumed", "/w/mine", now - 1000, new Date(now - 30 * 86_400_000))
+    expect(codexSessions("/w/mine", 2).map((s) => s.sessionId)).toEqual(["resumed", "yesterday-0"])
+  })
+})
+
 describe("claudeSessionsInDir", () => {
   // Claude's folder name maps every non-alphanumeric to "-": /work/foo-bar and /work/foo/bar share one.
   function transcript(dir: string, id: string, cwd: string | undefined, mtimeMs: number) {

@@ -45,15 +45,16 @@ export function claudeSessionsInDir(dir: string, limit: number, cwd?: string, si
  * With `sinceMs` (a tab's spawn time) only the day folders from that day on are walked:
  * Codex files each rollout under sessions/YYYY/MM/DD of its start, so a tab's own rollout
  * cannot be anywhere older — and the model pill asks every few seconds, which must not stat
- * a whole long history each time. Without it (the history picker), day folders are walked
- * newest first until MAX_ROLLOUTS_READ rollouts are in hand: older years are not even listed.
+ * a whole long history each time. Without it (the history picker) every rollout is stat'ed —
+ * a resumed session stays in the folder of the day it began, so only mtimes tell which are
+ * newest — and the heads of the newest MAX_ROLLOUTS_READ are read.
  */
 export function codexSessions(cwd: string, limit: number, sinceMs?: number): SessionSummary[] {
   const dir = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "sessions")
   const isRollout = (n: string) => n.startsWith("rollout-") && n.endsWith(".jsonl")
   const files =
     sinceMs === undefined
-      ? newestRollouts(dir, isRollout)
+      ? newestFiles(dir, isRollout, { depth: Infinity, limit: MAX_ROLLOUTS_READ })
       : daysSince(sinceMs)
           .flatMap((d) => newestFiles(path.join(dir, d), isRollout))
           .map((f) => ({ f, m: mtimeMs(f) ?? 0 }))
@@ -84,35 +85,6 @@ export function codexSessions(cwd: string, limit: number, sinceMs?: number): Ses
 // Every project's rollouts share Codex's tree: reading the head of each would be the whole history
 // for a folder with few sessions of its own. The newest ones are what a picker offers anyway.
 const MAX_ROLLOUTS_READ = 1000
-
-/** Up to MAX_ROLLOUTS_READ rollouts, newest first, from the YYYY/MM/DD folders walked newest
- * first — older folders are never listed once enough are found. A tree not laid out by date is
- * walked whole. */
-function newestRollouts(dir: string, isRollout: (name: string) => boolean): string[] {
-  const numbered = (d: string) => {
-    try {
-      return fs
-        .readdirSync(d, { withFileTypes: true })
-        .filter((e) => e.isDirectory() && /^\d+$/.test(e.name))
-        .map((e) => e.name)
-        .sort((a, b) => Number(b) - Number(a))
-    } catch {
-      return []
-    }
-  }
-  const years = numbered(dir)
-  if (years.length === 0) return newestFiles(dir, isRollout, { depth: Infinity, limit: MAX_ROLLOUTS_READ })
-  const out: string[] = []
-  for (const y of years) {
-    for (const m of numbered(path.join(dir, y))) {
-      for (const d of numbered(path.join(dir, y, m))) {
-        out.push(...newestFiles(path.join(dir, y, m, d), isRollout))
-        if (out.length >= MAX_ROLLOUTS_READ) return out.slice(0, MAX_ROLLOUTS_READ)
-      }
-    }
-  }
-  return out
-}
 
 function daysSince(sinceMs: number): string[] {
   const pad = (n: number) => String(n).padStart(2, "0")
