@@ -16,11 +16,22 @@ export function hookCommand(from: string): string {
   return `[ -n "$CLI_CODE_HOOK" ] && eval "CLI_CODE_FROM=${from} $CLI_CODE_HOOK" || true`
 }
 export const HOOK_COMMAND = hookCommand("claude")
-// Written by builds before CLI_CODE_FROM: still ours, upgraded in place on the next install.
-const LEGACY_HOOK_COMMAND = '[ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true'
-const TAGGED_HOOK_RE = /^\[ -n "\$CLI_CODE_HOOK" \] && eval "CLI_CODE_FROM=[\w-]+ \$CLI_CODE_HOOK" \|\| true$/
+// Grok expands `$VAR` references in a hook command up front and refuses to run it when one is
+// unset ("required env var(s) not set") — outside CLI Code that would print a warning on every
+// prompt. Reading the variable through printenv keeps the reference out of Grok's scanner.
+export const GROK_HOOK_COMMAND = '[ -n "$(printenv CLI_CODE_HOOK)" ] && eval "CLI_CODE_FROM=grok $(printenv CLI_CODE_HOOK)" || true'
+
+/**
+ * Every hook command CLI Code ever wrote — the one place that says what is ours, for merging
+ * into a user's settings, for telling a hooks file of ours from the user's, and for Codex trust.
+ * Older builds' commands (before CLI_CODE_FROM) still count, so the next install upgrades them.
+ */
+const OUR_COMMANDS = [
+  /^\[ -n "\$CLI_CODE_HOOK" \] && eval "(CLI_CODE_FROM=[\w-]+ )?\$CLI_CODE_HOOK" \|\| true$/,
+  /^\[ -n "\$\(printenv CLI_CODE_HOOK\)" \] && eval "(CLI_CODE_FROM=[\w-]+ )?\$\(printenv CLI_CODE_HOOK\)" \|\| true$/,
+]
 export function isOurCommand(command: unknown): boolean {
-  return command === LEGACY_HOOK_COMMAND || (typeof command === "string" && TAGGED_HOOK_RE.test(command))
+  return typeof command === "string" && OUR_COMMANDS.some((re) => re.test(command))
 }
 
 export type HookEntry = { type: string; command: string; timeout?: number; async?: boolean }

@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { HOOK_COMMAND, hookCommand } from "../src/lib/claude-hooks.js"
+import { GROK_HOOK_COMMAND, HOOK_COMMAND, hookCommand, isOurCommand } from "../src/lib/claude-hooks.js"
 import { MANAGED_HEADER } from "../src/lib/hooks/plugin-template.js"
-import { GROK_HOOK_COMMAND, STATUS_HOOK_INSTALLERS } from "../src/lib/hooks/registry.js"
+import { STATUS_HOOK_INSTALLERS } from "../src/lib/hooks/registry.js"
 
 // Every installer runs against a throwaway home; the real one is never read or written here.
 let home: string
@@ -237,4 +237,10 @@ describe("concurrent writers (one hook sync per VS Code window)", () => {
     expect(bad).toBe(0)
     expect(fs.readdirSync(home).filter((n) => n.endsWith(".tmp"))).toEqual([])
   }, 60_000)
+  it("isOurCommand knows every command CLI Code wrote, old builds' included, and nothing else", () => {
+    for (const c of [HOOK_COMMAND, hookCommand("codex"), GROK_HOOK_COMMAND]) expect(isOurCommand(c)).toBe(true)
+    expect(isOurCommand('[ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK" || true')).toBe(true)
+    expect(isOurCommand('[ -n "$(printenv CLI_CODE_HOOK)" ] && eval "$(printenv CLI_CODE_HOOK)" || true')).toBe(true)
+    for (const c of ["say done", '[ -n "$CLI_CODE_HOOK" ] && eval "$CLI_CODE_HOOK"; rm -rf ~', undefined]) expect(isOurCommand(c)).toBe(false)
+  })
 })

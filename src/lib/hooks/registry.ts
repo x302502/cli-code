@@ -1,6 +1,6 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
-import { HOOK_EVENTS, hookCommand, hooksInstalled, isOurCommand, installHooks, readSettingsFile, uninstallHooks, writeFileAtomic, writeSettingsFile } from "../claude-hooks.js"
+import { GROK_HOOK_COMMAND, HOOK_EVENTS, hookCommand, hooksInstalled, isOurCommand, installHooks, readSettingsFile, uninstallHooks, writeFileAtomic, writeSettingsFile } from "../claude-hooks.js"
 import { addTrust, codexTrustKeys, remapTrust, removeTrust, trustedWith } from "./codex-trust.js"
 import { copilotFile, copilotInstalled } from "./copilot.js"
 import { isManagedPlugin, pluginSource, type PluginFlavour } from "./plugin-template.js"
@@ -117,7 +117,7 @@ function hookCommands(value: unknown): string[] {
 /** A file CLI Code wrote, possibly by an older build: it holds hook commands and all are ours. */
 function managedHooksFile(value: unknown): boolean {
   const cmds = hookCommands(value)
-  return cmds.length > 0 && cmds.every((c) => isOurCommand(c) || c === GROK_HOOK_COMMAND || c === LEGACY_GROK_HOOK_COMMAND)
+  return cmds.length > 0 && cmds.every(isOurCommand)
 }
 
 function ownJsonFile(id: string, label: string, binary: string, rel: string[], content: () => unknown, isOurs: (value: unknown) => boolean): StatusHookInstaller {
@@ -148,11 +148,6 @@ function ownJsonFile(id: string, label: string, binary: string, rel: string[], c
 }
 
 const GROK_EVENTS = ["UserPromptSubmit", "Stop", "StopFailure", "StopCancelled", "Notification"] as const
-// Grok expands `$VAR` references in a hook command up front and refuses to run it when one is
-// unset ("required env var(s) not set") — outside CLI Code that would print a warning on every
-// prompt. Reading the variable through printenv keeps the reference out of Grok's scanner.
-export const GROK_HOOK_COMMAND = '[ -n "$(printenv CLI_CODE_HOOK)" ] && eval "CLI_CODE_FROM=grok $(printenv CLI_CODE_HOOK)" || true'
-const LEGACY_GROK_HOOK_COMMAND = '[ -n "$(printenv CLI_CODE_HOOK)" ] && eval "$(printenv CLI_CODE_HOOK)" || true'
 function grokFile(): unknown {
   const hooks: Record<string, { hooks: { type: string; command: string }[] }[]> = {}
   for (const e of GROK_EVENTS) hooks[e] = [{ hooks: [{ type: "command", command: GROK_HOOK_COMMAND }] }]
