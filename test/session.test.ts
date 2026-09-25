@@ -379,3 +379,26 @@ describe("Session — exit after the last output", () => {
     expect(events).toEqual(["data:last line\r\n", "exit"])
   })
 })
+
+describe("Session snapshot — OSC 8 links on the alternate screen", () => {
+  it("a full-screen TUI's link is clickable again after a reload", async () => {
+    const { createSnapshotLinks } = await import("../src/webview/links.js")
+    const { Terminal } = await import("@xterm/headless")
+    const { session, emit } = makeSession()
+    emit("\x1b[?1049h\x1b[3;1Hsee \x1b]8;;https://example.com/report\x07Read report\x1b]8;;\x07")
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    const replay = new Terminal({ cols: 80, rows: 24, allowProposedApi: true })
+    const links = createSnapshotLinks(replay as never, () => {}, () => {}, () => {})
+    links.begin()
+    await new Promise<void>((r) => replay.write(snapshot, r))
+    links.end()
+    expect(replay.buffer.active.type).toBe("alternate")
+    const found = await new Promise<{ text: string; range: unknown }[]>((r) => links.provider.provideLinks(3, (l) => r((l ?? []) as never)))
+    expect(found.map((l) => [l.text, l.range])).toEqual([["https://example.com/report", { start: { x: 5, y: 3 }, end: { x: 15, y: 3 } }]])
+    // Leaving the alternate screen drops them: the normal screen has other text on those rows.
+    await new Promise<void>((r) => replay.write("\x1b[?1049l", r))
+    expect(await new Promise<unknown[]>((r) => links.provider.provideLinks(3, (l) => r(l ?? [])))).toEqual([])
+    replay.dispose()
+  })
+})

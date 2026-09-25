@@ -88,7 +88,8 @@ export function createTerminalLinkProvider(
 /**
  * OSC 8 links a snapshot carries in SNAPSHOT_LINKS_OSC (the serializer keeps only their text).
  * Each is pinned to its row with a marker, so it scrolls with the text, and is dropped once
- * that text is overwritten. Only honoured between begin() and end() — while the daemon's own
+ * that text is overwritten. xterm has no markers on the alternate screen (a full-screen TUI);
+ * that screen has no scrollback, so there a link keeps its row and lives only on that screen. Only honoured between begin() and end() — while the daemon's own
  * snapshot is being written, never from what a CLI prints.
  */
 export function createSnapshotLinks(
@@ -97,15 +98,24 @@ export function createSnapshotLinks(
   onHover: (event: MouseEvent, uri: string) => void,
   onLeave: () => void,
 ): { provider: ILinkProvider; begin: () => void; end: () => void } {
-  let links: { marker: IMarker; x: number; cells: number; text: string; uri: string }[] = []
+  type Row = { marker: IMarker } | { alt: number }
+  let links: { row: Row; x: number; cells: number; text: string; uri: string }[] = []
   let writing = false
   const textAt = (y: number, x: number, cells: number) => term.buffer.active.getLine(y)?.translateToString(false, x, x + cells) ?? ""
+  const alt = () => term.buffer.active.type === "alternate"
+  /** The link's buffer row now, or undefined once it is gone (trimmed, or its screen left). */
+  const lineOf = (row: Row) => ("marker" in row ? (row.marker.isDisposed || alt() ? undefined : row.marker.line) : alt() ? row.alt : undefined)
   term.parser.registerOscHandler(SNAPSHOT_LINKS_OSC, (data) => {
     if (!writing) return true
     try {
       for (const [dy, x, cells, uri] of JSON.parse(data) as [number, number, number, string][]) {
-        const marker = term.registerMarker(dy)
-        if (marker) links.push({ marker, x, cells, uri, text: textAt(marker.line, x, cells) })
+        let row: Row | undefined
+        if (alt()) row = { alt: term.buffer.active.baseY + term.buffer.active.cursorY + dy }
+        else {
+          const marker = term.registerMarker(dy)
+          if (marker) row = { marker }
+        }
+        if (row) links.push({ row, x, cells, uri, text: textAt(lineOf(row)!, x, cells) })
       }
     } catch {
       // malformed: no links restored
@@ -114,16 +124,21 @@ export function createSnapshotLinks(
   })
   return {
     begin: () => {
-      for (const l of links) l.marker.dispose()
+      for (const l of links) if ("marker" in l.row) l.row.marker.dispose()
       links = []
       writing = true
     },
     end: () => (writing = false),
     provider: {
       provideLinks(y, callback) {
-        links = links.filter((l) => !l.marker.isDisposed && textAt(l.marker.line, l.x, l.cells) === l.text)
+        // A link whose screen is not showing is kept (it may come back); one whose text changed is not.
+        links = links.filter((l) => {
+          const line = lineOf(l.row)
+          if (line === undefined) return "marker" in l.row ? !l.row.marker.isDisposed : true
+          return textAt(line, l.x, l.cells) === l.text
+        })
         const out = links
-          .filter((l) => l.marker.line === y - 1)
+          .filter((l) => lineOf(l.row) === y - 1)
           .map((l): ILink => {
             const range = { start: { x: l.x + 1, y }, end: { x: l.x + l.cells, y } }
             return { text: l.uri, range, activate: (e) => onActivate(e, l.uri, range), hover: (e) => onHover(e, l.uri), leave: onLeave }
