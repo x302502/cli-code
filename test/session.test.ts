@@ -418,6 +418,11 @@ describe("Session snapshot — OSC 8 links on the alternate screen", () => {
     expect(replay.buffer.active.type).toBe("alternate")
     const found = await new Promise<{ text: string; range: unknown }[]>((r) => links.provider.provideLinks(3, (l) => r((l ?? []) as never)))
     expect(found.map((l) => [l.text, l.range])).toEqual([["https://example.com/report", { start: { x: 5, y: 3 }, end: { x: 15, y: 3 } }]])
+    // The TUI scrolls its screen up a line (CSI 1 S): the link moves with its text, to row 2.
+    await new Promise<void>((r) => replay.write("\x1b[1S", r))
+    expect(await new Promise<unknown[]>((r) => links.provider.provideLinks(3, (l) => r(l ?? [])))).toEqual([])
+    const moved = await new Promise<{ range: unknown }[]>((r) => links.provider.provideLinks(2, (l) => r((l ?? []) as never)))
+    expect(moved.map((l) => l.range)).toEqual([{ start: { x: 5, y: 2 }, end: { x: 15, y: 2 } }])
     // Leaving the alternate screen drops them: the normal screen has other text on those rows.
     await new Promise<void>((r) => replay.write("\x1b[?1049l", r))
     expect(await new Promise<unknown[]>((r) => links.provider.provideLinks(3, (l) => r(l ?? [])))).toEqual([])

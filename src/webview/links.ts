@@ -88,8 +88,10 @@ export function createTerminalLinkProvider(
 /**
  * OSC 8 links a snapshot carries in SNAPSHOT_LINKS_OSC (the serializer keeps only their text).
  * Each is pinned to its row with a marker, so it scrolls with the text, and is dropped once
- * that text is overwritten. xterm has no markers on the alternate screen (a full-screen TUI);
- * that screen has no scrollback, so there a link keeps its row and lives only on that screen. Only honoured between begin() and end() — while the daemon's own
+ * that text is overwritten. xterm has no markers on the alternate screen (a full-screen TUI),
+ * so there a link follows its text instead: when a scroll or an inserted/deleted line moved it,
+ * it goes to the nearest row showing the same text in the same columns. It lives only on that
+ * screen, which has no scrollback and only `rows` rows to look through. Only honoured between begin() and end() — while the daemon's own
  * snapshot is being written, never from what a CLI prints.
  */
 export function createSnapshotLinks(
@@ -131,11 +133,21 @@ export function createSnapshotLinks(
     end: () => (writing = false),
     provider: {
       provideLinks(y, callback) {
-        // A link whose screen is not showing is kept (it may come back); one whose text changed is not.
+        // A link whose screen is not showing is kept (it may come back); one whose text is gone is not.
         links = links.filter((l) => {
           const line = lineOf(l.row)
           if (line === undefined) return "marker" in l.row ? !l.row.marker.isDisposed : true
-          return textAt(line, l.x, l.cells) === l.text
+          if (textAt(line, l.x, l.cells) === l.text) return true
+          if (!("alt" in l.row)) return false
+          for (let d = 1; d < term.rows; d++) {
+            for (const y of [line - d, line + d]) {
+              if (y >= 0 && y < term.rows && textAt(y, l.x, l.cells) === l.text) {
+                l.row.alt = y
+                return true
+              }
+            }
+          }
+          return false
         })
         const out = links
           .filter((l) => lineOf(l.row) === y - 1)
