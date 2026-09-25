@@ -490,3 +490,25 @@ describe("Session — the mirror holds back a flood like a slow client would", (
     session.dispose()
   }, 30_000)
 })
+
+describe("Session snapshot — a resize keeps the alternate-screen links still on screen", () => {
+  it("shrinking the screen by a row with the link on the last row keeps the link on the row it moved to", async () => {
+    const { createSnapshotLinks } = await import("../src/webview/links.js")
+    const { Terminal } = await import("@xterm/headless")
+    const { session, emit } = makeSession()
+    emit("\x1b[?1049h\x1b[24;1H\x1b]8;;https://a\x07Read report\x1b]8;;\x07")
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    const replay = new Terminal({ cols: 80, rows: 24, allowProposedApi: true })
+    const links = createSnapshotLinks(replay as never, () => {}, () => {}, () => {})
+    links.begin()
+    await new Promise<void>((r) => replay.write(snapshot, r))
+    links.end()
+    const at = (y: number) => new Promise<string[]>((r) => links.provider.provideLinks(y, (l) => r((l ?? []).map((x) => x.text))))
+    expect(await at(24)).toEqual(["https://a"])
+    replay.resize(80, 23)
+    expect(replay.buffer.active.getLine(22)!.translateToString(true)).toBe("Read report")
+    expect(await at(23)).toEqual(["https://a"])
+    replay.dispose()
+  })
+})
