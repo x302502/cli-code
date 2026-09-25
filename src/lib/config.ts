@@ -117,7 +117,8 @@ export const CLI_TOOLS: CliTool[] = [
     icon: "amp.png",
     description: "Sourcegraph Amp coding agent",
     command: "amp --dangerously-allow-all",
-    continueCommand: "amp --dangerously-allow-all threads continue --last",
+    // No continueCommand: `threads continue --last` is the machine's last thread, whatever its
+    // folder — a restart would land in another project. Threads are found by folder instead.
     resumeCommand: "amp --dangerously-allow-all threads continue {sessionId}",
   },
   {

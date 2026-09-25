@@ -28,7 +28,8 @@ describe("resume commands", () => {
   it("các CLI có kho phiên riêng: cả continueCommand lẫn resumeCommand theo id", () => {
     for (const id of ["copilot", "opencode", "omp", "amp", "droid", "pi", "cline", "kimi", "cursor", "goose", "antigravity"]) {
       const t = CLI_TOOLS.find((x) => x.id === id)!
-      expect(t.continueCommand || id === "cline").toBeTruthy()
+      // cline has no --continue; amp's (`--last`) ignores the folder, so it is left out on purpose.
+      expect(t.continueCommand || id === "cline" || id === "amp").toBeTruthy()
       expect(t.resumeCommand).toContain("{sessionId}")
     }
   })

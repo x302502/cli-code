@@ -69,10 +69,13 @@ describe("locateLatestSession", () => {
     fs.utimesSync(path.join(home, ".cursor/projects/w-proj/agent-transcripts/chat-1"), (T0 + 1) / 1000, (T0 + 1) / 1000)
     expect(locateLatestSession("cursor", cwd, T0, home)).toBe("chat-1")
   })
-  it("amp: newest thread file since spawn", () => {
-    write(".local/share/amp/threads/T-aaa.json", "{}", T0 + 1)
-    write(".local/share/amp/threads/T-bbb.json", "{}", T0 + 3)
-    expect(locateLatestSession("amp", cwd, T0, home)).toBe("T-bbb")
+  it("amp: the newest thread since spawn whose folder is this tab's — never another project's", () => {
+    const thread = (dir: string) => JSON.stringify({ v: 7, id: "x", messages: [{ role: "user", content: [{ type: "text", text: "hi" }] }], env: { initial: { trees: [{ displayName: "p", uri: `file://${dir}` }] } } })
+    write(".local/share/amp/threads/T-mine.json", thread(cwd), T0 + 1)
+    write(".local/share/amp/threads/T-other.json", thread("/w/other"), T0 + 3)
+    write(".local/share/amp/threads/T-empty.json", '{"v":7,"id":"T-empty","created":1,"messages":[]}', T0 + 5)
+    expect(locateLatestSession("amp", cwd, T0, home)).toBe("T-mine")
+    expect(locateLatestSession("amp", "/w/nothing", T0, home)).toBeUndefined()
   })
   it("opencode-family and goose: SQLite stores", () => {
     const { Database: DatabaseSync } = require("bun:sqlite") as { Database: new (p: string) => { exec(s: string): void; close(): void } }

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import * as fs from "node:fs"
 import * as path from "node:path"
+import { fileURLToPath } from "node:url"
 import { samePath } from "../same-path.js"
 import { head, mtimeMs, newestFiles } from "./files.js"
 
@@ -66,8 +67,7 @@ const LOCATORS: Record<string, Locator> = {
   kimi: (cwd, since, home) => newestSubdir(path.join(home, ".kimi", "sessions", md5(cwd)), since),
   cursor: (cwd, since, home) =>
     newestSubdir(path.join(home, ".cursor", "projects", cwd.replace(/^[/\\]/, "").replace(/[/\\]/g, "-"), "agent-transcripts"), since),
-  // Threads carry no cwd; the newest thread started after this tab is the best available guess.
-  amp: (_cwd, since, home) => amp(path.join(home, ".local", "share", "amp", "threads"), since),
+  amp: (cwd, since, home) => amp(path.join(home, ".local", "share", "amp", "threads"), cwd, since),
 
   antigravity: (cwd, since, home) => antigravity(path.join(home, ".gemini", "antigravity-cli"), cwd, since),
 
@@ -166,12 +166,42 @@ function newestSubdir(root: string, since: number): string | undefined {
   return best?.id
 }
 
-function amp(root: string, since: number): string | undefined {
+/**
+ * `~/.local/share/amp/threads/T-<id>.json`. A thread names its folder in
+ * `env.initial.trees[].uri` (file://…), written after the messages — so the end of the file
+ * is read. A thread with no folder (never used) cannot be this tab's: no guess, since the
+ * machine's newest thread is as likely another project's.
+ */
+function amp(root: string, cwd: string, since: number): string | undefined {
   for (const file of newestFiles(root, (n) => n.startsWith("T-") && n.endsWith(".json"), { depth: 2, sinceMs: since })) {
-    const id = path.basename(file, ".json")
-    if (id) return id
+    const text = tail(file, TAIL_BYTES)
+    const env = text.lastIndexOf('"env"')
+    if (env === -1) continue
+    for (const m of text.slice(env).matchAll(/"uri"\s*:\s*"(file:[^"]+)"/g)) {
+      let dir: string
+      try {
+        dir = fileURLToPath(m[1]!)
+      } catch {
+        continue
+      }
+      if (sameDir(dir, cwd)) return path.basename(file, ".json")
+    }
   }
   return undefined
+}
+
+const TAIL_BYTES = 16 * 1024
+
+function tail(file: string, bytes: number): string {
+  const fd = fs.openSync(file, "r")
+  try {
+    const size = fs.fstatSync(fd).size
+    const buf = Buffer.alloc(Math.min(bytes, size))
+    const n = fs.readSync(fd, buf, 0, buf.length, size - buf.length)
+    return buf.subarray(0, n).toString("utf8")
+  } finally {
+    fs.closeSync(fd)
+  }
 }
 
 function md5(text: string): string {
