@@ -72,7 +72,8 @@ function configEntries(dir: string): string[] {
  * Per-path signature. Most files: newest mtime. Files the CLI itself rewrites while running —
  * `~/.claude.json` (Claude stores its state there) and Codex's `config.toml` (notices, trust
  * entries, model availability) — would otherwise look "changed" all the time, so for those only
- * the parts that matter (MCP servers, hooks) are hashed. A missing path is recorded as "" (not
+ * the parts that matter (MCP servers, hooks) are hashed. Claude's `settings*.json` also gets a
+ * write whenever the user answers a permission with "don't ask again": hashed without `permissions`. A missing path is recorded as "" (not
  * dropped), so a config file created after the snapshot still shows up as a change.
  */
 export function configSnapshot(paths: string[]): Record<string, string> {
@@ -91,6 +92,7 @@ function signature(p: string): string | undefined {
   const base = path.basename(p)
   if (base === ".claude.json") return hashOf(p, claudeMcp)
   const parent = path.dirname(p)
+  if ((base === "settings.json" || base === "settings.local.json") && path.basename(parent) === ".claude") return hashOf(p, withoutPermissions)
   if (base === "config.toml" && (path.basename(parent) === ".codex" || (process.env.CODEX_HOME && path.resolve(parent) === path.resolve(process.env.CODEX_HOME)))) return hashOf(p, codexMcpAndHooks)
   const m = newestMtime(p)
   if (m === undefined) return undefined
@@ -123,6 +125,16 @@ function hashOf(p: string, extract: (text: string) => string): string | undefine
   const hash = createHash("sha256").update(extract(text)).digest("hex").slice(0, 16)
   hashes.set(p, { stamp, hash })
   return hash
+}
+
+/** Everything but `permissions` (Claude reads allow/deny rules live; no restart needed). */
+function withoutPermissions(text: string): string {
+  try {
+    const { permissions: _, ...rest } = JSON.parse(text) as Record<string, unknown>
+    return JSON.stringify(rest)
+  } catch {
+    return text
+  }
 }
 
 /** `mcpServers` at the top level and per project. */

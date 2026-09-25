@@ -73,6 +73,16 @@ describe("configSnapshot / changedPath", () => {
     fs.writeFileSync(f, JSON.stringify({ mcpServers: { a: { command: "x" }, b: { url: "http://x" } }, numStartups: 2 }))
     expect(changedPath(before, configSnapshot([f]))).toBe(f)
   })
+  it(".claude/settings.local.json: a \"don't ask again\" permission rule Claude writes is not a change", () => {
+    const f = path.join(home, "proj/.claude/settings.local.json")
+    fs.mkdirSync(path.dirname(f), { recursive: true })
+    fs.writeFileSync(f, JSON.stringify({ permissions: { allow: ["Bash(ls:*)"] } }))
+    const before = configSnapshot([f])
+    fs.writeFileSync(f, JSON.stringify({ permissions: { allow: ["Bash(ls:*)", "Bash(git status:*)"] } }))
+    expect(changedPath(before, configSnapshot([f]))).toBeUndefined()
+    fs.writeFileSync(f, JSON.stringify({ permissions: { allow: ["Bash(ls:*)"] }, enabledMcpjsonServers: ["db"] }))
+    expect(changedPath(before, configSnapshot([f]))).toBe(f)
+  })
   it("~/.codex/config.toml: only [mcp_servers.*] and [hooks.*] tables count — Codex writes notices and trust itself", () => {
     const f = path.join(home, ".codex/config.toml")
     touch(".codex/config.toml", T0)
