@@ -1,6 +1,6 @@
 import * as fs from "node:fs"
 import * as pty from "node-pty"
-import { splitEnvPrefix } from "../lib/command-env.js"
+import { loginShell, splitEnvPrefix } from "../lib/command-env.js"
 import { startDaemon } from "./server.js"
 import type { PtyLike } from "./session.js"
 
@@ -20,7 +20,7 @@ void startDaemon({
     // wrong node and failed to start, while the same CLI worked in a terminal and in Orca.
     // SHELL is ignored on win32: a POSIX SHELL (e.g. from Git Bash) must not pair with the -NoLogo/-Command args below.
     const posixFallback = process.platform === "darwin" ? "/bin/zsh" : "/bin/bash"
-    const shell = process.platform === "win32" ? "powershell.exe" : (process.env.SHELL ?? posixFallback)
+    const shell = process.platform === "win32" ? "powershell.exe" : loginShell(process.env.SHELL, posixFallback)
     // A `VAR=value cmd` prefix is POSIX shell syntax PowerShell would choke on: apply it here on
     // Windows only. A POSIX shell must keep applying it itself, after its rc files ran — an
     // `export GOOSE_MODE=…` in .zshrc would otherwise beat the prefix.
