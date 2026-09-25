@@ -780,7 +780,9 @@ function attachConnection(
       if (e.state === "done" || e.state === "waiting" || e.state === "blocked") {
         if (!panel.visible) {
           panelUnread.add(panel)
-          if (previous === "working") notifyFinished(panel, e.state)
+          // waiting → done too: a turn whose permission was denied (no hook fires for the
+          // answer) still finished.
+          if (previous === "working" || (previous === "waiting" && e.state === "done")) notifyFinished(panel, e.state)
         }
       } else panelUnread.delete(panel)
       updateTitle(panel)
