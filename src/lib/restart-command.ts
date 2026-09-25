@@ -28,20 +28,21 @@ export function restartCommand(args: {
   // conversations inside the CLI (/clear, /resume) since the tab was opened.
   const reported = safe(args.reportedSessionId)
   if (tool.resumeCommand && reported) return tool.resumeCommand.replace("{sessionId}", reported)
-  // A tab opened from history already resumes/continues; keep that.
+  // A tab opened from history by id already resumes; keep that.
   if (tool.resumeCommand && matchesTemplate(baseCommand, tool.resumeCommand)) return baseCommand
-  if (tool.continueCommand && baseCommand === tool.continueCommand) return baseCommand
 
   // Everything below guesses "the newest conversation in this folder". With another tab of the
   // same CLI here whose conversation is unknown, that newest one may well be the sibling's —
   // restarting into it would take over the other tab's work. A fresh session is the safe
-  // answer then (and --continue is the same guess, so it is skipped too).
-  if (siblings.some((t) => !t.sessionId)) return baseCommand
+  // answer then (and --continue is the same guess, so it is skipped too — also for a tab opened
+  // with --continue, which names no fixed conversation either).
+  const fresh = tool.continueCommand && baseCommand === tool.continueCommand ? tool.command : baseCommand
+  if (siblings.some((t) => !t.sessionId)) return fresh
   const claimed = new Set(siblings.map((t) => t.sessionId))
   if (tool.resumeCommand) {
     const located = safe(args.locatedSessionId)
     // The store names only its newest session; if a sibling owns it, this tab's is unknown.
-    if (located && claimed.has(located)) return baseCommand
+    if (located && claimed.has(located)) return fresh
     const id =
       located ??
       args.sessions
@@ -50,7 +51,7 @@ export function restartCommand(args: {
     if (id) return tool.resumeCommand.replace("{sessionId}", id)
   }
   if (tool.continueCommand && siblings.length === 0) return tool.continueCommand
-  return baseCommand
+  return fresh
 }
 
 /** The session id in a command built from `template` (a tab opened or restarted by id). */

@@ -78,6 +78,13 @@ describe("restartCommand — several tabs of one CLI in one folder", () => {
     const sessions = [s("claude", "b", 6000), s("claude", "a", 5000)]
     expect(restartCommand({ tool: claude, baseCommand: "claude --x", sessions, spawnedAt: 1000, siblings: [{ sessionId: "b" }] })).toBe("claude --resume a --x")
   })
+  it("a tab opened with --continue is not pinned: it goes through the same ownership checks", () => {
+    const args = { tool: cc, baseCommand: "command-code --yolo --continue", sessions: [], spawnedAt: 1000 }
+    expect(restartCommand({ ...args, locatedSessionId: "session-b", siblings: [{ sessionId: "session-b" }] })).toBe("command-code --yolo")
+    expect(restartCommand({ ...args, siblings: [{}] })).toBe("command-code --yolo")
+    expect(restartCommand({ ...args, locatedSessionId: "session-a", siblings: [{ sessionId: "session-b" }] })).toBe("command-code --yolo --resume session-a")
+    expect(restartCommand({ ...args, siblings: [] })).toBe("command-code --yolo --continue")
+  })
   it("reported and pinned identities are unaffected by siblings", () => {
     expect(restartCommand({ tool: cc, baseCommand: "command-code --yolo", reportedSessionId: "mine", sessions: [], spawnedAt: 1000, siblings: [{}] })).toBe("command-code --yolo --resume mine")
     expect(restartCommand({ tool: cc, baseCommand: "command-code --yolo --resume pinned", sessions: [], spawnedAt: 1000, siblings: [{}] })).toBe("command-code --yolo --resume pinned")
