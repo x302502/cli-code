@@ -72,6 +72,9 @@ export class Session {
 
     this.pty.onExit((e) => {
       this.exit = { code: e.exitCode, signal: e.signal }
+      // The CLI's last output may still sit in the coalescer; it must reach the client before
+      // the exit notice, or "[process exited]" lands above the CLI's final lines.
+      this.coalescer.flush()
       this.exitListener?.(this.exit)
     })
   }
@@ -149,6 +152,8 @@ export class Session {
     this.backlog = undefined
     this.listener = onOutput
     for (const chunk of backlog) this.forward(chunk)
+    // Attaching to an exited session: the server sends Exit right after this returns.
+    if (this.exit) this.coalescer.flush()
   }
 
   /** Detaches the client while leaving the PTY running. This is the mechanism that keeps a session alive across Reload Window. */

@@ -354,3 +354,16 @@ describe("Session snapshot — OSC 8 links survive a reload", () => {
     replay.dispose()
   })
 })
+
+describe("Session — exit after the last output", () => {
+  it("the CLI's final bytes reach the client before the exit notice", () => {
+    const pending: (() => void)[] = []
+    const { session, emit, die } = makeSession((fn) => pending.push(fn))
+    const events: string[] = []
+    session.onOutput((c) => events.push(`data:${new TextDecoder().decode(c)}`))
+    session.onExit(() => events.push("exit"))
+    emit("last line\r\n")
+    die(0)
+    expect(events).toEqual(["data:last line\r\n", "exit"])
+  })
+})
