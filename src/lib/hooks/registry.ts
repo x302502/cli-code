@@ -22,6 +22,10 @@ export type StatusHookInstaller = {
   uninstall(home: string): boolean
 }
 
+/** The file we would write already holds something of the user's: left alone, and not an error
+ * worth a warning on every window open (the sync reports it as "foreign"). */
+export class NotManagedError extends Error {}
+
 // --- text files (TOML, plugins) ---
 
 function readText(file: string): string | undefined {
@@ -129,7 +133,7 @@ function ownJsonFile(id: string, label: string, binary: string, rel: string[], c
         const current = readSettingsFile(file(home))
         if (isOurs(current)) return false
         // Install runs unattended on activation: never replace hooks the user keeps under our name.
-        if (!managedHooksFile(current)) throw new Error(`${file(home)} exists and is not managed by CLI Code`)
+        if (!managedHooksFile(current)) throw new NotManagedError(`${file(home)} exists and is not managed by CLI Code`)
       }
       writeSettingsFile(file(home), content())
       return true
@@ -173,7 +177,7 @@ function plugin(id: string, label: string, binary: string, rel: string[], flavou
       const current = readText(file(home))
       if (current === pluginSource(flavour, id)) return false
       // Never overwrite a file the user wrote under our name.
-      if (current !== undefined && !isManagedPlugin(current)) throw new Error(`${file(home)} exists and is not managed by CLI Code`)
+      if (current !== undefined && !isManagedPlugin(current)) throw new NotManagedError(`${file(home)} exists and is not managed by CLI Code`)
       writeText(file(home), pluginSource(flavour, id))
       return true
     },

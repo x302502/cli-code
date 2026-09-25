@@ -78,6 +78,8 @@ async function runStatusHookSync(context: vscode.ExtensionContext, enabled: bool
   // host never sourced); installing hooks and reading history must use the same folder.
   if (env?.CODEX_HOME && !process.env.CODEX_HOME) process.env.CODEX_HOME = env.CODEX_HOME
   const results = syncStatusHooks({ installers: STATUS_HOOK_INSTALLERS, home: os.homedir(), enabled, onPath: (b) => binaryOnPath(b, envPath) })
+  // A file of the user's under our name is reported when asked (the explicit commands), not on
+  // every activation: it stays the user's until they rename or remove it.
   const failed = results.some((r) => r.action === "error")
   if (results.some((r) => r.action === "installed" || r.action === "removed")) checkAllStale(context)
   if (failed) void vscode.window.showWarningMessage(`CLI Code status hooks — ${summarize(results)}`)

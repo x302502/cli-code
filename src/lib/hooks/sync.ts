@@ -1,6 +1,6 @@
-import type { StatusHookInstaller } from "./registry.js"
+import { NotManagedError, type StatusHookInstaller } from "./registry.js"
 
-export type SyncResult = { id: string; label: string; action: "installed" | "removed" | "unchanged" | "skipped" | "error"; error?: string }
+export type SyncResult = { id: string; label: string; action: "installed" | "removed" | "unchanged" | "skipped" | "foreign" | "error"; error?: string }
 
 /**
  * Brings every CLI's hook config in line with the setting: enabled → installed wherever the
@@ -20,7 +20,7 @@ export function syncStatusHooks(args: {
       if (!args.onPath(inst.binary)) return { ...base, action: "skipped" }
       return { ...base, action: inst.install(args.home) ? "installed" : "unchanged" }
     } catch (err) {
-      return { ...base, action: "error", error: String(err) }
+      return { ...base, action: err instanceof NotManagedError ? "foreign" : "error", error: String(err) }
     }
   })
 }
@@ -31,6 +31,7 @@ export function summarize(results: SyncResult[]): string {
   const parts: string[] = []
   if (names("installed").length) parts.push(`Installed: ${names("installed").join(", ")}`)
   if (names("removed").length) parts.push(`Removed: ${names("removed").join(", ")}`)
+  if (names("foreign").length) parts.push(`Left alone (file not ours): ${results.filter((r) => r.action === "foreign").map((r) => `${r.label} (${r.error})`).join("; ")}`)
   if (names("error").length) parts.push(`Failed: ${results.filter((r) => r.action === "error").map((r) => `${r.label} (${r.error})`).join("; ")}`)
   return parts.join(" · ") || "Nothing to change."
 }
