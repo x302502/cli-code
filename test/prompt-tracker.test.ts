@@ -77,6 +77,25 @@ describe("createPromptTracker", () => {
   })
 })
 
+describe("createPromptTracker — promptStarted (the CLI's hook reports a prompt began)", () => {
+  it("keeps a draft typed after the Enter: the hook for the sent prompt may arrive after it", () => {
+    const t = createPromptTracker()
+    t.feed("prompt A\r")
+    t.feed("draft B")
+    t.promptStarted()
+    expect(t.hasDraft()).toBe(true)
+  })
+  it("clears state nothing was typed over since the last submit (e.g. an unknown draft after reattach)", () => {
+    const t = createPromptTracker({ draftUnknown: true })
+    t.promptStarted()
+    expect(t.hasDraft()).toBe(false)
+    const u = createPromptTracker()
+    u.feed("A\r")
+    u.promptStarted()
+    expect(u.hasDraft()).toBe(false)
+  })
+})
+
 describe("createPromptTracker — history recall", () => {
   it("↑/↓ (CSI or SS3) and Ctrl+P/Ctrl+N recall a prompt the tracker cannot see: the draft becomes unknown", () => {
     for (const key of ["\x1b[A", "\x1b[B", "\x1bOA", "\x1bOB", "\x10", "\x0e"]) {

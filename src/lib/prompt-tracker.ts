@@ -10,9 +10,17 @@ const PASTE_END = "\x1b[201~"
  * append, backspace deletes, escape sequences are skipped, bracketed paste is taken
  * verbatim, Enter submits.
  */
-export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): { feed: (input: string) => string | undefined; hasDraft: () => boolean; reset: () => void } {
+export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
+  feed: (input: string) => string | undefined
+  hasDraft: () => boolean
+  reset: () => void
+  promptStarted: () => void
+} {
   let line = ""
   let pasting = false
+  // Keys that edited the input after the last Enter / Ctrl+C / reset: a prompt the CLI reports
+  // as started later (its hook runs after the Enter) was sent before them, so they still stand.
+  let typedSinceSubmit = false
   // A tracker attached to a running CLI (after a reload) never saw what is already typed into
   // its prompt: assume a draft, so a stale tab is not auto-restarted over it, until the line is
   // known empty again.
@@ -23,6 +31,7 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): { fe
     let i = 0
     while (i < input.length) {
       if (pasting) {
+        typedSinceSubmit = true
         const end = input.indexOf(PASTE_END, i)
         if (end === -1) {
           line += input.slice(i)
@@ -43,6 +52,7 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): { fe
         // ESC CR is Shift+Enter (soft newline) — keep the first line, drop the rest.
         if (input[i + 1] === "\r") {
           line += "\n"
+          typedSinceSubmit = true
           i += 2
           continue
         }
@@ -53,13 +63,13 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): { fe
         if (input[i + 1] === "[") {
           let j = i + 2
           while (j < input.length && !(input.charCodeAt(j) >= 0x40 && input.charCodeAt(j) <= 0x7e)) j++
-          if (!(j === i + 2 && (input[j] === "I" || input[j] === "O"))) unknown = true
+          if (!(j === i + 2 && (input[j] === "I" || input[j] === "O"))) unknown = typedSinceSubmit = true
           i = j + 1
         } else if (input[i + 1] === "O" && i + 2 < input.length) {
-          unknown = true
+          unknown = typedSinceSubmit = true
           i += 3
         } else {
-          unknown = true
+          unknown = typedSinceSubmit = true
           i += 1
         }
         continue
@@ -68,22 +78,28 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): { fe
         const title = formatPromptTitle(line)
         submitted = title || undefined
         line = ""
-        unknown = false
+        unknown = typedSinceSubmit = false
       } else if (ch === "\x7f" || ch === "\b") line = line.slice(0, -1)
       else if (ch === "\x03" || ch === "\x15") {
         line = ""
-        unknown = false
+        unknown = typedSinceSubmit = false
       } else if (ch >= " ") line += ch
       // Every other control key (Ctrl+P/N history, Ctrl+A/E/B/F moves, Tab completion,
       // Ctrl+W/K/Y …) changes the input in a way the tracker cannot replay.
       else unknown = true
+      if (ch !== "\r" && ch !== "\n" && ch !== "\x03" && ch !== "\x15") typedSinceSubmit = true
       i++
     }
     return submitted
   }
   const reset = () => {
     line = ""
-    unknown = false
+    unknown = typedSinceSubmit = false
   }
-  return { feed, hasDraft: () => unknown || line.length > 0, reset }
+  // The CLI began a prompt, so the input it was sent from is empty — unless the user has
+  // typed since the last submit: those keys are a new draft.
+  const promptStarted = () => {
+    if (!typedSinceSubmit) reset()
+  }
+  return { feed, hasDraft: () => unknown || line.length > 0, reset, promptStarted }
 }

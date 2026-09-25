@@ -750,8 +750,10 @@ function attachConnection(
       panelStatus.set(panel, { state: e.state, prompt: e.prompt })
       // Keys typed while the CLI waited on a dialog (y, 1, …) answered it; they are not a draft.
       // A prompt being submitted (→ working) also means the input is empty now — but only on a
-      // real transition, not the status replayed on attach (a queued draft may sit there).
-      if ((previous === "waiting" && e.state !== "waiting") || (previous !== undefined && previous !== "working" && e.state === "working")) tracker.reset()
+      // real transition, not the status replayed on attach (a queued draft may sit there), and
+      // not over keys typed after the Enter (the hook can arrive after them).
+      if (previous === "waiting" && e.state !== "waiting") tracker.reset()
+      else if (previous !== undefined && previous !== "working" && e.state === "working") tracker.promptStarted()
       if (e.cliSessionId && e.cliSessionId !== panelCliSessionIds.get(panel)) {
         panelCliSessionIds.set(panel, e.cliSessionId)
         // A newly known session id makes the model readable from one file: re-read now
