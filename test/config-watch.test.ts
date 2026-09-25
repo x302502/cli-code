@@ -63,6 +63,13 @@ describe("configSnapshot / changedPath", () => {
     touch(".copilot/hooks/cli-code.json.tmp", T0 + 5000)
     expect(changedPath(before, configSnapshot([dir]))).toBeUndefined()
   })
+  it("a plugin folder's node_modules is not config: installing a dependency is not a change", () => {
+    const dir = path.join(home, ".opencode")
+    touch(".opencode/plugins/a.ts", T0)
+    const before = configSnapshot([dir])
+    touch(".opencode/node_modules/pkg/index.js", T0 + 5000)
+    expect(changedPath(before, configSnapshot([dir]))).toBeUndefined()
+  })
   it("~/.claude.json: only the MCP servers count — Claude rewrites the rest of the file constantly", () => {
     const f = path.join(home, ".claude.json")
     touch(".claude.json", T0)

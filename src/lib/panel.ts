@@ -286,8 +286,11 @@ export function ensureDaemon(context: vscode.ExtensionContext): Promise<string> 
 /** sha256 of dist/daemon.js: the daemon stamps it beside its socket, so a daemon left over
  * from a previous build of the extension can be told apart from the current one. */
 function daemonBuild(context: vscode.ExtensionContext): string {
-  return createHash("sha256").update(fs.readFileSync(context.asAbsolutePath("dist/daemon.js"))).digest("hex").slice(0, 16)
+  // The bundle cannot change under a running extension host (an update restarts it).
+  cachedDaemonBuild ??= createHash("sha256").update(fs.readFileSync(context.asAbsolutePath("dist/daemon.js"))).digest("hex").slice(0, 16)
+  return cachedDaemonBuild
 }
+let cachedDaemonBuild: string | undefined
 /** Daemons from earlier builds that may still hold tabs of this window (oldest first). */
 function previousDaemonIds(context: vscode.ExtensionContext): string[] {
   return context.workspaceState.get<string[]>(PREVIOUS_DAEMON_IDS_KEY) ?? []

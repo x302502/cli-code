@@ -62,7 +62,9 @@ export function newestMtime(p: string, depth = 2): number | undefined {
 /** Directory entries that are configuration — not our backups or staging files. */
 function configEntries(dir: string): string[] {
   try {
-    return fs.readdirSync(dir).filter((n) => !n.endsWith(".cli-code.bak") && !n.endsWith(".tmp"))
+    // node_modules (a plugin folder's dependencies) is not config, and walking it two levels
+    // deep on every tab switch is the one case that would be slow.
+    return fs.readdirSync(dir).filter((n) => !n.endsWith(".cli-code.bak") && !n.endsWith(".tmp") && n !== "node_modules")
   } catch {
     return []
   }
