@@ -47,6 +47,8 @@ export function claudeSessionsInDir(dir: string, limit: number, cwd?: string, si
  * cannot be anywhere older — and the model pill asks every few seconds, which must not stat
  * a whole long history each time.
  */
+const MAX_ROLLOUTS_READ = 1000
+
 export function codexSessions(cwd: string, limit: number, sinceMs?: number): SessionSummary[] {
   const dir = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "sessions")
   const isRollout = (n: string) => n.startsWith("rollout-") && n.endsWith(".jsonl")
@@ -62,8 +64,11 @@ export function codexSessions(cwd: string, limit: number, sinceMs?: number): Ses
   // Codex keeps every project's rollouts in one tree: walk it newest first and keep this
   // workspace's until `limit` — a limit applied before filtering let newer sessions of other
   // projects push all of this one's out.
+  // Without `sinceMs` (the history picker) every project's rollouts are candidates; reading the
+  // head of each would be the whole tree for a folder with few sessions of its own. The newest
+  // ones are what a picker offers anyway.
   const out: SessionSummary[] = []
-  for (const f of files) {
+  for (const f of sinceMs === undefined ? files.slice(0, MAX_ROLLOUTS_READ) : files) {
     if (out.length >= limit) break
     const m = mtimeMs(f)
     if (m === undefined) continue

@@ -303,8 +303,10 @@ function scrollRegion(term: Terminal): string {
  * private OSC at the end of the snapshot; the webview puts the links back (webview/main.ts).
  */
 function oscLinks(term: Terminal): string {
-  const links = (term as unknown as { _core?: { _oscLinkService?: { getLinkData(id: number): { uri: string } | undefined } } })._core?._oscLinkService
-  if (!links) return ""
+  const links = (term as unknown as { _core?: { _oscLinkService?: { getLinkData(id: number): { uri: string } | undefined; _dataByLinkId?: Map<number, unknown> } } })._core
+    ?._oscLinkService
+  // No link printed (or all of them trimmed away): skip the per-cell walk of the whole scrollback.
+  if (!links || links._dataByLinkId?.size === 0) return ""
   const buf = term.buffer.active
   const cursorRow = buf.baseY + buf.cursorY
   const runs: [number, number, number, string][] = []
