@@ -89,3 +89,23 @@ describe("detectModel — per-CLI session stores", () => {
     expect(detectModel("pi", cwd, T0, home)).toBeUndefined()
   })
 })
+
+describe("detectModel — a known session id is never swapped for another session", () => {
+  let home: string
+  const cwd = "/w/proj"
+  beforeEach(() => (home = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-model-"))))
+  afterEach(() => fs.rmSync(home, { recursive: true, force: true }))
+  const T0 = Date.now() - 60_000
+  function write(rel: string, text: string, mtimeMs: number) {
+    const p = path.join(home, rel)
+    fs.mkdirSync(path.dirname(p), { recursive: true })
+    fs.writeFileSync(p, text)
+    fs.utimesSync(p, mtimeMs / 1000, mtimeMs / 1000)
+  }
+  it("pi: session A resumed in this tab (not written since it opened) still shows A's model, not B's", () => {
+    write(".pi/agent/sessions/--w-proj--/2026-01-01_sA.jsonl", '{"type":"session","id":"sA","cwd":"/w/proj"}\n{"type":"model_change","modelId":"model-a"}\n', T0 - 3_600_000)
+    write(".pi/agent/sessions/--w-proj--/2026-09-25_sB.jsonl", '{"type":"session","id":"sB","cwd":"/w/proj"}\n{"type":"model_change","modelId":"model-b"}\n', T0 + 1000)
+    expect(detectModel("pi", cwd, T0, home, "sA")).toBe("model-a")
+    expect(detectModel("pi", cwd, T0, home, "sGone")).toBeUndefined()
+  })
+})

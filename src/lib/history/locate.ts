@@ -98,10 +98,24 @@ function jsonlHeader(root: string, cwd: string, since: number): string | undefin
   return jsonlHit(root, cwd, since)?.id
 }
 
-/** Newest session file for `cwd`; with `sessionId`, that session's file wins when found. */
+/**
+ * Session files to look at: those modified since `since`, newest first — or, for a known
+ * `sessionId`, first the files named after it at any age (pi, omp, droid and cline put the id in
+ * the file name; a session resumed in this tab may not have been written since it
+ * opened), then the recent ones. The callers only accept that very id then: another session's
+ * file must never stand in for it.
+ */
+function candidates(root: string, keep: (name: string) => boolean, since: number, sessionId?: string): string[] {
+  const recent = newestFiles(root, keep, { depth: 2, sinceMs: since })
+  if (!sessionId) return recent
+  // Matched on the name before any stat: this runs on every model refresh.
+  const named = newestFiles(root, (n) => keep(n) && n.includes(sessionId), { depth: 2 })
+  return [...named, ...recent.filter((f) => !named.includes(f))]
+}
+
+/** Newest session file for `cwd`; with `sessionId`, that session's file or nothing. */
 function jsonlHit(root: string, cwd: string, since: number, sessionId?: string): { id: string; file: string } | undefined {
-  let newest: { id: string; file: string } | undefined
-  for (const file of newestFiles(root, (n) => n.endsWith(".jsonl") && !n.endsWith(".checkpoints.jsonl"), { depth: 2, sinceMs: since })) {
+  for (const file of candidates(root, (n) => n.endsWith(".jsonl") && !n.endsWith(".checkpoints.jsonl"), since, sessionId)) {
     for (const line of head(file, HEAD_BYTES).split("\n").slice(0, 5)) {
       let rec: { type?: unknown; id?: unknown; cwd?: unknown }
       try {
@@ -112,13 +126,12 @@ function jsonlHit(root: string, cwd: string, since: number, sessionId?: string):
       if ((rec.type === "session" || rec.type === "session_start") && typeof rec.id === "string") {
         if (typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) {
           if (!sessionId || rec.id === sessionId) return { id: rec.id, file }
-          newest ??= { id: rec.id, file }
         }
         break
       }
     }
   }
-  return newest
+  return undefined
 }
 
 /** `~/.copilot/session-state/<id>/workspace.yaml` with `id:` and `cwd:` lines. */
@@ -138,19 +151,17 @@ function cline(root: string, cwd: string, since: number): string | undefined {
 }
 
 function clineHit(root: string, cwd: string, since: number, sessionId?: string): { id: string; file: string } | undefined {
-  let newest: { id: string; file: string } | undefined
-  for (const file of newestFiles(root, (n) => n.endsWith(".json") && !n.endsWith(".messages.json"), { depth: 2, sinceMs: since })) {
+  for (const file of candidates(root, (n) => n.endsWith(".json") && !n.endsWith(".messages.json"), since, sessionId)) {
     try {
       const rec = JSON.parse(fs.readFileSync(file, "utf8")) as { session_id?: unknown; cwd?: unknown }
       if (typeof rec.session_id === "string" && typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) {
         if (!sessionId || rec.session_id === sessionId) return { id: rec.session_id, file }
-        newest ??= { id: rec.session_id, file }
       }
     } catch {
       continue
     }
   }
-  return newest
+  return undefined
 }
 
 /** Session id = name of the newest subdirectory (kimi, cursor). */
