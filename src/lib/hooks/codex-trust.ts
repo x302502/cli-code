@@ -33,17 +33,33 @@ export function codexTrustKeys(hooksJsonPath: string, value: unknown): { key: st
   return out
 }
 
-const block = (key: string, hash: string) => `[hooks.state."${key}"]\nenabled = true\ntrusted_hash = "${hash}"\n`
+/** `text` as a TOML basic string: the key holds a path, and a `"` or `\` in it (a CODEX_HOME
+ * like that) would otherwise end the string early and leave Codex an unreadable config. */
+function tomlString(text: string): string {
+  return `"${text.replace(/["\\]/g, (c) => `\\${c}`).replace(/[\u0000-\u001f\u007f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`)}"`
+}
+/** The key a matched basic string holds (its escapes undone; TOML's are JSON's, bar `\e`). */
+function unquoted(inner: string): string {
+  try {
+    return JSON.parse(`"${inner}"`) as string
+  } catch {
+    return inner
+  }
+}
+
+const block = (key: string, hash: string) => `[hooks.state.${tomlString(key)}]\nenabled = true\ntrusted_hash = "${hash}"\n`
 
 // One `[hooks.state."<key>"]` table: its header and the non-blank lines under it, up to the next
 // header, a blank line or the end of the file (whether or not that ends in a newline). TOML
-// allows whitespace before a header, so an indented `[table]` still ends ours.
-const TABLE_RE = /\n?[ \t]*\[hooks\.state\."([^"\n]*)"\]\n?(?:(?![ \t]*\[)[^\n]+(?:\n|$))*/g
+// allows whitespace before a header, so an indented `[table]` still ends ours. The key may hold
+// escapes (`\"`, `\\`).
+const KEY = String.raw`"((?:[^"\\\n]|\\.)*)"`
+const TABLE_RE = new RegExp(String.raw`\n?[ \t]*\[hooks\.state\.` + KEY + String.raw`\]\n?(?:(?![ \t]*\[)[^\n]+(?:\n|$))*`, "g")
 const hashIn = (table: string) => /trusted_hash = "([^"]*)"/.exec(table)?.[1]
 
 /** Whether the table at `key` trusts exactly `hash`. */
 export function trustedWith(toml: string, key: string, hash: string): boolean {
-  for (const m of toml.matchAll(TABLE_RE)) if (m[1] === key && hashIn(m[0]) === hash) return true
+  for (const m of toml.matchAll(TABLE_RE)) if (unquoted(m[1]!) === key && hashIn(m[0]) === hash) return true
   return false
 }
 
@@ -57,7 +73,7 @@ export function addTrust(toml: string, entries: { key: string; hash: string }[])
   let changed = false
   for (const { key, hash } of entries) {
     if (trustedWith(text, key, hash)) continue
-    text = text.replace(TABLE_RE, (m, k: string) => (k === key ? "" : m))
+    text = text.replace(TABLE_RE, (m, k: string) => (unquoted(k) === key ? "" : m))
     if (text.length && !text.endsWith("\n")) text += "\n"
     if (text.length && !text.endsWith("\n\n")) text += "\n"
     text += block(key, hash)
@@ -116,11 +132,11 @@ export function remapTrust(toml: string, hooksJsonPath: string, before: unknown,
   }
   if (rename.size === 0) return { text: toml, changed: false }
   let changed = false
-  const text = toml.replace(/\[hooks\.state\."([^"\n]*)"\]/g, (m, key: string) => {
-    const to = rename.get(key)
+  const text = toml.replace(new RegExp(String.raw`\[hooks\.state\.` + KEY + String.raw`\]`, "g"), (m, key: string) => {
+    const to = rename.get(unquoted(key))
     if (!to) return m
     changed = true
-    return `[hooks.state."${to}"]`
+    return `[hooks.state.${tomlString(to)}]`
   })
   return { text, changed }
 }

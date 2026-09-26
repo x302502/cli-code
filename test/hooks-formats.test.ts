@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { HOOK_COMMAND, hookCommand, hooksInstalled, installHooks, uninstallHooks } from "../src/lib/claude-hooks.js"
-import { codexHookHash, codexTrustKeys, addTrust, removeTrust, trustedWith } from "../src/lib/hooks/codex-trust.js"
+import { codexHookHash, codexTrustKeys, addTrust, remapTrust, removeTrust, trustedWith } from "../src/lib/hooks/codex-trust.js"
 import { copilotFile, copilotInstalled } from "../src/lib/hooks/copilot.js"
 
 describe("claude-format merge with a custom event list (droid, codex, grok)", () => {
@@ -91,5 +91,26 @@ describe("codex trust tables — by hash, not just by key", () => {
     const r = removeTrust(toml, ["sha256:ours"])
     expect(r.changed).toBe(true)
     expect(r.text).toBe(`  [mcp_servers.example]\n  command = "npx"\n`)
+  })
+})
+
+describe("codex trust tables — a key path with quotes or backslashes", () => {
+  const key = '/tmp/review"home\\x/.codex/hooks.json:stop:0:0'
+  it("is written as an escaped TOML string and still found, replaced, removed and renamed", () => {
+    const added = addTrust('model = "x"\n', [{ key, hash: "sha256:ours" }])
+    expect(added.text).toContain('[hooks.state."/tmp/review\\"home\\\\x/.codex/hooks.json:stop:0:0"]')
+    expect(trustedWith(added.text, key, "sha256:ours")).toBe(true)
+    expect(addTrust(added.text, [{ key, hash: "sha256:ours" }]).changed).toBe(false)
+    const replaced = addTrust(added.text, [{ key, hash: "sha256:new" }])
+    expect(replaced.text.match(/hooks\.state\./g)).toHaveLength(1)
+    // The user's hook after ours moves from group 1 to 0 when ours is removed: its trust follows.
+    const file = '/tmp/review"home\\x/.codex/hooks.json'
+    const userTable = addTrust("", [{ key: `${file}:stop:1:0`, hash: "sha256:user" }]).text
+    const mine = { hooks: [{ type: "command", command: HOOK_COMMAND }] }
+    const theirs = { hooks: [{ type: "command", command: "say done" }] }
+    const moved = remapTrust(userTable, file, { hooks: { Stop: [mine, theirs] } }, { hooks: { Stop: [theirs] } })
+    expect(moved.changed).toBe(true)
+    expect(trustedWith(moved.text, `${file}:stop:0:0`, "sha256:user")).toBe(true)
+    expect(removeTrust(added.text, ["sha256:ours"]).text).toBe('model = "x"\n')
   })
 })
