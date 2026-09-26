@@ -45,6 +45,8 @@ export class Session {
   private waitingTool: string | undefined
   /** Characters written to the mirror it has not parsed yet (see onData). */
   private mirrorPending = 0
+  /** Per chunk still waiting in the mirror: whether the mirror answers its queries. */
+  private readonly mirrorAnswers: boolean[] = []
   private clientHeld = false
   private mirrorHeld = false
   private waitingAgent: string | undefined
@@ -65,11 +67,14 @@ export class Session {
     this.coalescer = createCoalescer(COALESCE_MS, (chunk) => this.listener?.(chunk), schedule)
 
     // The mirror answers the terminal's queries (cursor position `ESC[6n`, device attributes…)
-    // as any terminal would. With a client attached its webview answers them; with none (during
-    // a Reload Window) the mirror must, or a CLI waiting on the reply hangs or times out. Bytes
-    // held for an attach in progress count as attached: the webview gets them, and answers.
+    // as any terminal would. A chunk that reached a client (or an attach in progress, which
+    // hands it on) is the webview's to answer; one that arrived with nobody attached (during a
+    // Reload Window) is the mirror's, or a CLI waiting on the reply hangs or times out. Decided
+    // when the chunk arrives: the mirror parses later, when a client may have come or gone.
+    // xterm parses writes in order and answers synchronously, so the head of `mirrorAnswers`
+    // belongs to the chunk being parsed.
     this.mirror.onData((reply) => {
-      if (!this.listener && !this.backlog && !this.exit && !this.disposed) this.pty.write(reply)
+      if (this.mirrorAnswers[0] && !this.exit && !this.disposed) this.pty.write(reply)
     })
 
     this.pty.onData((data) => {
@@ -81,7 +86,9 @@ export class Session {
       // whole daemon — every tab's CLI — down with it.
       if (!this.disposed) {
         this.mirrorPending += data.length
+        this.mirrorAnswers.push(!this.listener && !this.backlog)
         this.mirror.write(data, () => {
+          this.mirrorAnswers.shift()
           this.mirrorPending -= data.length
           this.applyBackpressure()
         })

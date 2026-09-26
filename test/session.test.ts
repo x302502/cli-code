@@ -524,4 +524,19 @@ describe("Session — terminal queries while no client is attached", () => {
     await session.snapshot()
     expect(calls.written).toEqual(["\x1b[1;3R"])
   })
+  it("a query that arrived detached is answered even when an attach starts before the mirror parsed it", async () => {
+    const { session, calls, emit } = makeSession()
+    emit("ab\x1b[6n")
+    // The attach begins at once — before the mirror got to the query.
+    await session.attach(() => {}, () => {})
+    expect(calls.written).toEqual(["\x1b[1;3R"])
+  })
+  it("a query that arrived while attached, answered by the webview, is not answered again after a detach", async () => {
+    const { session, calls, emit } = makeSession()
+    session.onOutput(() => {})
+    emit("ab\x1b[6n")
+    session.detach()
+    await session.snapshot()
+    expect(calls.written).toEqual([])
+  })
 })
