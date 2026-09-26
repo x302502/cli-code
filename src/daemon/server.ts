@@ -5,6 +5,9 @@ import { AGENT_STATES, type AgentState, MSG, type MetaEvent, createFrameDecoder,
 import { createSession, type Session, type SpawnPty } from "./session.js"
 
 const DEFAULT_IDLE_MS = 60_000
+// The daemon's hot path (every input frame); one of each, not one per frame.
+const ENCODER = new TextEncoder()
+const DECODER = new TextDecoder()
 
 type HelloSpawn = {
   op: "spawn"
@@ -58,6 +61,12 @@ export async function startDaemon(args: {
       try {
         for (const frame of decode(new Uint8Array(chunk))) {
           if (frame.type === MSG.Hello) {
+            // One session per connection: a second Hello would leave the first session wired to
+            // this socket — its output owed, never acked, until its PTY paused for good.
+            if (session) {
+              socket.end(encodeJsonFrame(MSG.HelloFail, { reason: "this connection already has a session" }))
+              return
+            }
             try {
               session = handleHello(frame.payload, socket, sessions, owners, args.spawnPty, args.socketPath)
             } catch (err) {
@@ -90,7 +99,7 @@ export async function startDaemon(args: {
             continue
           }
           if (!session) continue
-          if (frame.type === MSG.Input) session.write(new TextDecoder().decode(frame.payload))
+          if (frame.type === MSG.Input) session.write(DECODER.decode(frame.payload))
           else if (frame.type === MSG.InputBinary) session.write(Buffer.from(frame.payload))
           else if (frame.type === MSG.Resize) {
             const size = decodeJsonPayload<{ cols: number; rows: number }>(frame.payload)
@@ -201,7 +210,7 @@ function handleHello(
     socket.write(encodeJsonFrame(MSG.HelloOk, { sessionId: existing.id }))
     void existing
       .attach(
-        (text) => socket.write(encodeFrame(MSG.Snapshot, new TextEncoder().encode(text))),
+        (text) => socket.write(encodeFrame(MSG.Snapshot, ENCODER.encode(text))),
         (chunk) => socket.write(encodeFrame(MSG.Data, chunk)),
       )
       .then(() => {

@@ -265,6 +265,23 @@ describe("startDaemon", () => {
     expect(exited).toBe(true)
   })
 
+  it("Hello thứ hai trên cùng kết nối bị từ chối: phiên đầu không bị bỏ rơi với output không ai ack", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    let spawned = 0
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => (spawned++, harness.pty) })
+    stop = daemon.close
+    const client = connect(p)
+    const hello = encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 })
+    client.socket.write(hello)
+    await client.waitFor(MSG.HelloOk)
+    client.socket.write(hello)
+    await client.waitFor(MSG.HelloFail)
+    expect(spawned).toBe(1)
+    expect(daemon.sessionCount()).toBe(1)
+    client.socket.destroy()
+  })
+
   it("gửi khung Exit khi PTY thoát trong lúc client đang nối", async () => {
     const p = socketPath()
     const harness = scriptedPty()

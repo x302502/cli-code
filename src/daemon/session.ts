@@ -94,7 +94,7 @@ export class Session {
         })
         this.applyBackpressure()
       }
-      const chunk = new TextEncoder().encode(data)
+      const chunk = ENCODER.encode(data)
       // Backpressure only tracks bytes owed to an actual listener: a detached
       // session (client gone during Reload Window) must never pause its PTY,
       // since nobody would be left to ack it and the CLI would stall forever.
@@ -348,6 +348,9 @@ function oscLinks(term: Terminal): string {
   }
   return runs.length ? `\x1b]${SNAPSHOT_LINKS_OSC};${JSON.stringify(runs)}\x07` : ""
 }
+
+// Every PTY chunk goes through it: one for the module, not one per chunk.
+const ENCODER = new TextEncoder()
 
 const MIRROR_HIGH_WATER = 8 * 1024 * 1024
 const MIRROR_LOW_WATER = 4 * 1024 * 1024
