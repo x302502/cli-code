@@ -2,6 +2,7 @@ import * as fs from "node:fs"
 import * as path from "node:path"
 import { encodeClaudeProjectDir } from "./claude.js"
 import { locateLatestSession, locateLatestSessionFile, openDb } from "./locate.js"
+import { newestFiles } from "./files.js"
 import { codexRolloutById, codexSessions, grokSessions } from "./scan.js"
 
 // The model id shows up under a handful of spellings across CLIs' transcripts; the latest
@@ -61,7 +62,7 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
       case "claude-agent-teams": {
         const dir = path.join(home, ".claude", "projects", encodeClaudeProjectDir(cwd))
         if (sessionId) return modelFromFile(path.join(dir, `${sessionId}.jsonl`))
-        const file = newestJsonl(dir, sinceMs)
+        const file = newestFiles(dir, (n) => n.endsWith(".jsonl"), { sinceMs, limit: 1 })[0]
         return file ? modelFromFile(file) : undefined
       }
       case "codex": {
@@ -104,23 +105,6 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
   } catch {
     return undefined
   }
-}
-
-function newestJsonl(dir: string, sinceMs: number): string | undefined {
-  if (!fs.existsSync(dir)) return undefined
-  let best: { f: string; m: number } | undefined
-  for (const name of fs.readdirSync(dir)) {
-    if (!name.endsWith(".jsonl")) continue
-    const f = path.join(dir, name)
-    let m: number
-    try {
-      m = fs.statSync(f).mtimeMs
-    } catch {
-      continue
-    }
-    if (m >= sinceMs && (!best || m > best.m)) best = { f, m }
-  }
-  return best?.f
 }
 
 /** opencode and forks: the newest assistant message of the newest session for `cwd`. */
