@@ -64,6 +64,14 @@ export class Session {
   ) {
     this.coalescer = createCoalescer(COALESCE_MS, (chunk) => this.listener?.(chunk), schedule)
 
+    // The mirror answers the terminal's queries (cursor position `ESC[6n`, device attributes…)
+    // as any terminal would. With a client attached its webview answers them; with none (during
+    // a Reload Window) the mirror must, or a CLI waiting on the reply hangs or times out. Bytes
+    // held for an attach in progress count as attached: the webview gets them, and answers.
+    this.mirror.onData((reply) => {
+      if (!this.listener && !this.backlog && !this.exit && !this.disposed) this.pty.write(reply)
+    })
+
     this.pty.onData((data) => {
       for (const osc of this.scan(data)) this.applyOsc(osc)
       // The headless mirror is always fed, even when nobody is attached — this

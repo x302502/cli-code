@@ -512,3 +512,16 @@ describe("Session snapshot — a resize keeps the alternate-screen links still o
     replay.dispose()
   })
 })
+
+describe("Session — terminal queries while no client is attached", () => {
+  it("a detached session answers ESC[6n from the mirror; an attached one leaves it to the webview", async () => {
+    const { session, calls, emit } = makeSession()
+    emit("ab\x1b[6n")
+    await session.snapshot() // the mirror has parsed everything written so far
+    expect(calls.written).toEqual(["\x1b[1;3R"])
+    session.onOutput(() => {})
+    emit("\x1b[6n")
+    await session.snapshot()
+    expect(calls.written).toEqual(["\x1b[1;3R"])
+  })
+})
