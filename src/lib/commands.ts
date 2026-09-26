@@ -8,7 +8,7 @@ import { listSessionsForWorkspace } from "./history/scan.js"
 import { codexHomeFromShell } from "./shell-env.js"
 import { activePanelCwd, findExistingPanel, openTerminalPanel, pasteToActivePanel, writeToActivePanel } from "./panel.js"
 import { mergeQuickCommands } from "./quick-commands.js"
-import { continueLatestCommand } from "./restart-command.js"
+import { SAFE_ID, continueLatestCommand } from "./restart-command.js"
 import { pickTool } from "./terminal.js"
 
 /** Opens a CLI terminal panel, optionally reusing an already-open one for the chosen tool. */
@@ -74,16 +74,16 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
     await picked?.run()
     return
   }
-  // The id is spliced into a shell command line; anything outside [\w.-] is not a session id.
+  // The id is spliced into a shell command line (see SAFE_ID).
   quickPick.items = sessions
-    .filter((s) => /^[\w.-]+$/.test(s.sessionId))
+    .filter((s) => SAFE_ID.test(s.sessionId))
     .map((s) => {
       const tool = CLI_TOOLS.find((t) => t.id === s.toolId)!
       return {
         label: `$(history) ${s.title}`,
         description: tool.label,
         detail: new Date(s.updatedAt).toLocaleString(),
-        run: () => openTerminalPanel(context, tool, { command: tool.resumeCommand!.replace("{sessionId}", s.sessionId), title: s.title }),
+        run: () => openTerminalPanel(context, tool, { command: tool.resumeCommand!.replace("{sessionId}", s.sessionId), promptTitle: s.title }),
       }
     })
   // Tools whose sessions cannot be listed (no history parser) still get a "continue latest"

@@ -1,7 +1,8 @@
 import type { CliTool } from "./config.js"
 import type { SessionSummary } from "./history/types.js"
 
-const SAFE_ID = /^[\w.-]+$/
+/** What a session id may look like: it is spliced into a shell command line. */
+export const SAFE_ID = /^[\w.-]+$/
 
 /**
  * The command a restarted tab should run so it lands back in the same conversation:
