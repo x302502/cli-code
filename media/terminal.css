@@ -1,0 +1,310 @@
+/* The overlays below toggle the `hidden` attribute; their own `display: flex` would
+   otherwise beat the UA stylesheet's `[hidden] { display: none }` and keep them on screen. */
+[hidden] {
+  display: none !important;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+  /* Overlays are positioned inside the viewport; a stray scrollbar would shrink the
+     terminal and trigger a resize loop. */
+  overflow: hidden;
+}
+body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--vscode-terminal-background, var(--vscode-editor-background));
+}
+#term {
+  flex: 1;
+  min-height: 0;
+  padding: 4px;
+  box-sizing: border-box;
+}
+/* Quiet action bar: same ground as the terminal, no border; icons flush right. */
+#action-bar {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 4px 0 14px;
+}
+#action-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+/* Model pill: tinted with the theme's accent so it reads at a glance. */
+#action-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--vscode-focusBorder, #d97757) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vscode-focusBorder, #d97757) 35%, transparent);
+  color: var(--vscode-textLink-foreground, var(--vscode-focusBorder, #f0b39c));
+  font: 500 11.5px var(--vscode-editor-font-family, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40vw;
+}
+#action-model::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vscode-focusBorder, #d97757);
+  flex: none;
+}
+#action-status,
+#action-notice {
+  font: 12px var(--vscode-font-family);
+  color: var(--vscode-editorWarning-foreground, var(--vscode-descriptionForeground));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#action-notice {
+  color: var(--vscode-descriptionForeground);
+}
+#action-icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+#action-icons button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 15px;
+  background: transparent;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+#action-icons button:hover,
+#action-icons button[aria-expanded="true"] {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+  color: var(--vscode-foreground, #e6e6e6);
+}
+#action-icons button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+#action-icons svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#action-menu {
+  position: absolute;
+  right: 6px;
+  top: 34px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 4px;
+  border-radius: 5px;
+  background: var(--vscode-menu-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-menu-foreground, var(--vscode-editorWidget-foreground));
+  border: 1px solid var(--vscode-menu-border, var(--vscode-widget-border));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  font: 13px var(--vscode-font-family);
+}
+#action-menu button {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+#action-menu button:hover {
+  background: var(--vscode-menu-selectionBackground, var(--vscode-list-hoverBackground));
+  color: var(--vscode-menu-selectionForeground, inherit);
+}
+#action-menu .key {
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+#exit-overlay {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-editorWidget-foreground);
+  border: 1px solid var(--vscode-widget-border);
+  font: 12px var(--vscode-font-family);
+}
+#exit-overlay button {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 0;
+  padding: 3px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+#search-bar {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-editorWidget-foreground);
+  border: 1px solid var(--vscode-widget-border);
+  font: 12px var(--vscode-font-family);
+}
+#search-bar input {
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 2px;
+  padding: 2px 6px;
+}
+#search-bar button {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 0;
+  padding: 3px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.on {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+#link-tooltip {
+  position: absolute;
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 60vw;
+  padding: 4px 8px;
+  border-radius: 3px;
+  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-editorWidget-foreground));
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-widget-border));
+  font: 12px var(--vscode-font-family);
+  pointer-events: none;
+}
+#link-tooltip span {
+  color: var(--vscode-descriptionForeground);
+  font: 11px var(--vscode-editor-font-family, monospace);
+  word-break: break-all;
+}
+/* xterm's own scrollbar, styled like VS Code's: thin, no track. */
+.xterm .xterm-viewport::-webkit-scrollbar {
+  width: 10px;
+}
+.xterm .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+.xterm .xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
+  border-radius: 0;
+}
+.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
+}
+/* Composer under the terminal (Claude-extension style box). */
+#composer {
+  flex: none;
+  padding: 8px 12px 12px;
+}
+#composer-box {
+  border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, #5a5a5a));
+  border-radius: 10px;
+  background: var(--vscode-input-background, #1a1a1a);
+  padding: 10px 12px 8px;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+#composer-box:focus-within {
+  border-color: var(--vscode-focusBorder, #d97757);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-focusBorder, #d97757) 40%, transparent);
+}
+#composer-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--vscode-input-foreground, var(--vscode-foreground));
+  font: 13.5px/1.5 var(--vscode-font-family);
+  padding: 0;
+  overflow: hidden;
+}
+#composer-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #7a7a7a);
+}
+#composer-input.multiline {
+  font: 12.5px/1.5 var(--vscode-editor-font-family, monospace);
+}
+#composer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+#composer-hint {
+  font: 11.5px var(--vscode-font-family);
+  color: var(--vscode-descriptionForeground, #7a7a7a);
+}
+#composer-send {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+#composer-send:disabled {
+  background: var(--vscode-button-secondaryBackground, #3a3a3a);
+  color: var(--vscode-disabledForeground, #8a8a8a);
+  cursor: default;
+}
+#composer-send:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+#composer-send svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

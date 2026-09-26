@@ -1,19 +1,33 @@
 .vscode/**
+.github/**
+.superpowers/**
 docs/**
 src/**
 test/**
-node_modules/**
+scripts/**
 esbuild.js
 eslint.config.mjs
 tsconfig.json
 bunfig.toml
 .prettierrc
 .prettierignore
+.gitignore
+.codegraph
 images/icon.svg
 **/*.map
 **/*.ts
-.gitignore
 *.vsix
 bun.lock
 package-lock.json
-.codegraph
+
+.vscode-test/**
+dist-test/**
+
+# node_modules: opt-in only. Everything the extension needs at runtime is bundled by esbuild
+# except node-pty (native) and xterm's stylesheet, which the webview loads as a file.
+node_modules/**
+!node_modules/node-pty/package.json
+!node_modules/node-pty/lib/**/!(*.map)
+!node_modules/node-pty/prebuilds/**
+!node_modules/@xterm/xterm/css/xterm.css
+.playwright-mcp/**

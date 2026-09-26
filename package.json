@@ -1,8 +1,8 @@
 {
   "name": "cli-code",
   "displayName": "CLI Code",
-  "description": "Launch and switch between AI coding CLIs (Claude, Codex, Antigravity, opencode, and more) from a VS Code terminal.",
-  "version": "0.1.4",
+  "description": "The agent terminal for VS Code: run Claude Code, Codex, Copilot, opencode, Pi, Grok and 22 more coding agents in tabs that show the agent's state, open what it prints, survive reloads and restart into the same conversation.",
+  "version": "0.2.0",
   "publisher": "x302502",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -18,11 +18,14 @@
     "url": "https://github.com/x302502/cli-code/issues"
   },
   "keywords": [
-    "cli",
-    "terminal",
     "ai",
-    "claude",
-    "coding-agent"
+    "coding-agent",
+    "terminal",
+    "claude-code",
+    "codex",
+    "copilot",
+    "opencode",
+    "cli"
   ],
   "engines": {
     "vscode": "^1.94.0"
@@ -31,7 +34,10 @@
     "Other",
     "Machine Learning"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished",
+    "onWebviewPanel:cliCode.terminal"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -54,6 +60,129 @@
       {
         "command": "cli-code.addFilepath",
         "title": "CLI: Insert At-Mentioned"
+      },
+      {
+        "command": "cli-code.resume",
+        "title": "Resume Session",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.quickCommand",
+        "title": "Quick Command",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.addQuickCommand",
+        "title": "Save as Quick Command",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.newSession",
+        "title": "New Session",
+        "category": "CLI Code",
+        "icon": "$(add)"
+      },
+      {
+        "command": "cli-code.renameTab",
+        "title": "Rename Tab",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.restart",
+        "title": "Restart Session",
+        "category": "CLI Code",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "cli-code.fontZoomIn",
+        "title": "Zoom In",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.fontZoomOut",
+        "title": "Zoom Out",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.fontZoomReset",
+        "title": "Reset Zoom",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.find",
+        "title": "Find in Terminal",
+        "category": "CLI Code",
+        "icon": "$(search)"
+      },
+      {
+        "command": "cli-code.copyContext",
+        "title": "Copy Context",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.paste",
+        "title": "Paste",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.copySelection",
+        "title": "Copy",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.selectAll",
+        "title": "Select All",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.restartAllSessions",
+        "category": "CLI Code",
+        "title": "Restart All Sessions"
+      },
+      {
+        "command": "cli-code.installStatusHooks",
+        "title": "Install Status Hooks",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.removeStatusHooks",
+        "title": "Remove Status Hooks",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.openLinkAt",
+        "title": "Open Link",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.copyLinkAt",
+        "title": "Copy Link / Path",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.openFileAt",
+        "title": "Open File",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.openDirAt",
+        "title": "Open Folder",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.openWithDefaultAppAt",
+        "title": "Open with Default App",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.insertPathAt",
+        "title": "Insert @path into CLI",
+        "category": "CLI Code"
+      },
+      {
+        "command": "cli-code.findSelection",
+        "title": "Find Selection",
+        "category": "CLI Code"
       }
     ],
     "menus": {
@@ -61,6 +190,93 @@
         {
           "command": "cli-code.openNew",
           "group": "navigation"
+        }
+      ],
+      "webview/context": [
+        {
+          "command": "cli-code.openLinkAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind == url",
+          "group": "1_link@1"
+        },
+        {
+          "command": "cli-code.openFileAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind == file",
+          "group": "1_link@1"
+        },
+        {
+          "command": "cli-code.openDirAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind == dir",
+          "group": "1_link@1"
+        },
+        {
+          "command": "cli-code.openWithDefaultAppAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind == file",
+          "group": "1_link@2"
+        },
+        {
+          "command": "cli-code.insertPathAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind == file",
+          "group": "1_link@3"
+        },
+        {
+          "command": "cli-code.copyLinkAt",
+          "when": "webviewId == cliCode.terminal && cliCodeLinkKind != ''",
+          "group": "1_link@4"
+        },
+        {
+          "command": "cli-code.copySelection",
+          "when": "webviewId == cliCode.terminal && cliCodeHasSelection",
+          "group": "2_clip@1"
+        },
+        {
+          "command": "cli-code.paste",
+          "when": "webviewId == cliCode.terminal",
+          "group": "2_clip@2"
+        },
+        {
+          "command": "cli-code.selectAll",
+          "when": "webviewId == cliCode.terminal",
+          "group": "2_clip@3"
+        },
+        {
+          "command": "cli-code.findSelection",
+          "when": "webviewId == cliCode.terminal && cliCodeHasSelection",
+          "group": "3_find@1"
+        },
+        {
+          "command": "cli-code.find",
+          "when": "webviewId == cliCode.terminal",
+          "group": "3_find@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "cli-code.openLinkAt",
+          "when": "false"
+        },
+        {
+          "command": "cli-code.copyLinkAt",
+          "when": "false"
+        },
+        {
+          "command": "cli-code.openFileAt",
+          "when": "false"
+        },
+        {
+          "command": "cli-code.openDirAt",
+          "when": "false"
+        },
+        {
+          "command": "cli-code.openWithDefaultAppAt",
+          "when": "false"
+        },
+        {
+          "command": "cli-code.insertPathAt",
+          "when": "false"
+        },
+        {
+          "command": "cli-code.findSelection",
+          "when": "false"
         }
       ]
     },
@@ -88,35 +304,144 @@
         "mac": "cmd+alt+k",
         "win": "ctrl+alt+K",
         "linux": "ctrl+alt+K"
+      },
+      {
+        "command": "cli-code.fontZoomIn",
+        "title": "Zoom In",
+        "category": "CLI Code",
+        "key": "cmd+=",
+        "mac": "cmd+=",
+        "win": "ctrl+=",
+        "linux": "ctrl+=",
+        "when": "activeWebviewPanelId == cliCode.terminal"
+      },
+      {
+        "command": "cli-code.fontZoomOut",
+        "title": "Zoom Out",
+        "category": "CLI Code",
+        "key": "cmd+-",
+        "mac": "cmd+-",
+        "win": "ctrl+-",
+        "linux": "ctrl+-",
+        "when": "activeWebviewPanelId == cliCode.terminal"
+      },
+      {
+        "command": "cli-code.fontZoomReset",
+        "title": "Reset Zoom",
+        "category": "CLI Code",
+        "key": "cmd+0",
+        "mac": "cmd+0",
+        "win": "ctrl+0",
+        "linux": "ctrl+0",
+        "when": "activeWebviewPanelId == cliCode.terminal"
+      },
+      {
+        "command": "cli-code.find",
+        "title": "Find in Terminal",
+        "category": "CLI Code",
+        "key": "cmd+f",
+        "mac": "cmd+f",
+        "win": "ctrl+f",
+        "linux": "ctrl+f",
+        "when": "activeWebviewPanelId == cliCode.terminal"
+      },
+      {
+        "command": "cli-code.renameTab",
+        "key": "f2",
+        "when": "activeWebviewPanelId == cliCode.terminal"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "CLI Code",
+      "properties": {
+        "cliCode.statusHooks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep CLI Code's status hooks installed in each supported CLI's config (Claude Code, Codex, Copilot, Droid, Grok, opencode, Kilo, MiMo, Pi, OMP) so tabs show working / waiting / done and restart into the same conversation. A .cli-code.bak copy of every file is kept. Turning this off removes them."
+        },
+        "cliCode.composer": {
+          "type": "boolean",
+          "default": false,
+          "description": "Experimental: show a chat composer under the terminal (Enter sends, Shift+Enter inserts a new line; a multi-line paste is sent as one block). Off by default — the CLI's own input is used. Applies to tabs opened after the change."
+        },
+        "cliCode.notifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Notify when an agent finishes in a tab that is not visible."
+        },
+        "cliCode.quickCommands": {
+          "type": "array",
+          "default": [],
+          "scope": "resource",
+          "items": {
+            "type": "object",
+            "required": ["label", "text"],
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "submit": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          },
+          "description": "Reusable commands or prompts. Put them in User settings for Global, in Workspace settings for Project."
+        }
+      }
+    }
   },
   "scripts": {
-    "vscode:prepublish": "bun run package",
-    "compile": "bun run check-types && bun run lint && bun esbuild.js",
+    "vscode:prepublish": "node -e \"if (!process.env.CLI_CODE_SKIP_PREPUBLISH) require('node:child_process').execSync('bun run package', { stdio: 'inherit' })\"",
+    "fix-perms": "chmod +x node_modules/node-pty/prebuilds/*/spawn-helper || true",
+    "compile": "bun run check-types && bun run lint && bun run fix-perms && bun esbuild.js",
     "watch:esbuild": "bun esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "bun run check-types && bun run lint && bun esbuild.js --production",
+    "package": "bun run check-types && bun run lint && bun test && bun run fix-perms && bun esbuild.js --production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "bun test",
-    "vsix": "vsce package"
+    "build:tests": "bun esbuild.js --tests",
+    "check-types:integration": "tsc --noEmit --project test/integration/tsconfig.json",
+    "test:integration": "bun run compile && bun run build:tests && bun run check-types:integration && node test/integration/run.mjs",
+    "package:target": "bun run package && CLI_CODE_SKIP_PREPUBLISH=1 node scripts/package-target.mjs",
+    "package:all": "bun run package && for t in darwin-arm64 darwin-x64 win32-x64 win32-arm64 linux-x64 linux-arm64; do CLI_CODE_SKIP_PREPUBLISH=1 node scripts/package-target.mjs $t || exit 1; done",
+    "verify:vsix": "node scripts/verify-vsix.mjs",
+    "vsix": "echo 'use package:target <target>' && exit 1"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.9",
     "@types/node": "20.x",
     "@types/vscode": "^1.94.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
+    "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.0.0",
     "esbuild": "^0.25.3",
     "eslint": "^9.25.1",
     "eslint-config-prettier": "^10.1.8",
+    "mocha": "^10.7.3",
     "prettier": "^3.8.4",
     "typescript": "^5.8.3"
   },
   "trustedDependencies": [
-    "@vscode/vsce-sign"
-  ]
+    "@vscode/vsce-sign",
+    "node-pty"
+  ],
+  "dependencies": {
+    "@xterm/addon-clipboard": "0.1.0",
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/addon-search": "0.15.0",
+    "@xterm/addon-serialize": "0.13.0",
+    "@xterm/addon-unicode11": "0.8.0",
+    "@xterm/addon-webgl": "0.18.0",
+    "@xterm/headless": "5.5.0",
+    "@xterm/xterm": "5.5.0",
+    "node-pty": "1.1.0"
+  }
 }
