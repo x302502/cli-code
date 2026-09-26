@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { loginShell, splitEnvPrefix } from "../src/lib/command-env.js"
+import { loginShell, shellQuote, splitEnvPrefix } from "../src/lib/command-env.js"
 
 describe("splitEnvPrefix", () => {
   it("lifts leading VAR=value words into env so a non-POSIX shell (PowerShell) can run the command", () => {
@@ -27,5 +27,17 @@ describe("loginShell", () => {
     expect(loginShell("/usr/local/bin/zsh-gone", "/bin/zsh", all)).toBe("/bin/zsh")
     expect(loginShell("/usr/local/bin/zsh", "/bin/zsh", () => false)).toBe("/bin/zsh")
     expect(loginShell(undefined, "/bin/bash", all)).toBe("/bin/bash")
+  })
+})
+
+describe("shellQuote", () => {
+  it("a path with $, backticks, quotes survives the hook's eval as one literal word", async () => {
+    const { spawnSync } = await import("node:child_process")
+    for (const p of ["/Apps/plain dir/x", "/a/dol$HOME/x", "/a/back`id`tick/x", '/a/quo"te/x', "/a/apo'st/x"]) {
+      // The hook command runs `eval "CLI_CODE_FROM=… $CLI_CODE_HOOK"`; printf stands in for the editor binary.
+      const hook = `printf %s ${shellQuote(p)}`
+      const r = spawnSync("/bin/sh", ["-c", 'eval "CLI_CODE_FROM=claude $CLI_CODE_HOOK"'], { env: { ...process.env, CLI_CODE_HOOK: hook }, encoding: "utf8" })
+      expect(r.stdout).toBe(p)
+    }
   })
 })

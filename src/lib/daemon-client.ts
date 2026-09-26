@@ -5,6 +5,8 @@ import { AGENT_STATES, MSG, type AgentState, type MetaEvent, createFrameDecoder,
 
 export type SessionConnection = {
   sessionId: string
+  /** The daemon it goes to — where to attach again for a fresh snapshot. */
+  socketPath: string
   onData(cb: (chunk: Uint8Array) => void): void
   onSnapshot(cb: (text: string) => void): void
   onExit(cb: (e: { code: number; signal?: number }) => void): void
@@ -114,6 +116,7 @@ export function connectSession(
             const { sessionId } = decodeJsonPayload<{ sessionId: string }>(frame.payload)
             resolve({
               sessionId,
+              socketPath,
               onData: (cb) => {
                 onData = cb
                 while (pendingData.length > 0) cb(pendingData.shift()!)

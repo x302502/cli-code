@@ -26,3 +26,8 @@ const POSIX_SHELLS = new Set(["sh", "bash", "zsh", "dash", "ksh", "mksh", "fish"
 export function loginShell(shell: string | undefined, fallback: string, exists: (p: string) => boolean = fs.existsSync): string {
   return shell && POSIX_SHELLS.has(path.basename(shell)) && exists(shell) ? shell : fallback
 }
+
+/** `text` as one POSIX shell word, taken literally (`$`, backticks, quotes and all). */
+export function shellQuote(text: string): string {
+  return `'${text.replace(/'/g, "'\\''")}'`
+}

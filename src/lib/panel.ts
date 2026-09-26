@@ -6,6 +6,8 @@ import * as os from "node:os"
 import * as path from "node:path"
 import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
+import { shellQuote } from "./command-env.js"
+import { codexHomeFromShell } from "./shell-env.js"
 import { connectSession, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
 import { locateLatestSession } from "./history/locate.js"
@@ -48,7 +50,9 @@ export type PanelState = {
 // into the active session).
 const activePanels = new Set<vscode.WebviewPanel>()
 
-type Wiring = { ready: boolean; pending: unknown[]; listener?: vscode.Disposable }
+/** `everReady`: the webview has loaded once — a later "ready" means it was reloaded (Developer:
+ * Reload Webviews, a crashed webview process) and is blank. */
+type Wiring = { ready: boolean; everReady?: boolean; pending: unknown[]; listener?: vscode.Disposable }
 
 /** Everything the extension keeps about one CLI tab, in one record (see `tab`). */
 type TabState = {
@@ -410,13 +414,23 @@ export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise
  * login shell (see daemon/entry.ts). */
 function spawnEnv(context: vscode.ExtensionContext, tool: CliTool): Record<string, string> {
   // CLI_CODE_FAMILY: the CLI whose hook reports count for this tab (see hook/entry.ts).
-  return { ...buildEnv(tool), CLI_CODE_HOOK: hookCommand(context), CLI_CODE_FAMILY: tool.historyToolId ?? tool.id }
+  // TERM_PROGRAM: what VS Code's own terminal sets, and what Claude Code (and others) look at to
+  // know they run in VS Code — auto-connecting to the IDE (/ide, selection, diffs), keybinding
+  // hints. The daemon's env comes from the extension host, which has no TERM_PROGRAM.
+  return {
+    ...buildEnv(tool),
+    CLI_CODE_HOOK: hookCommand(context),
+    CLI_CODE_FAMILY: tool.historyToolId ?? tool.id,
+    TERM_PROGRAM: "vscode",
+    TERM_PROGRAM_VERSION: vscode.version,
+  }
 }
 
 /** Shell snippet Claude's hook entry evaluates; the editor's own binary runs our bundle as node.
  * stdout is discarded so nothing the bundle prints can be read by Claude as hook output. */
 function hookCommand(context: vscode.ExtensionContext): string {
-  return `ELECTRON_RUN_AS_NODE=1 "${process.execPath}" "${context.asAbsolutePath("dist/hook.js")}" >/dev/null`
+  // Re-parsed by the hook's `eval`: a `$`, backtick or `"` in a path must stay literal.
+  return `ELECTRON_RUN_AS_NODE=1 ${shellQuote(process.execPath)} ${shellQuote(context.asAbsolutePath("dist/hook.js"))} >/dev/null`
 }
 
 /**
@@ -460,6 +474,8 @@ export async function openTerminalPanel(
     viewColumn?: vscode.ViewColumn
   } = {},
 ): Promise<vscode.WebviewPanel | undefined> {
+  // The tab's config snapshot must list Codex's real folder (see codexHomeFromShell).
+  await codexHomeFromShell()
   const socketPath = await ensureDaemon(context)
   const cwd = usableCwd(options.cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
   const baseCommand = options.command ?? tool.command
@@ -619,6 +635,7 @@ const HISTORY_TOOLS = new Set(["claude", "codex", "grok"])
  * spawned), otherwise the CLI's continue command, otherwise what the tab was opened with.
  */
 async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Promise<string> {
+  await codexHomeFromShell()
   const baseCommand = tab(panel).command ?? tool.command
   const cwd = usableCwd(tab(panel).cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
   const spawnedAt = tab(panel).spawnedAt ?? 0
@@ -849,8 +866,14 @@ function attachConnection(
       for (const msg of wiring.pending) void panel.webview.postMessage(msg)
       wiring.pending.length = 0
       postState(panel)
+      if (wiring.everReady) {
+        // A reloaded webview is blank and the daemon sends a screen only on attach: attach again.
+        void redrawFromDaemon(context, panel, tool, connection)
+        return
+      }
+      wiring.everReady = true
       // The model pill: a first read once the CLI has had a moment to write its session,
-      // then a slow poll (CLIs log /model changes into the same store).
+      // then a slow poll (CLIs log /model changes into the same store). Once per tab.
       setTimeout(() => refreshModel(panel), 3_000)
       const modelTimer = setInterval(() => refreshModel(panel), MODEL_REFRESH_MS)
       panel.onDidDispose(() => clearInterval(modelTimer))
@@ -893,7 +916,11 @@ function attachConnection(
     }
   })
 
-  connection.onClose(() => showGone(context, panel, tool))
+  // Only the tab's current connection: one replaced by a re-attach (redrawFromDaemon) or a
+  // restart closing later is not the session ending.
+  connection.onClose(() => {
+    if (tab(panel).connection === connection) showGone(context, panel, tool)
+  })
 
   // The `ready` handler above posts state only once, on the webview's first load. After a
   // restart the panel holds a new sessionId while the webview's saved state still names the
@@ -959,6 +986,7 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
  * same conversation by themselves; busy ones show a notice until the user restarts.
  */
 export async function checkStale(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
+  await codexHomeFromShell()
   const tool = tab(panel).tool
   const spawnedAt = tab(panel).spawnedAt
   // A CLI the user quit stays quit: a config change must not spawn it again.
@@ -1071,6 +1099,23 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
   } finally {
     tab(panel).restarting = false
   }
+}
+
+/** Re-attaches the tab to its own session so the daemon sends the screen again (see "ready"). */
+async function redrawFromDaemon(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, tool: CliTool, current: SessionConnection): Promise<void> {
+  if (tab(panel).connection !== current) return
+  // Let go of the old one first (the daemon only detaches; the CLI keeps running): if the
+  // daemon evicted it during the attach, its close could land before the new one is in place.
+  current.dispose()
+  const fresh = await connectSession(current.socketPath, { op: "attach", sessionId: current.sessionId })
+  if (!activePanels.has(panel)) {
+    // Closed meanwhile: closing a tab ends its CLI, and nothing else would.
+    fresh?.kill()
+    fresh?.dispose()
+    return
+  }
+  if (!fresh) return showGone(context, panel, tool)
+  attachConnection(context, panel, tool, fresh, { reattached: true })
 }
 
 /** Posts the state VS Code hands back to the serializer after a Reload Window. */

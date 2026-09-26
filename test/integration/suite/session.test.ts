@@ -17,6 +17,8 @@ describe("session (checklist A-a, A-d, B OSC 7)", () => {
     assert.equal(env.CLI_CODE_SESSION_ID, a.inspectPanel(panel).sessionId)
     assert.ok(env.CLI_CODE_DAEMON_SOCK.endsWith(".sock"), env.CLI_CODE_DAEMON_SOCK)
     assert.match(env.CLI_CODE_HOOK, /dist\/hook\.js/)
+    // What VS Code's own terminal sets: Claude Code auto-connects to the IDE on it.
+    assert.equal(env.TERM_PROGRAM, "vscode")
     assert.equal(panel.title, "itest open", `expected panel.title "itest open", got ${JSON.stringify(panel.title)}`)
     // The experimental composer follows the cliCode.composer setting (default off) through a body attribute.
     assert.ok(panel.webview.html.includes('data-composer="off"'), "composer off by default")

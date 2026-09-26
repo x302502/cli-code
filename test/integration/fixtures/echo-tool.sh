@@ -12,6 +12,7 @@ out="$ITEST_OUT/$ITEST_TAG"
   echo "CLI_CODE_SESSION_ID=$CLI_CODE_SESSION_ID"
   echo "CLI_CODE_DAEMON_SOCK=$CLI_CODE_DAEMON_SOCK"
   echo "CLI_CODE_HOOK=$CLI_CODE_HOOK"
+  echo "TERM_PROGRAM=$TERM_PROGRAM"
 } > "$out.env.tmp"
 mv "$out.env.tmp" "$out.env" # atomic: a test polling $TAG.env never sees a partial file
 if [ -n "$ITEST_EXIT_CODE" ]; then exit "$ITEST_EXIT_CODE"; fi

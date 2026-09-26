@@ -5,6 +5,7 @@ import { detectInstalled, extractBinary } from "./detect.js"
 import { getActiveFileReference } from "./editor.js"
 import { locateLatestSession } from "./history/locate.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
+import { codexHomeFromShell } from "./shell-env.js"
 import { activePanelCwd, findExistingPanel, openTerminalPanel, pasteToActivePanel, writeToActivePanel } from "./panel.js"
 import { mergeQuickCommands } from "./quick-commands.js"
 import { continueLatestCommand } from "./restart-command.js"
@@ -67,6 +68,7 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
     })
   })
 
+  await codexHomeFromShell()
   const sessions = await listSessionsForWorkspace(cwd)
   if (hidden) {
     await picked?.run()

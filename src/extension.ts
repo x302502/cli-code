@@ -4,7 +4,7 @@ import { CLAUDE_SETTINGS_PATH, hooksInstalledOnDisk, installHooksToDisk, uninsta
 import { STATUS_HOOK_INSTALLERS } from "./lib/hooks/registry.js"
 import { summarize, syncStatusHooks } from "./lib/hooks/sync.js"
 import { binaryOnPath } from "./lib/detect.js"
-import { shellEnv } from "./lib/shell-env.js"
+import { codexHomeFromShell, shellEnv } from "./lib/shell-env.js"
 import { addFilepathToTerminal, addQuickCommand, openCli, resumeSession, runQuickCommand } from "./lib/commands.js"
 import {
   activeTerminalPanel,
@@ -74,9 +74,8 @@ async function runStatusHookSync(context: vscode.ExtensionContext, enabled: bool
   // The CLIs' bin dirs usually come from .zshrc, which the extension host's PATH may lack.
   const env = await shellEnv()
   const envPath = env?.PATH ?? process.env.PATH
-  // Codex reads CODEX_HOME from the shell it runs in (often set in .zshrc, which the extension
-  // host never sourced); installing hooks and reading history must use the same folder.
-  if (env?.CODEX_HOME && !process.env.CODEX_HOME) process.env.CODEX_HOME = env.CODEX_HOME
+  // Installing hooks and reading history must use the folder Codex does.
+  await codexHomeFromShell()
   const results = syncStatusHooks({ installers: STATUS_HOOK_INSTALLERS, home: os.homedir(), enabled, onPath: (b) => binaryOnPath(b, envPath) })
   // A file of the user's under our name is reported when asked (the explicit commands), not on
   // every activation: it stays the user's until they rename or remove it.
@@ -95,6 +94,8 @@ async function setStatusHooks(context: vscode.ExtensionContext, enabled: boolean
 }
 
 export function activate(context: vscode.ExtensionContext): TestApi {
+  // Every platform and mode: history, hooks and config watch all read CODEX_HOME.
+  void codexHomeFromShell()
   // Restored CLI tabs only connect once they become visible; hold the daemon open in the
   // meantime so its idle-exit does not kill their sessions. Must not block activation.
   void holdDaemonAlive(context).then((d) => context.subscriptions.push(d))

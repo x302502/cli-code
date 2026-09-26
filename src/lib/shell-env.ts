@@ -75,6 +75,23 @@ export async function shellEnv(probe: () => Promise<Record<string, string> | und
   return cached
 }
 
+let codexHomeReady: Promise<void> | undefined
+
+/**
+ * Codex reads CODEX_HOME from the shell it runs in (often set in .zshrc, which the extension
+ * host never sourced). Taken from the probe once per window and put in process.env, where every
+ * reader looks (history, hook install, config watch); started at activation, and awaited by
+ * whatever reads it before the probe could have finished (opening, restarting, Resume).
+ */
+export function codexHomeFromShell(): Promise<void> {
+  return (codexHomeReady ??= shellEnv().then(
+    (env) => {
+      if (env?.CODEX_HOME && !process.env.CODEX_HOME) process.env.CODEX_HOME = env.CODEX_HOME
+    },
+    () => {},
+  ))
+}
+
 /** For tests: forget the cached environment and when it was probed. */
 export function resetShellEnvCache(): void {
   cached = undefined
