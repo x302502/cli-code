@@ -13,6 +13,19 @@ export function head(file: string, bytes = 64 * 1024): string {
   }
 }
 
+/** The last `bytes` of a file (what a session store writes after its messages). */
+export function tail(file: string, bytes: number): string {
+  const fd = fs.openSync(file, "r")
+  try {
+    const size = fs.fstatSync(fd).size
+    const buf = Buffer.alloc(Math.min(bytes, size))
+    const n = fs.readSync(fd, buf, 0, buf.length, size - buf.length)
+    return buf.subarray(0, n).toString("utf8")
+  } finally {
+    fs.closeSync(fd)
+  }
+}
+
 /** mtime of a path, or undefined if it was removed since it was listed. */
 export function mtimeMs(p: string): number | undefined {
   try {

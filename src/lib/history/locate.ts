@@ -3,7 +3,7 @@ import * as fs from "node:fs"
 import * as path from "node:path"
 import { fileURLToPath } from "node:url"
 import { samePath } from "../same-path.js"
-import { head, mtimeMs, newestFiles } from "./files.js"
+import { head, mtimeMs, newestFiles, tail } from "./files.js"
 
 // Session headers sit in the first lines; no need for the 64 KB the history list reads.
 const HEAD_BYTES = 16 * 1024
@@ -77,10 +77,6 @@ const LOCATORS: Record<string, Locator> = {
   goose: (cwd, since, home) => gooseDb(path.join(home, ".local", "share", "goose", "sessions", "sessions.db"), cwd, since),
 }
 
-function sameDir(a: string, b: string): boolean {
-  return samePath(a, b)
-}
-
 /** Antigravity (`agy`) keeps `cache/last_conversations.json` (cwd → newest conversation id)
  * next to one SQLite file per conversation; that file's mtime says whether it is this tab's.
  * (`cache/conversation_metadata.json` exists too but lags and often lacks the workspace.) */
@@ -88,7 +84,7 @@ function antigravity(root: string, cwd: string, since: number): string | undefin
   const index = path.join(root, "cache", "last_conversations.json")
   if (!fs.existsSync(index)) return undefined
   const map = JSON.parse(fs.readFileSync(index, "utf8")) as Record<string, string>
-  const id = Object.entries(map).find(([dir]) => sameDir(dir, cwd))?.[1]
+  const id = Object.entries(map).find(([dir]) => samePath(dir, cwd))?.[1]
   if (!id) return undefined
   const m = mtimeMs(path.join(root, "conversations", `${id}.db`))
   return m !== undefined && m >= since ? id : undefined
@@ -124,7 +120,7 @@ function jsonlHit(root: string, cwd: string, since: number, sessionId?: string):
         continue
       }
       if ((rec.type === "session" || rec.type === "session_start") && typeof rec.id === "string") {
-        if (typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) {
+        if (typeof rec.cwd === "string" && samePath(rec.cwd, cwd)) {
           if (!sessionId || rec.id === sessionId) return { id: rec.id, file }
         }
         break
@@ -140,7 +136,7 @@ function copilot(root: string, cwd: string, since: number): string | undefined {
     const text = head(file, HEAD_BYTES)
     const id = /^id:\s*(\S+)/m.exec(text)?.[1]
     const dir = /^cwd:\s*(.+)$/m.exec(text)?.[1]?.trim()
-    if (id && dir && sameDir(dir, cwd)) return id
+    if (id && dir && samePath(dir, cwd)) return id
   }
   return undefined
 }
@@ -154,7 +150,7 @@ function clineHit(root: string, cwd: string, since: number, sessionId?: string):
   for (const file of candidates(root, (n) => n.endsWith(".json") && !n.endsWith(".messages.json"), since, sessionId)) {
     try {
       const rec = JSON.parse(fs.readFileSync(file, "utf8")) as { session_id?: unknown; cwd?: unknown }
-      if (typeof rec.session_id === "string" && typeof rec.cwd === "string" && sameDir(rec.cwd, cwd)) {
+      if (typeof rec.session_id === "string" && typeof rec.cwd === "string" && samePath(rec.cwd, cwd)) {
         if (!sessionId || rec.session_id === sessionId) return { id: rec.session_id, file }
       }
     } catch {
@@ -195,25 +191,13 @@ function amp(root: string, cwd: string, since: number): string | undefined {
       } catch {
         continue
       }
-      if (sameDir(dir, cwd)) return path.basename(file, ".json")
+      if (samePath(dir, cwd)) return path.basename(file, ".json")
     }
   }
   return undefined
 }
 
 const TAIL_BYTES = 16 * 1024
-
-function tail(file: string, bytes: number): string {
-  const fd = fs.openSync(file, "r")
-  try {
-    const size = fs.fstatSync(fd).size
-    const buf = Buffer.alloc(Math.min(bytes, size))
-    const n = fs.readSync(fd, buf, 0, buf.length, size - buf.length)
-    return buf.subarray(0, n).toString("utf8")
-  } finally {
-    fs.closeSync(fd)
-  }
-}
 
 function md5(text: string): string {
   return createHash("md5").update(text).digest("hex")

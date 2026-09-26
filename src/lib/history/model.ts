@@ -2,7 +2,7 @@ import * as fs from "node:fs"
 import * as path from "node:path"
 import { encodeClaudeProjectDir } from "./claude.js"
 import { locateLatestSession, locateLatestSessionFile, openDb } from "./locate.js"
-import { newestFiles } from "./files.js"
+import { head, newestFiles, tail } from "./files.js"
 import { codexRolloutById, codexSessions, grokSessions } from "./scan.js"
 
 // The model id shows up under a handful of spellings across CLIs' transcripts; the latest
@@ -28,25 +28,11 @@ const codexRollouts = new Map<string, string>()
 /** Head and tail of a transcript — model records sit at the start (session setup) and in
  * every assistant turn, so both ends together cover long sessions cheaply. */
 function modelFromFile(file: string): string | undefined {
-  let fd: number
   try {
-    fd = fs.openSync(file, "r")
+    const start = head(file, CHUNK)
+    return modelFromText(fs.statSync(file).size > CHUNK ? `${start}\n${tail(file, CHUNK)}` : start)
   } catch {
     return undefined
-  }
-  try {
-    const size = fs.fstatSync(fd).size
-    const headBuf = Buffer.alloc(Math.min(CHUNK, size))
-    fs.readSync(fd, headBuf, 0, headBuf.length, 0)
-    let text = headBuf.toString("utf8")
-    if (size > CHUNK) {
-      const tailBuf = Buffer.alloc(CHUNK)
-      fs.readSync(fd, tailBuf, 0, CHUNK, size - CHUNK)
-      text += "\n" + tailBuf.toString("utf8")
-    }
-    return modelFromText(text)
-  } finally {
-    fs.closeSync(fd)
   }
 }
 
