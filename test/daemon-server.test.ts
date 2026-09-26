@@ -244,6 +244,27 @@ describe("startDaemon", () => {
     hold.socket.destroy()
   })
 
+  it("cửa sổ đã đóng mà CLI vẫn gửi hook liên tục: hook không đẩy lùi idle-exit", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    let exited = false
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty, idleMs: 80, onIdleExit: () => (exited = true) })
+    stop = daemon.close
+    const owner = connect(p)
+    owner.socket.write(encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }))
+    const ok = await owner.waitFor(MSG.HelloOk)
+    const { sessionId } = decodeJsonPayload<{ sessionId: string }>(ok.payload)
+    owner.socket.destroy() // the window closed; the CLI keeps working
+    const started = Date.now()
+    while (!exited && Date.now() - started < 400) {
+      const hook = net.createConnection(p)
+      hook.on("error", () => {})
+      hook.end(encodeJsonFrame(MSG.StatusReport, { sessionId, state: "working" }))
+      await new Promise((r) => setTimeout(r, 20))
+    }
+    expect(exited).toBe(true)
+  })
+
   it("gửi khung Exit khi PTY thoát trong lúc client đang nối", async () => {
     const p = socketPath()
     const harness = scriptedPty()

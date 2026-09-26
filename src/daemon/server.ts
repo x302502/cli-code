@@ -33,17 +33,21 @@ export async function startDaemon(args: {
   const clientSockets = new Set<net.Socket>()
   const idleMs = args.idleMs ?? DEFAULT_IDLE_MS
   let connections = 0
+  // Connections that are clients (a tab, the extension's keep-alive): all but a CLI hook's
+  // one-shot StatusReport socket, which says nothing about anyone watching.
+  let clients = 0
   let idleTimer: ReturnType<typeof setTimeout> | undefined
   let closed = false
 
   const server = net.createServer((socket) => {
     connections++
+    clients++
     clientSockets.add(socket)
-    // A daemon with sessions stays up while anyone is connected. An empty one only gets a fresh
-    // countdown — time for this client to spawn — so a bare keep-alive socket does not keep
-    // it alive until the window closes.
+    let reporter = false
+    // A daemon with sessions stays up while a client is connected (the timer, when it fires,
+    // sees one and lets it be). An empty one gets a fresh countdown — time for this client to
+    // spawn — so a bare keep-alive socket does not keep it alive until the window closes.
     if (sessions.size === 0) scheduleIdleExit()
-    else if (idleTimer) clearTimeout(idleTimer)
 
     const decode = createFrameDecoder()
     let session: Session | undefined
@@ -65,6 +69,10 @@ export async function startDaemon(args: {
             continue
           }
           if (frame.type === MSG.StatusReport) {
+            if (!reporter) {
+              reporter = true
+              clients--
+            }
             // Sent by a CLI hook over its own short-lived connection: it names the
             // session explicitly because it never did a Hello.
             const report = decodeJsonPayload<{ sessionId: string; state: AgentState; prompt?: string; cliSessionId?: unknown; tool?: unknown; toolDone?: unknown; agent?: unknown; agentDone?: unknown; cliPid?: unknown }>(frame.payload)
@@ -116,9 +124,15 @@ export async function startDaemon(args: {
       }
       connections--
       clientSockets.delete(socket)
-      // Every new connection cancels the timer; one that leaves nothing to host (a late hook
-      // report, a failed attach) must arm it again even while a keep-alive client stays open.
-      if (connections === 0 || sessions.size === 0) scheduleIdleExit()
+      if (reporter) {
+        // A hook reporting after the window closed must not push the exit back each time — a
+        // busy agent would keep an unwatched daemon alive for as long as it works.
+        if (!idleTimer && (clients === 0 || sessions.size === 0)) scheduleIdleExit()
+        return
+      }
+      clients--
+      // The last client gone, or nothing left to host (a failed attach): count down again.
+      if (clients === 0 || sessions.size === 0) scheduleIdleExit()
     }
     socket.on("close", onGone)
     socket.on("error", () => {})
@@ -134,7 +148,8 @@ export async function startDaemon(args: {
   function scheduleIdleExit() {
     if (idleTimer) clearTimeout(idleTimer)
     idleTimer = setTimeout(() => {
-      if (closed || (connections > 0 && sessions.size > 0)) return
+      idleTimer = undefined
+      if (closed || (clients > 0 && sessions.size > 0)) return
       for (const session of sessions.values()) session.kill()
       sessions.clear()
       owners.clear()
