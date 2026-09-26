@@ -459,6 +459,17 @@ function probeSocket(socketPath: string): Promise<"listening" | "absent" | "unkn
   })
 }
 
+// Work that waits for the first CLI tab of the window (see onFirstTab in extension.ts).
+let firstTab: (() => void) | undefined
+/** Runs `fn` once, when the window's first CLI tab is opened or restored. */
+export function onFirstTab(fn: () => void): void {
+  firstTab = fn
+}
+function tabStarting(): void {
+  firstTab?.()
+  firstTab = undefined
+}
+
 export async function openTerminalPanel(
   context: vscode.ExtensionContext,
   tool: CliTool,
@@ -474,6 +485,7 @@ export async function openTerminalPanel(
     viewColumn?: vscode.ViewColumn
   } = {},
 ): Promise<vscode.WebviewPanel | undefined> {
+  tabStarting()
   // The tab's config snapshot must list Codex's real folder (see codexHomeFromShell).
   await codexHomeFromShell()
   const socketPath = await ensureDaemon(context)
@@ -516,6 +528,7 @@ export async function restoreTerminalPanel(
   panel: vscode.WebviewPanel,
   state: PanelState,
 ): Promise<void> {
+  tabStarting()
   const tool = CLI_TOOLS.find((t) => t.id === state.toolId)
   if (!tool) {
     panel.dispose()

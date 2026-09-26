@@ -30,6 +30,7 @@ import {
   openLinkTextInActivePanel,
   insertPathInActivePanel,
   type PanelState,
+  onFirstTab,
 } from "./lib/panel.js"
 
 /** Handed to integration tests via `extension.exports`. Re-exports only; no test-only behaviour. */
@@ -94,15 +95,18 @@ async function setStatusHooks(context: vscode.ExtensionContext, enabled: boolean
 }
 
 export function activate(context: vscode.ExtensionContext): TestApi {
-  // Every platform and mode: history, hooks and config watch all read CODEX_HOME.
-  void codexHomeFromShell()
   // Restored CLI tabs only connect once they become visible; hold the daemon open in the
   // meantime so its idle-exit does not kill their sessions. Must not block activation.
   void holdDaemonAlive(context).then((d) => context.subscriptions.push(d))
   // Status hooks follow the setting silently, like Orca: installed for every supported CLI on
-  // PATH, removed everywhere when turned off. Never from the integration-test host (it runs
-  // against the real home).
-  if (context.extensionMode !== vscode.ExtensionMode.Test) void runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
+  // PATH, removed everywhere when turned off — once a CLI tab is first opened or restored in this
+  // window, not at activation: that takes a login-shell probe and a pass over a dozen config
+  // files, which a window that never opens a CLI should not pay (nor race other windows on).
+  // Hooks only matter inside CLI Code's tabs, and stay installed once written. Never from the
+  // integration-test host (it runs against the real home).
+  onFirstTab(() => {
+    if (context.extensionMode !== vscode.ExtensionMode.Test) void runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
+  })
   context.subscriptions.push(
     vscode.commands.registerCommand("cli-code.open", () => openCli(context, { reuseExisting: true })),
     vscode.commands.registerCommand("cli-code.openNew", () => openCli(context, { reuseExisting: false })),
