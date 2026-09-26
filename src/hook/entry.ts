@@ -1,7 +1,7 @@
 // Runs as a Claude Code hook: reads the hook JSON from stdin, reports the mapped
 // state to this window's daemon, and exits 0 no matter what — a hook must never
 // block or fail the CLI, and must never print to stdout (Claude reads it).
-import { execFileSync } from "node:child_process"
+import { execFile } from "node:child_process"
 import * as net from "node:net"
 import { mapHookEvent } from "../lib/hook-map.js"
 import { MSG, encodeJsonFrame } from "../lib/protocol.js"
@@ -25,15 +25,15 @@ if (from && family && from !== family) process.exit(0)
  * through a shell (`sh -c` → this). The daemon keeps the first one it hears from per tab: a CLI
  * of the same kind started inside the tab's (`claude -p` from Claude's Bash tool) is another
  * process, and its reports are dropped. Undefined when ps cannot say; the report still counts.
+ * Asked right away, while stdin is still being read: a synchronous hook (UserPromptSubmit, Stop)
+ * holds the CLI up for as long as this process runs.
  */
-function reporterPid(): number | undefined {
-  try {
-    const pid = Number(execFileSync("ps", ["-o", "ppid=", "-p", String(process.ppid)], { encoding: "utf8", timeout: 500 }).trim())
-    return Number.isInteger(pid) && pid > 1 ? pid : undefined
-  } catch {
-    return undefined
-  }
-}
+const reporterPid = new Promise<number | undefined>((resolve) => {
+  execFile("ps", ["-o", "ppid=", "-p", String(process.ppid)], { encoding: "utf8", timeout: 500 }, (err, out) => {
+    const pid = err ? NaN : Number(out.trim())
+    resolve(Number.isInteger(pid) && pid > 1 ? pid : undefined)
+  })
+})
 
 let raw = ""
 process.stdin.setEncoding("utf8")
@@ -46,11 +46,11 @@ process.stdin.on("end", () => {
     process.exit(0)
   }
   if (!mapped) process.exit(0)
-  const socket = net.createConnection(sock!)
-  socket.on("error", () => process.exit(0))
-  socket.on("connect", () => {
-    socket.end(encodeJsonFrame(MSG.StatusReport, { sessionId, ...mapped!, cliPid: reporterPid() }), () =>
-      process.exit(0),
-    )
+  void reporterPid.then((cliPid) => {
+    const socket = net.createConnection(sock!)
+    socket.on("error", () => process.exit(0))
+    socket.on("connect", () => {
+      socket.end(encodeJsonFrame(MSG.StatusReport, { sessionId, ...mapped!, cliPid }), () => process.exit(0))
+    })
   })
 })
