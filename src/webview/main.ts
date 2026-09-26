@@ -194,12 +194,15 @@ termElement.addEventListener(
   "paste",
   (e) => {
     const text = e.clipboardData?.getData("text") ?? ""
-    if (new TextEncoder().encode(text).length <= PASTE_CONFIRM_BYTES) return
+    // Bytes, as the threshold is — and as the dialog reports (Vietnamese/CJK text is 2–3
+    // bytes a character, so text.length would read far below the limit that fired it).
+    const bytes = new TextEncoder().encode(text).length
+    if (bytes <= PASTE_CONFIRM_BYTES) return
     e.preventDefault()
     e.stopPropagation()
     heldPaste = text
     heldSubmit = false
-    vscode.postMessage({ type: "pasteConfirm", size: text.length })
+    vscode.postMessage({ type: "pasteConfirm", size: bytes })
   },
   true,
 )
@@ -392,10 +395,11 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   } else if (message.type === "pasteRejected") {
     heldPaste = undefined
   } else if (message.type === "pasteText") {
-    if (new TextEncoder().encode(message.text).length > PASTE_CONFIRM_BYTES) {
+    const bytes = new TextEncoder().encode(message.text).length
+    if (bytes > PASTE_CONFIRM_BYTES) {
       heldPaste = message.text
       heldSubmit = message.submit === true
-      vscode.postMessage({ type: "pasteConfirm", size: message.text.length })
+      vscode.postMessage({ type: "pasteConfirm", size: bytes })
     } else {
       term.paste(message.text)
       // Enter after the paste (quick commands): as user input so it reaches the PTY via onData.
