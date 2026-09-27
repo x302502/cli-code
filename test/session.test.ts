@@ -575,6 +575,9 @@ describe("EscapeTracker", () => {
     expect(pending("\x1b[31\x1ahello")).toBe("")
     expect(pending("\x1b[6\n")).toBe("\x1b[6")
     expect(pending("\x1b]0;a\x1b[1")).toBe("\x1b[1")
+    // ESC ends a string on the spot (the parser handles it then): only the ESC is pending.
+    expect(pending("\x1bP$qm\x1b")).toBe("\x1b")
+    expect(pending("\x1b]11;?\x1b")).toBe("\x1b")
   })
 })
 
@@ -604,6 +607,39 @@ describe("Session attach — what the client ends up showing and answering", () 
     const r = await attachAndReplay("ab\x1b[6\n", "n")
     expect(r.screen.slice(0, 2)).toEqual(["ab", ""])
     expect([...r.answers, ...r.mirrorAnswers]).toEqual(["\x1b[2;3R"])
+  })
+  it("every split point around the attach: the same screen and the same answers as one terminal fed it whole", async () => {
+    const { Terminal } = await import("@xterm/headless")
+    const cases = [
+      "ab\x1b[6nc",
+      "x\x1b[31\x18hello",
+      "ab\x1b[6\nn",
+      "\x1bP$qm\x1b\\z",
+      "\x1b]11;?\x07t",
+      "\x1b]0;title\x1b\\q",
+      "\x1b[?1;2c\x1b[5n",
+      "\x1b(Bk\x1b[c",
+    ]
+    for (const whole of cases) {
+      const ref = new Terminal({ cols: 80, rows: 24, allowProposedApi: true })
+      const refAnswers: string[] = []
+      ref.onData((d) => refAnswers.push(d))
+      await new Promise<void>((r) => ref.write(whole, r))
+      const refScreen = [0, 1, 2].map((y) => ref.buffer.active.getLine(y)!.translateToString(true))
+      ref.dispose()
+      for (let i = 1; i < whole.length; i++) {
+        const r = await attachAndReplay(whole.slice(0, i), whole.slice(i))
+        expect({ at: `${JSON.stringify(whole)}@${i}`, screen: r.screen, answers: [...r.mirrorAnswers, ...r.answers].sort() }).toEqual({
+          at: `${JSON.stringify(whole)}@${i}`,
+          screen: refScreen,
+          answers: [...refAnswers].sort(),
+        })
+      }
+    }
+  })
+  it("a DCS query cut between the ESC and the \\ of its terminator is answered once", async () => {
+    const r = await attachAndReplay("\x1bP$qm\x1b", "\\")
+    expect([...r.answers, ...r.mirrorAnswers]).toEqual(["\x1bP1$r0m\x1b\\"])
   })
   it("a query split across the attach: shown once, answered once", async () => {
     const r = await attachAndReplay("ab\x1b[6", "n")

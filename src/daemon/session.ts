@@ -376,14 +376,16 @@ function oscLinks(term: Terminal): string {
 // OSC 52 clipboard write cut mid-way) is not carried over at all.
 const MAX_UNFINISHED = 64 * 1024
 
-type EscState = "ground" | "esc" | "escInter" | "csi" | "osc" | "str" | "strEsc"
+type EscState = "ground" | "esc" | "escInter" | "csi" | "osc" | "str"
 
 /**
  * Follows the PTY stream the way the terminal's parser does (the DEC/xterm state machine), to
  * know the escape sequence it is in the middle of — as the bytes the client still needs to see
  * to finish it (see attach). A C0 control inside a sequence is executed on the spot (the screen,
  * and the snapshot, already show it), so it is not part of what is replayed; CAN and SUB abort
- * the sequence; ESC starts a new one (or, inside a string, may be its ST).
+ * the sequence; ESC starts a new one — inside a string (OSC, DCS…) too: the parser ends and
+ * handles the string right there (a DCS query is answered then), so of `ESC \` only the ESC is
+ * still pending, and nothing of the string is replayed.
  */
 export class EscapeTracker {
   private state: EscState = "ground"
@@ -443,25 +445,12 @@ export class EscapeTracker {
         return
       case "osc":
       case "str":
-        if (c === 0x1b) {
-          this.add(ch)
-          this.state = "strEsc"
-          return
-        }
+        if (c === 0x1b) return this.start()
         if (c === 0x07 && this.state === "osc") {
           this.state = "ground"
           return
         }
         if (c >= 0x20) this.add(ch)
-        return
-      case "strEsc":
-        // ESC \ is the string's ST; anything else starts a new escape sequence.
-        if (ch === "\\") {
-          this.state = "ground"
-          return
-        }
-        this.start()
-        this.step(c, ch)
         return
     }
   }
