@@ -86,6 +86,26 @@ describe("connectSession", () => {
     expect(await connectSession(p, { op: "attach", sessionId: "x" })).toBeUndefined()
   })
 
+  it("a malformed HelloOk fails the handshake instead of leaving it hanging", async () => {
+    const p = tmpSocket()
+    const bad = net.createServer((s) => s.write(encodeFrame(MSG.HelloOk, new TextEncoder().encode("{not json"))))
+    await new Promise<void>((r) => bad.listen(p, r))
+    try {
+      expect(await connectSession(p, spawnHello, { timeoutMs: 2000 })).toBeUndefined()
+    } finally {
+      await new Promise<void>((r) => bad.close(() => r()))
+    }
+  })
+
+  it("the daemon's socket is owner-only", async () => {
+    if (process.platform === "win32") return
+    const p = tmpSocket()
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => fakePty().pty })
+    stop = daemon.close
+    const fs = await import("node:fs")
+    expect(fs.statSync(p).mode & 0o077).toBe(0)
+  })
+
   it("trả undefined khi không có daemon nào ở đường dẫn đó", async () => {
     expect(await connectSession(tmpSocket(), spawnHello)).toBeUndefined()
   })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { MSG, createFrameDecoder, decodeJsonPayload, encodeFrame, encodeJsonFrame } from "../src/lib/protocol.js"
+import { MAX_FRAME, MSG, createFrameDecoder, decodeJsonPayload, encodeFrame, encodeJsonFrame } from "../src/lib/protocol.js"
 
 const bytes = (...n: number[]) => new Uint8Array(n)
 
@@ -75,5 +75,15 @@ describe("khung JSON", () => {
       op: "attach",
       sessionId: "abc",
     })
+  })
+})
+
+describe("createFrameDecoder — a frame header claiming more than any real frame", () => {
+  it("throws at once instead of holding bytes for a 4 GiB 'frame'", () => {
+    const decode = createFrameDecoder()
+    const head = new Uint8Array(5)
+    head[0] = MSG.Data
+    new DataView(head.buffer).setUint32(1, MAX_FRAME + 1, false)
+    expect(() => decode(head)).toThrow()
   })
 })

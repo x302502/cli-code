@@ -147,10 +147,18 @@ export async function startDaemon(args: {
     socket.on("error", () => {})
   })
 
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject)
-    server.listen(args.socketPath, () => resolve())
-  })
+  // Owner-only socket: whoever can connect can spawn commands as this user. macOS's temp dir
+  // is private already, but Linux's /tmp is shared; the umask covers the socket from the moment
+  // it exists (a chmod after listen would leave a window).
+  const umask = process.platform === "win32" ? undefined : process.umask(0o177)
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject)
+      server.listen(args.socketPath, () => resolve())
+    })
+  } finally {
+    if (umask !== undefined) process.umask(umask)
+  }
 
   scheduleIdleExit()
 

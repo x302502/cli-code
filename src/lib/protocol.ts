@@ -48,6 +48,10 @@ export function decodeJsonPayload<T>(payload: Uint8Array): T {
  * Returns a stateful decoder: the socket splits data however it likes, so one frame
  * may arrive in several chunks, and one chunk may contain several frames.
  */
+/** Largest payload a frame may carry: far above the biggest real one (a snapshot of a full
+ * 5000-line scrollback runs to a few MB). */
+export const MAX_FRAME = 64 * 1024 * 1024
+
 export function createFrameDecoder(): (chunk: Uint8Array) => { type: number; payload: Uint8Array }[] {
   // Chunks are held as they arrive and merged only as far as the frame being read needs:
   // concatenating the whole backlog on every chunk copies a multi-MB snapshot once per 64 KB
@@ -83,6 +87,10 @@ export function createFrameDecoder(): (chunk: Uint8Array) => { type: number; pay
     while (total >= HEADER_LEN) {
       const head = coalesce(HEADER_LEN)
       const length = new DataView(head.buffer, head.byteOffset, head.byteLength).getUint32(1, false)
+      // A header claiming more than any real frame (a snapshot is a few MB) is a broken or hostile
+      // peer: holding its bytes until "complete" would grow memory without bound. Both ends catch
+      // this and drop the connection.
+      if (length > MAX_FRAME) throw new Error(`frame of ${length} bytes exceeds ${MAX_FRAME}`)
       const frameLen = HEADER_LEN + length
       if (total < frameLen) break
       const full = coalesce(frameLen)

@@ -111,9 +111,17 @@ export function connectSession(
           }
           if (frame.type === MSG.HelloOk) {
             if (settled) continue
+            // Read (and check) the answer before settling: a malformed one must fail the
+            // handshake, not leave it settled with nothing resolved — an open that never returns.
+            let sessionId: unknown
+            try {
+              sessionId = decodeJsonPayload<{ sessionId?: unknown }>(frame.payload).sessionId
+            } catch {
+              return fail()
+            }
+            if (typeof sessionId !== "string" || !sessionId) return fail()
             settled = true
             clearTimeout(timer)
-            const { sessionId } = decodeJsonPayload<{ sessionId: string }>(frame.payload)
             resolve({
               sessionId,
               socketPath,
