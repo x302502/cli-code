@@ -42,7 +42,7 @@ CLI Code は VS Code の統合ターミナルを**使いません**。各エー�
 
 ## クイックスタート
 
-1. Marketplace から**インストール**（`Cmd/Ctrl + Shift + X` → *CLI Code*）。VS Code 1.94 以上、全機能は macOS / Linux。
+1. Marketplace から**インストール**（`Cmd/Ctrl + Shift + X` → *CLI Code*）。VS Code 1.101 以上、全機能は macOS / Linux。
 2. 使うエージェントを普通のターミナルで**インストールしてログイン**（`claude`、`codex`、`copilot`、`opencode`…）。CLI Code は起動するだけで、インストールはしません。ターミナルで動くコマンドはここでも動きます。
 3. **`Cmd/Ctrl + Esc`** を押してエージェントを選び、入力を始めます。エディタで `Cmd/Ctrl + Alt + K` を押すと現在のファイルを渡せます。
 

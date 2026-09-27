@@ -42,7 +42,7 @@ CLI Code **不**使用 VS Code 的集成终端。每个智能体都在一个**�
 
 ## 快速开始
 
-1. 从应用市场**安装**（`Cmd/Ctrl + Shift + X` → *CLI Code*）。VS Code 1.94+，macOS 或 Linux 可获得全部功能。
+1. 从应用市场**安装**（`Cmd/Ctrl + Shift + X` → *CLI Code*）。VS Code 1.101+，macOS 或 Linux 可获得全部功能。
 2. 在普通终端里**安装并登录**你要用的智能体（`claude`、`codex`、`copilot`、`opencode`…）。CLI Code 只负责启动，不负责安装。终端里能跑的命令这里就能跑。
 3. **按 `Cmd/Ctrl + Esc`**，选一个智能体，开始输入。在编辑器里按 `Cmd/Ctrl + Alt + K` 把当前文件交给它。
 

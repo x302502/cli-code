@@ -202,8 +202,9 @@ function md5(text: string): string {
   return createHash("md5").update(text).digest("hex")
 }
 
-// SQLite stores are read through node:sqlite (Node ≥ 22.13, present in VS Code's extension
-// host); under bun (unit tests) the equivalent bun:sqlite is used. Required lazily and
+// SQLite stores are read through node:sqlite (unflagged from Node 22.13: VS Code 1.101's
+// Electron 35 has Node 22.15, hence the minimum in package.json); under bun (unit tests) the
+// equivalent bun:sqlite is used. Required lazily and
 // untyped so the bundle and older hosts do not break on it.
 export type SqliteDb = { prepare(sql: string): { get(...args: unknown[]): Record<string, unknown> | undefined }; close(): void }
 export function openDb(file: string): SqliteDb | undefined {

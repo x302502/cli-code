@@ -19,7 +19,7 @@ quản lý phiên → tùy chỉnh. Phần phụ lục ở cuối là bảng tra
 
 **Bước 1 — Cài extension.** Mở Extensions (`Cmd/Ctrl + Shift + X`), tìm **CLI Code**, bấm
 Install. (Hoặc cài file `.vsix` đúng nền tảng: `code --install-extension cli-code-0.2.0-darwin-arm64.vsix`.)
-Cần VS Code 1.94 trở lên. macOS và Linux có đủ tính năng; Windows xem [Giới hạn](#giới-hạn-trên-windows).
+Cần VS Code 1.101 trở lên. macOS và Linux có đủ tính năng; Windows xem [Giới hạn](#giới-hạn-trên-windows).
 
 **Bước 2 — Cài và đăng nhập trợ lý bạn muốn dùng.** CLI Code không cài trợ lý, chỉ khởi chạy
 chúng. Cài theo hướng dẫn của từng công cụ, rồi chạy thử **một lần trong terminal thường** để

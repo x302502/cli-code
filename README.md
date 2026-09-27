@@ -42,7 +42,7 @@ What that means for you:
 
 ## Quick start
 
-1. **Install** from the Marketplace (`Cmd/Ctrl + Shift + X` → *CLI Code*). VS Code 1.94+, macOS or Linux for the full feature set.
+1. **Install** from the Marketplace (`Cmd/Ctrl + Shift + X` → *CLI Code*). VS Code 1.101+, macOS or Linux for the full feature set.
 2. **Install and sign in** to the agents you use, in a normal terminal (`claude`, `codex`, `copilot`, `opencode`…). CLI Code launches them; it doesn't install them. If a command works in your terminal, it works here.
 3. **Press `Cmd/Ctrl + Esc`**, pick an agent, start typing. Press `Cmd/Ctrl + Alt + K` in the editor to hand it the current file.
 

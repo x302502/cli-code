@@ -6,6 +6,10 @@ The big one: every assistant now runs in CLI Code's own terminal, with the thing
 VS Code terminal cannot give you — sessions that survive a reload, tabs that know what the
 agent is doing, links that open, and a restart that lands back in the same conversation.
 
+**Requires VS Code 1.101 or newer** (was 1.94): the session stores of opencode, MiMo, Kilo,
+Goose and Copilot are SQLite, read through Node's built-in `node:sqlite` — unflagged from
+Node 22.13, which VS Code ships from 1.101 on.
+
 ### Built-in terminal
 
 - **Own terminal** (xterm.js webview + a detached PTY daemon) instead of VS Code's integrated

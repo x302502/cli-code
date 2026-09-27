@@ -19,7 +19,7 @@ sessions → customisation. The appendices at the end are lookup tables.
 
 **Step 1 — Install the extension.** Open Extensions (`Cmd/Ctrl + Shift + X`), search **CLI Code**,
 click Install. (Or install the `.vsix` for your platform: `code --install-extension cli-code-0.2.0-darwin-arm64.vsix`.)
-VS Code 1.94 or newer. macOS and Linux get every feature; for Windows see [Limits on Windows](#limits-on-windows).
+VS Code 1.101 or newer. macOS and Linux get every feature; for Windows see [Limits on Windows](#limits-on-windows).
 
 **Step 2 — Install and sign in to the assistants you want.** CLI Code does not install them, it
 launches them. Follow each tool's own instructions, then run it **once in a normal terminal** to
