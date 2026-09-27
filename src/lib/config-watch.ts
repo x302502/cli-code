@@ -44,10 +44,10 @@ export function configPathsFor(toolId: string, historyToolId: string | undefined
  * A directory's own mtime is ignored — it moves whenever anything is created next to the
  * config (our `.cli-code.bak`, an editor's swap file) and says nothing about the config.
  */
-export function newestMtime(p: string, depth = 2): number | undefined {
+export function newestMtime(p: string, depth = 2, known?: fs.Stats): number | undefined {
   let st: fs.Stats
   try {
-    st = fs.statSync(p)
+    st = known ?? fs.statSync(p)
   } catch {
     return undefined
   }
@@ -98,9 +98,13 @@ export function changedPath(before: Record<string, string>, after: Record<string
  * signature as the new baseline — once, on restore — rather than reading as changed (an update
  * in place would restart every tab) or never comparing again.
  */
+// A bare mtime in ms: 13 integer digits today — at most 15, so a 16-hex-digit content hash that
+// happens to be all digits is never taken for one.
+const LEGACY_MTIME = /^\d{1,15}(\.\d+)?$/
+
 export function upgradeSnapshot(snapshot: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {}
-  for (const [p, sig] of Object.entries(snapshot)) out[p] = /^\d+(\.\d+)?$/.test(sig) ? (signature(p) ?? "") : sig
+  for (const [p, sig] of Object.entries(snapshot)) out[p] = LEGACY_MTIME.test(sig) ? (signature(p) ?? "") : sig
   return out
 }
 
@@ -119,7 +123,7 @@ function signature(p: string): string | undefined {
   // A file by its content: a CLI writing its config back unchanged is not a change.
   if (!st.isDirectory()) return hashOf(p, (text) => text)
   // A directory by its newest entry, and its entries, so a removed plugin file counts too.
-  return `${newestMtime(p)}:${configEntries(p).sort().join(",")}`
+  return `${newestMtime(p, 2, st)}:${configEntries(p).sort().join(",")}`
 }
 
 // Hash per file, keyed by its mtime+size: ~/.claude.json can be hundreds of KB and is

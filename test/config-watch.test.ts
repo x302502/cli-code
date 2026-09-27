@@ -74,6 +74,8 @@ describe("configSnapshot / changedPath", () => {
     expect(changedPath(restored, configSnapshot([f]))).toBe(f)
     // Only bare mtimes are rebased: a hash, or a missing file, is kept as it was.
     expect(upgradeSnapshot({ [f]: "" })).toEqual({ [f]: "" })
+    // A content hash that happens to be all digits is a hash, not an old mtime.
+    expect(upgradeSnapshot({ [f]: "1234567890123456" })).toEqual({ [f]: "1234567890123456" })
   })
   it("a config file the CLI writes back unchanged (new mtime, same content) is not a change", () => {
     const f = path.join(home, ".copilot/config.json")
