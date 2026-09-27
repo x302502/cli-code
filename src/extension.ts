@@ -91,17 +91,12 @@ async function runStatusHookSync(context: vscode.ExtensionContext, enabled: bool
  * the config listener's follow-up sync then finds everything unchanged and stays quiet. */
 async function setStatusHooks(context: vscode.ExtensionContext, enabled: boolean): Promise<void> {
   await runStatusHookSync(context, enabled)
-  // Written where the effective value comes from: a workspace (folder) setting would otherwise
-  // outrank a Global write, and the config listener would silently undo what was just done.
+  // Written where the effective value comes from: a workspace setting would otherwise outrank a
+  // Global write, and the config listener would silently undo what was just done. (The setting
+  // is window-scoped: there is no folder value.)
   const config = vscode.workspace.getConfiguration("cliCode")
-  const set = config.inspect<boolean>("statusHooks")
-  const target =
-    set?.workspaceFolderValue !== undefined
-      ? vscode.ConfigurationTarget.WorkspaceFolder
-      : set?.workspaceValue !== undefined
-        ? vscode.ConfigurationTarget.Workspace
-        : vscode.ConfigurationTarget.Global
-  await config.update("statusHooks", enabled, target)
+  const inWorkspace = config.inspect<boolean>("statusHooks")?.workspaceValue !== undefined
+  await config.update("statusHooks", enabled, inWorkspace ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global)
 }
 
 export function activate(context: vscode.ExtensionContext): TestApi {
