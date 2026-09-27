@@ -68,12 +68,13 @@ export function resolveTabTitle(parts: {
   // others (Claude, Gemini, Pi/OMP) prefix a status glyph or spinner — the tab shows its own
   // status glyph already. Same prefix set Orca strips, plus prompt markers.
   // Codex writes `<task> | <folder>` and multiplexers `zsh | <title>`: clean each segment
-  // on its own and drop the ones that were only a glyph, so a working Codex with no task
-  // summary yet reads "my-ai-books", not "| my-ai-books".
+  // on its own and drop the ones that were only a glyph, a shell name or a path, so a working
+  // Codex with no task summary yet reads "my-ai-books", not "| my-ai-books", and a multiplexer's
+  // "zsh | /workspace/project" says nothing (the prompt or the CLI's name is shown instead).
   const osc = parts.oscTitle
     ?.split(" | ")
     .map((seg) => seg.replace(GLYPH_PREFIX, "").replace(/\s*[⠀-⣿]\s*$/u, "").trim())
-    .filter(Boolean)
+    .filter(isMeaningfulOscTitle)
     .join(" | ")
   if (osc && isMeaningfulOscTitle(osc)) return truncateTitle(osc)
 

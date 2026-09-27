@@ -95,6 +95,9 @@ describe("OSC title prompt prefixes", () => {
   })
   it("Codex titles are `<task> | <folder>`: an empty task segment (spinner only) is dropped", () => {
     expect(resolveTabTitle({ oscTitle: "⠋ | my-ai-books", toolLabel: "Codex" })).toBe("my-ai-books")
+    // A multiplexer's shell name and path segments say nothing about the agent.
+    expect(resolveTabTitle({ oscTitle: "zsh | /workspace/project", promptTitle: "fix bug", toolLabel: "Claude" })).toBe("fix bug")
+    expect(resolveTabTitle({ oscTitle: "zsh | vim notes.md", toolLabel: "Claude" })).toBe("vim notes.md")
     expect(resolveTabTitle({ oscTitle: "Reply OK | my-ai-books", toolLabel: "Codex" })).toBe("Reply OK | my-ai-books")
     expect(resolveTabTitle({ oscTitle: "⠋ renaming... ⠋ | my-ai-books", toolLabel: "Codex" })).toBe("renaming... | my-ai-books")
   })
