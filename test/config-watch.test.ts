@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { canAutoRestart, changedPath, configPathsFor, configSnapshot, newestMtime } from "../src/lib/config-watch.js"
+import { canAutoRestart, changedPath, configPathsFor, configSnapshot, newestMtime, upgradeSnapshot } from "../src/lib/config-watch.js"
 
 let home: string
 beforeEach(() => (home = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-cfg-"))))
@@ -63,11 +63,17 @@ describe("configSnapshot / changedPath", () => {
     touch(".copilot/hooks/cli-code.json.tmp", T0 + 5000)
     expect(changedPath(before, configSnapshot([dir]))).toBeUndefined()
   })
-  it("a tab saved by an older build (files signed by mtime) is not restarted by the switch to content hashes", () => {
+  it("a tab saved by an older build (files signed by mtime): not restarted by the switch to hashes, and later edits still count", () => {
     const f = path.join(home, ".copilot/config.json")
     touch(".copilot/config.json", T0)
-    expect(changedPath({ [f]: String(T0) }, configSnapshot([f]))).toBeUndefined()
-    expect(changedPath({ [f]: "" }, configSnapshot([f]))).toBe(f)
+    fs.writeFileSync(f, '{"model":"x"}')
+    const restored = upgradeSnapshot({ [f]: String(T0) })
+    expect(changedPath(restored, configSnapshot([f]))).toBeUndefined()
+    fs.writeFileSync(f, '{"model":"y"}')
+    fs.utimesSync(f, (T0 + 9000) / 1000, (T0 + 9000) / 1000)
+    expect(changedPath(restored, configSnapshot([f]))).toBe(f)
+    // Only bare mtimes are rebased: a hash, or a missing file, is kept as it was.
+    expect(upgradeSnapshot({ [f]: "" })).toEqual({ [f]: "" })
   })
   it("a config file the CLI writes back unchanged (new mtime, same content) is not a change", () => {
     const f = path.join(home, ".copilot/config.json")

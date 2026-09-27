@@ -86,19 +86,23 @@ export function configSnapshot(paths: string[]): Record<string, string> {
   return out
 }
 
-/** The first path whose signature differs between two snapshots (added or removed counts too).
- * A tab saved by a build that signed files by their bare mtime has no content hash to compare:
- * that path is not taken as changed (an update in place would otherwise restart every tab). */
+/** The first path whose signature differs between two snapshots (added or removed counts too). */
 export function changedPath(before: Record<string, string>, after: Record<string, string>): string | undefined {
-  for (const p of new Set([...Object.keys(before), ...Object.keys(after)])) {
-    if (before[p] === after[p]) continue
-    if (LEGACY_MTIME.test(before[p] ?? "") && HASH.test(after[p] ?? "")) continue
-    return p
-  }
+  for (const p of new Set([...Object.keys(before), ...Object.keys(after)])) if (before[p] !== after[p]) return p
   return undefined
 }
-const LEGACY_MTIME = /^\d+(\.\d+)?$/
-const HASH = /^[0-9a-f]{16}$/
+
+/**
+ * A snapshot a tab was saved with, brought to today's signatures: a build that signed a file by
+ * its bare mtime left nothing to compare a content hash with, so such a path takes its current
+ * signature as the new baseline — once, on restore — rather than reading as changed (an update
+ * in place would restart every tab) or never comparing again.
+ */
+export function upgradeSnapshot(snapshot: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [p, sig] of Object.entries(snapshot)) out[p] = /^\d+(\.\d+)?$/.test(sig) ? (signature(p) ?? "") : sig
+  return out
+}
 
 function signature(p: string): string | undefined {
   const base = path.basename(p)

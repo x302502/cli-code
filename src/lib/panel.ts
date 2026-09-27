@@ -14,7 +14,7 @@ import { locateLatestSession } from "./history/locate.js"
 import { detectModel } from "./history/model.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
 import { createPromptTracker } from "./prompt-tracker.js"
-import { canAutoRestart, changedPath, configPathsFor, configSnapshot } from "./config-watch.js"
+import { canAutoRestart, changedPath, configPathsFor, configSnapshot, upgradeSnapshot } from "./config-watch.js"
 import { restartCommand, resumesConversation, sessionIdFromCommand } from "./restart-command.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
@@ -569,7 +569,7 @@ export async function restoreTerminalPanel(
     showGone(context, panel, tool, hung ? UNRESPONSIVE : undefined)
     return
   }
-  if (state.configSnapshot) tab(panel).configSnapshot = state.configSnapshot
+  if (state.configSnapshot) tab(panel).configSnapshot = upgradeSnapshot(state.configSnapshot)
   if (state.extensionPath) tab(panel).extensionPath = state.extensionPath
   wirePanel(context, panel, tool, connection, { reattached: true })
   void checkStale(context, panel)
