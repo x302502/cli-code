@@ -137,3 +137,17 @@ describe("createPromptTracker — edits it cannot replay", () => {
     expect(t.hasDraft()).toBe(false)
   })
 })
+
+describe("createPromptTracker — input split across chunks, and non-BMP characters", () => {
+  it("a bracketed-paste marker (or any CSI) cut between two chunks is still one sequence", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b[20")
+    t.feed("0~abc\x1b[2")
+    expect(t.feed("01~\r")).toBe("abc")
+  })
+  it("Backspace removes a whole emoji, so the line is empty again", () => {
+    const t = createPromptTracker()
+    t.feed("😀\x7f")
+    expect(t.hasDraft()).toBe(false)
+  })
+})

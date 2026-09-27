@@ -26,7 +26,13 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
   // known empty again.
   let unknown = opts.draftUnknown ?? false
 
-  const feed = (input: string): string | undefined => {
+  // The start of a CSI, or of the paste-end marker, a chunk ended in the middle of: the next
+  // chunk completes it (a split ESC[200~ must not be read as text "0~…").
+  let carry = ""
+
+  const feed = (chunk: string): string | undefined => {
+    const input = carry + chunk
+    carry = ""
     let submitted: string | undefined
     let i = 0
     while (i < input.length) {
@@ -34,7 +40,12 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
         typedSinceSubmit = true
         const end = input.indexOf(PASTE_END, i)
         if (end === -1) {
-          line += input.slice(i)
+          // Hold back a tail that may be the start of the end marker.
+          let keep = PASTE_END.length - 1
+          while (keep > 0 && !input.endsWith(PASTE_END.slice(0, keep))) keep--
+          keep = Math.min(keep, input.length - i)
+          line += input.slice(i, input.length - keep)
+          carry = input.slice(input.length - keep)
           return undefined
         }
         line += input.slice(i, end)
@@ -63,6 +74,10 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
         if (input[i + 1] === "[") {
           let j = i + 2
           while (j < input.length && !(input.charCodeAt(j) >= 0x40 && input.charCodeAt(j) <= 0x7e)) j++
+          if (j === input.length) {
+            carry = input.slice(i)
+            return submitted
+          }
           if (!(j === i + 2 && (input[j] === "I" || input[j] === "O"))) unknown = typedSinceSubmit = true
           i = j + 1
         } else if (input[i + 1] === "O" && i + 2 < input.length) {
@@ -79,7 +94,7 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
         submitted = title || undefined
         line = ""
         unknown = typedSinceSubmit = false
-      } else if (ch === "\x7f" || ch === "\b") line = line.slice(0, -1)
+      } else if (ch === "\x7f" || ch === "\b") line = line.slice(0, /[\ud800-\udbff][\udc00-\udfff]$/.test(line) ? -2 : -1) // one code point (an emoji is two units)
       else if (ch === "\x03" || ch === "\x15") {
         line = ""
         unknown = typedSinceSubmit = false
