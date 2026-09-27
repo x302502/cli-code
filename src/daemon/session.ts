@@ -45,8 +45,8 @@ export class Session {
   private waitingTool: string | undefined
   /** Characters written to the mirror it has not parsed yet (see onData). */
   private mirrorPending = 0
-  /** The PTY stream's trailing escape sequence while it is still incomplete (see attach). */
-  private unfinished = ""
+  /** Where the PTY stream stands in escape sequences: an attach needs any it cut off. */
+  private readonly escapes = new EscapeTracker()
   /** Per chunk still waiting in the mirror: whether the mirror answers its queries. */
   private readonly mirrorAnswers: boolean[] = []
   private clientHeld = false
@@ -96,7 +96,7 @@ export class Session {
         })
         this.applyBackpressure()
       }
-      this.unfinished = unterminatedEscape(this.unfinished + data)
+      this.escapes.feed(data)
       const chunk = ENCODER.encode(data)
       // Backpressure only tracks bytes owed to an actual listener: a detached
       // session (client gone during Reload Window) must never pause its PTY,
@@ -206,7 +206,7 @@ export class Session {
     // An escape sequence cut off at the snapshot's cut point (`ESC[6` now, `n` later) is not in
     // the screen the snapshot draws: the client gets its start right after, so that the rest,
     // arriving attached, completes a sequence the client parses — and answers, if it is a query.
-    const unfinished = this.unfinished
+    const unfinished = this.escapes.pending()
     const text = await this.snapshot()
     if (gen !== this.attachGen) return
     onSnapshot(text)
@@ -358,25 +358,98 @@ function oscLinks(term: Terminal): string {
 }
 
 // Longest unfinished escape sequence carried over to an attaching client; a longer one (a huge
-// OSC 52 clipboard write cut mid-way) is dropped rather than held.
+// OSC 52 clipboard write cut mid-way) is not carried over at all.
 const MAX_UNFINISHED = 64 * 1024
 
+type EscState = "ground" | "esc" | "escInter" | "csi" | "osc" | "str" | "strEsc"
+
 /**
- * The tail of `text` that is an escape sequence not yet complete, or "". Only the last ESC can
- * start one: CSI and ESC sequences hold no ESC, and a string (OSC, DCS, APC, PM, SOS) ends in
- * BEL or ESC \ — the ST's own ESC then being the last, complete one.
+ * Follows the PTY stream the way the terminal's parser does (the DEC/xterm state machine), to
+ * know the escape sequence it is in the middle of — as the bytes the client still needs to see
+ * to finish it (see attach). A C0 control inside a sequence is executed on the spot (the screen,
+ * and the snapshot, already show it), so it is not part of what is replayed; CAN and SUB abort
+ * the sequence; ESC starts a new one (or, inside a string, may be its ST).
  */
-export function unterminatedEscape(text: string): string {
-  const at = text.lastIndexOf("\x1b")
-  if (at === -1) return ""
-  const seq = text.slice(at)
-  if (seq.length > MAX_UNFINISHED) return ""
-  if (seq.length === 1) return seq
-  const kind = seq[1]!
-  if (kind === "[") return /^\x1b\[[\x20-\x3f]*[\x40-\x7e]/.test(seq) ? "" : seq
-  if (kind === "]" || kind === "P" || kind === "_" || kind === "^" || kind === "X") return /[\x07\x9c]/.test(seq) ? "" : seq
-  // ESC, any intermediates (0x20–0x2f), then a final byte.
-  return /^\x1b[\x20-\x2f]*[\x30-\x7e]/.test(seq) ? "" : seq
+export class EscapeTracker {
+  private state: EscState = "ground"
+  private seq = ""
+  private lost = false
+
+  feed(data: string): void {
+    for (let i = 0; i < data.length; i++) this.step(data.charCodeAt(i), data[i]!)
+  }
+
+  /** The unfinished sequence so far, or "" in plain text (or when it grew past the cap). */
+  pending(): string {
+    return this.state === "ground" || this.lost ? "" : this.seq
+  }
+
+  private add(ch: string): void {
+    if (this.seq.length >= MAX_UNFINISHED) this.lost = true
+    else this.seq += ch
+  }
+
+  private start(): void {
+    this.state = "esc"
+    this.seq = "\x1b"
+    this.lost = false
+  }
+
+  private step(c: number, ch: string): void {
+    if (c === 0x18 || c === 0x1a) {
+      this.state = "ground"
+      return
+    }
+    switch (this.state) {
+      case "ground":
+        if (c === 0x1b) this.start()
+        return
+      case "esc":
+        if (c === 0x1b) return this.start()
+        if (c < 0x20 || c === 0x7f) return // executed / ignored, not part of the sequence
+        this.add(ch)
+        if (c >= 0x20 && c <= 0x2f) this.state = "escInter"
+        else if (ch === "[") this.state = "csi"
+        else if (ch === "]") this.state = "osc"
+        else if (ch === "P" || ch === "X" || ch === "^" || ch === "_") this.state = "str"
+        else this.state = "ground"
+        return
+      case "escInter":
+        if (c === 0x1b) return this.start()
+        if (c < 0x20 || c === 0x7f) return
+        this.add(ch)
+        if (c >= 0x30) this.state = "ground"
+        return
+      case "csi":
+        if (c === 0x1b) return this.start()
+        if (c < 0x20 || c === 0x7f) return
+        this.add(ch)
+        if (c >= 0x40 && c <= 0x7e) this.state = "ground"
+        return
+      case "osc":
+      case "str":
+        if (c === 0x1b) {
+          this.add(ch)
+          this.state = "strEsc"
+          return
+        }
+        if (c === 0x07 && this.state === "osc") {
+          this.state = "ground"
+          return
+        }
+        if (c >= 0x20) this.add(ch)
+        return
+      case "strEsc":
+        // ESC \ is the string's ST; anything else starts a new escape sequence.
+        if (ch === "\\") {
+          this.state = "ground"
+          return
+        }
+        this.start()
+        this.step(c, ch)
+        return
+    }
+  }
 }
 
 // Every PTY chunk goes through it: one for the module, not one per chunk.

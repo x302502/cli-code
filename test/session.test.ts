@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { HIGH_WATER } from "../src/lib/flow-control.js"
-import { createSession, unterminatedEscape, type PtyLike } from "../src/daemon/session.js"
+import { EscapeTracker, createSession, type PtyLike } from "../src/daemon/session.js"
 
 function fakePty() {
   const calls = { written: [] as string[], resized: [] as [number, number][], paused: 0, resumed: 0, killed: 0 }
@@ -553,16 +553,61 @@ describe("Session — terminal queries while no client is attached", () => {
   })
 })
 
-describe("unterminatedEscape", () => {
-  it("keeps an escape sequence cut off at the end, and nothing once it is complete", () => {
-    expect(unterminatedEscape("ab\x1b[6")).toBe("\x1b[6")
-    expect(unterminatedEscape("ab\x1b[6n")).toBe("")
-    expect(unterminatedEscape("x\x1b")).toBe("\x1b")
-    expect(unterminatedEscape("\x1b]11;?")).toBe("\x1b]11;?")
-    expect(unterminatedEscape("\x1b]11;?\x07")).toBe("")
-    expect(unterminatedEscape("\x1b]0;t\x1b\\")).toBe("")
-    expect(unterminatedEscape("\x1b(")).toBe("\x1b(")
-    expect(unterminatedEscape("\x1b(B")).toBe("")
-    expect(unterminatedEscape("plain text")).toBe("")
+describe("EscapeTracker", () => {
+  const pending = (...chunks: string[]) => {
+    const t = new EscapeTracker()
+    for (const c of chunks) t.feed(c)
+    return t.pending()
+  }
+  it("holds the sequence the stream is in the middle of, and nothing in plain text", () => {
+    expect(pending("ab\x1b[6")).toBe("\x1b[6")
+    expect(pending("ab\x1b[6", "n")).toBe("")
+    expect(pending("x\x1b")).toBe("\x1b")
+    expect(pending("\x1b]11;?")).toBe("\x1b]11;?")
+    expect(pending("\x1b]11;?\x07")).toBe("")
+    expect(pending("\x1b]0;t\x1b", "\\")).toBe("")
+    expect(pending("\x1b(")).toBe("\x1b(")
+    expect(pending("\x1b(B")).toBe("")
+    expect(pending("plain text")).toBe("")
+  })
+  it("CAN/SUB abort a sequence; a C0 control inside one is executed, not replayed", () => {
+    expect(pending("\x1b[31\x18hello")).toBe("")
+    expect(pending("\x1b[31\x1ahello")).toBe("")
+    expect(pending("\x1b[6\n")).toBe("\x1b[6")
+    expect(pending("\x1b]0;a\x1b[1")).toBe("\x1b[1")
+  })
+})
+
+describe("Session attach — what the client ends up showing and answering", () => {
+  async function attachAndReplay(detached: string, attached: string) {
+    const { Terminal } = await import("@xterm/headless")
+    const { session, calls, emit } = makeSession()
+    emit(detached)
+    const client = new Terminal({ cols: 80, rows: 24, allowProposedApi: true })
+    const answers: string[] = []
+    client.onData((d) => answers.push(d))
+    const writes: Promise<void>[] = []
+    const write = (s: string) => writes.push(new Promise<void>((r) => client.write(s, r)))
+    await session.attach(write, (c) => write(new TextDecoder().decode(c)))
+    emit(attached)
+    await session.snapshot()
+    await Promise.all(writes)
+    const screen = [0, 1, 2].map((y) => client.buffer.active.getLine(y)!.translateToString(true))
+    client.dispose()
+    return { screen, answers, mirrorAnswers: calls.written }
+  }
+  it("a CSI aborted by CAN before the attach does not replay the text after it", async () => {
+    const r = await attachAndReplay("\x1b[31\x18hello", "")
+    expect(r.screen[0]).toBe("hello")
+  })
+  it("a query with a newline inside, split across the attach, is answered once, at the right place", async () => {
+    const r = await attachAndReplay("ab\x1b[6\n", "n")
+    expect(r.screen.slice(0, 2)).toEqual(["ab", ""])
+    expect([...r.answers, ...r.mirrorAnswers]).toEqual(["\x1b[2;3R"])
+  })
+  it("a query split across the attach: shown once, answered once", async () => {
+    const r = await attachAndReplay("ab\x1b[6", "n")
+    expect(r.screen[0]).toBe("ab")
+    expect([...r.answers, ...r.mirrorAnswers]).toEqual(["\x1b[1;3R"])
   })
 })
