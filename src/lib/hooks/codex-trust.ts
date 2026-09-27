@@ -49,12 +49,15 @@ function unquoted(inner: string): string {
 
 const block = (key: string, hash: string) => `[hooks.state.${tomlString(key)}]\nenabled = true\ntrusted_hash = "${hash}"\n`
 
-// One `[hooks.state."<key>"]` table: its header and the non-blank lines under it, up to the next
-// header, a blank line or the end of the file (whether or not that ends in a newline). TOML
-// allows whitespace before a header, so an indented `[table]` still ends ours. The key may hold
-// escapes (`\"`, `\\`).
+// One `[hooks.state."<key>"]` table: its header and every line under it up to the next header
+// or the end of the file — blank lines included: in TOML a table runs until the next header, so a
+// key after a blank line is still the table's. TOML allows whitespace before a header, so an
+// indented `[table]` still ends ours. The key may hold escapes (`\"`, `\\`).
 const KEY = String.raw`"((?:[^"\\\n]|\\.)*)"`
-const TABLE_RE = new RegExp(String.raw`(\n?)[ \t]*\[hooks\.state\.` + KEY + String.raw`\]\n?(?:(?![ \t]*\[)[^\n]+(?:\n|$))*`, "g")
+// The table's lines: any non-blank line that is not a header, and a blank line only when a line
+// of the table still follows it — blank lines before the next header (or the end) separate.
+const TABLE_BODY = String.raw`(?:(?![ \t]*\[)[^\n]*\S[^\n]*(?:\n|$)|[ \t]*\n(?=(?:[ \t]*\n)*(?![ \t]*\[)[ \t]*\S))*`
+const TABLE_RE = new RegExp(String.raw`(\n?)[ \t]*\[hooks\.state\.` + KEY + String.raw`\]\n?` + TABLE_BODY, "g")
 /** What a removed table leaves behind: the match takes the newline before it and every line of it,
  * so when content follows right away (the next table, no blank line between) that line must
  * still start on a line of its own — `model = "x"[projects…]` is not TOML. */
