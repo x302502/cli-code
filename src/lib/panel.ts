@@ -18,7 +18,7 @@ import { canAutoRestart, changedPath, configPathsFor, configSnapshot, upgradeSna
 import { restartCommand, resumesConversation, sessionIdFromCommand } from "./restart-command.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
-import { buildEnv } from "./terminal.js"
+import { buildEnv, iconFor } from "./terminal.js"
 import { resolveTabTitle } from "./tab-title.js"
 
 export const VIEW_TYPE = "cliCode.terminal"
@@ -461,6 +461,17 @@ function probeSocket(socketPath: string): Promise<"listening" | "absent" | "unkn
 
 // Work that waits for the first CLI tab of the window (see onFirstTab in extension.ts).
 let firstTab: (() => void) | undefined
+/** Codex's folder comes from the login shell (see codexHomeFromShell): a Codex tab waits for it
+ * before anything reads Codex's config or sessions; no other CLI needs to. */
+function codexHomeFor(tool: CliTool): Promise<void> {
+  return (tool.historyToolId ?? tool.id) === "codex" ? codexHomeFromShell() : Promise.resolve()
+}
+
+/** Where a CLI with no usable folder starts: VS Code launched from the Dock has cwd `/`. */
+function fallbackCwd(): string {
+  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? os.homedir()
+}
+
 /** Runs `fn` once, when the window's first CLI tab is opened or restored. */
 export function onFirstTab(fn: () => void): void {
   firstTab = fn
@@ -486,10 +497,13 @@ export async function openTerminalPanel(
   } = {},
 ): Promise<vscode.WebviewPanel | undefined> {
   tabStarting()
-  // The tab's config snapshot must list Codex's real folder (see codexHomeFromShell).
-  await codexHomeFromShell()
-  const socketPath = await ensureDaemon(context)
-  const cwd = usableCwd(options.cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd()
+  // The tab's config snapshot must list Codex's real folder; the daemon comes up meanwhile.
+  const [socketPath] = await Promise.all([ensureDaemon(context).catch((err: unknown) => (err instanceof Error ? err : new Error(String(err)))), codexHomeFor(tool)])
+  if (socketPath instanceof Error) {
+    void vscode.window.showErrorMessage(`Could not open the terminal: ${socketPath.message}`)
+    return undefined
+  }
+  const cwd = usableCwd(options.cwd) ?? fallbackCwd()
   const baseCommand = options.command ?? tool.command
 
   let refused: string | undefined
@@ -553,7 +567,13 @@ export async function restoreTerminalPanel(
   // panel is not registered yet, so track that here.
   let closed = false
   const closing = panel.onDidDispose(() => (closed = true))
-  const { connection, hung } = await findSession(context, state.sessionId, () => closed)
+  // Before the saved config snapshot is brought up to date (below): it must be signed against
+  // Codex's real folder, as every later check is. After `closing` is armed: the tab may be
+  // closed meanwhile.
+  await codexHomeFor(tool)
+  // Found even when the tab was closed meanwhile: closing it ends its CLI (below), which takes
+  // the attach.
+  const { connection, hung } = await findSession(context, state.sessionId)
   closing.dispose()
   if (closed) {
     // A closed tab ends its CLI (same as closing a live one); nothing would ever kill it later.
@@ -581,15 +601,10 @@ export async function restoreTerminalPanel(
  * ones, newest first — each probed first (500 ms), so a missing or hung daemon does not cost a
  * 5 s handshake timeout. `hung`: the current daemon did not answer the probe.
  */
-async function findSession(
-  context: vscode.ExtensionContext,
-  sessionId: string,
-  stop: () => boolean = () => false,
-): Promise<{ connection?: SessionConnection; hung: boolean }> {
+async function findSession(context: vscode.ExtensionContext, sessionId: string): Promise<{ connection?: SessionConnection; hung: boolean }> {
   const current = context.workspaceState.get<string>(DAEMON_ID_KEY)
   let hung = false
   for (const id of [...(current ? [current] : []), ...[...previousDaemonIds(context)].reverse()]) {
-    if (stop()) break
     const probe = await probeSocket(daemonSocketPath(id))
     if (probe === "unknown" && id === current) hung = true
     if (probe !== "listening") continue
@@ -669,7 +684,7 @@ const HISTORY_TOOLS = new Set(["claude", "codex", "grok"])
  * spawned), otherwise the CLI's continue command, otherwise what the tab was opened with.
  */
 async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Promise<string> {
-  await codexHomeFromShell()
+  await codexHomeFor(tool)
   const baseCommand = tab(panel).command ?? tool.command
   const cwd = usableCwd(tab(panel).cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
   const spawnedAt = tab(panel).spawnedAt ?? 0
@@ -680,7 +695,7 @@ async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Pro
   if (!reportedSessionId && cwd && HISTORY_TOOLS.has(tool.historyToolId ?? tool.id)) {
     try {
       // Older sessions are dropped by restartCommand anyway: skip Codex's older day folders.
-      sessions = await listSessionsForWorkspace(cwd, undefined, spawnedAt || undefined)
+      sessions = await listSessionsForWorkspace(cwd, undefined, spawnedAt || undefined, tool.historyToolId ?? tool.id)
     } catch {
       // History is best effort; a scan failure just means a fresh session.
     }
@@ -1020,8 +1035,8 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
  * same conversation by themselves; busy ones show a notice until the user restarts.
  */
 export async function checkStale(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
-  await codexHomeFromShell()
   const tool = tab(panel).tool
+  if (tool) await codexHomeFor(tool)
   const spawnedAt = tab(panel).spawnedAt
   // A CLI the user quit stays quit: a config change must not spawn it again.
   if (!tool || !spawnedAt || !activePanels.has(panel) || !tab(panel).connection || tab(panel).exited) return
@@ -1093,7 +1108,7 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
             op: "spawn",
             toolId: tool.id,
             command: baseCommand,
-            cwd: usableCwd(tab(panel).cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
+            cwd: usableCwd(tab(panel).cwd) ?? fallbackCwd(),
             env: spawnEnv(context, tool),
             cols: 80,
             rows: 24,
@@ -1148,7 +1163,14 @@ async function redrawFromDaemon(context: vscode.ExtensionContext, panel: vscode.
     fresh?.dispose()
     return
   }
-  if (!fresh) return showGone(context, panel, tool)
+  if (!fresh) {
+    // Its CLI may still run in the daemon (a slow or hung one): end it, or it would run on with
+    // no tab — Restart on the gone page starts another. Best effort: a hung daemon cannot be told.
+    const hung = (await probeSocket(current.socketPath)) === "unknown"
+    showGone(context, panel, tool, hung ? UNRESPONSIVE : undefined)
+    void killSession(context, current.sessionId)
+    return
+  }
   attachConnection(context, panel, tool, fresh, { reattached: true })
 }
 
@@ -1173,13 +1195,6 @@ function postState(panel: vscode.WebviewPanel): void {
       extensionPath: tab(panel).extensionPath,
     },
   })
-}
-
-function iconFor(context: vscode.ExtensionContext, tool: CliTool): { light: vscode.Uri; dark: vscode.Uri } {
-  return {
-    light: vscode.Uri.file(context.asAbsolutePath(`images/agents-light/${tool.icon}`)),
-    dark: vscode.Uri.file(context.asAbsolutePath(`images/agents-dark/${tool.icon}`)),
-  }
 }
 
 function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview): string {

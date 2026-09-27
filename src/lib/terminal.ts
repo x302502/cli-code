@@ -2,6 +2,14 @@ import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { detectInstalled, extractBinary } from "./detect.js"
 
+/** A CLI's icon, in its light and dark variants (images/agents-light, images/agents-dark). */
+export function iconFor(context: vscode.ExtensionContext, tool: CliTool): { light: vscode.Uri; dark: vscode.Uri } {
+  return {
+    light: vscode.Uri.file(context.asAbsolutePath(`images/agents-light/${tool.icon}`)),
+    dark: vscode.Uri.file(context.asAbsolutePath(`images/agents-dark/${tool.icon}`)),
+  }
+}
+
 /** A QuickPick item carrying the tool id so we can look it up on accept. */
 type ToolPickItem = vscode.QuickPickItem & { id: string }
 
@@ -41,10 +49,7 @@ export async function pickTool(context: vscode.ExtensionContext): Promise<CliToo
       label: tool.label,
       description: isInstalled ? tool.description : "not installed",
       id: tool.id,
-      iconPath: {
-        light: vscode.Uri.file(context.asAbsolutePath(`images/agents-light/${tool.icon}`)),
-        dark: vscode.Uri.file(context.asAbsolutePath(`images/agents-dark/${tool.icon}`)),
-      },
+      iconPath: iconFor(context, tool),
     }
     if (isInstalled) installedItems.push(item)
     else notInstalledItems.push(item)
