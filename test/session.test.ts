@@ -687,4 +687,16 @@ describe("Session snapshot — links moved by a scroll inside a region", () => {
     // Row 10 (index 9) moved up two, to index 7; the cursor sits on index 19.
     expect(runs).toEqual([[7 - 19, 0, 4, "https://a"]])
   })
+  it("the same on the alternate screen, and for a reverse scroll (RI at the region's top)", async () => {
+    const link = "\x1b]8;;https://a\x07LINK\x1b]8;;\x07"
+    const runsOf = async (text: string) => {
+      const { session, emit } = makeSession()
+      emit(text)
+      return JSON.parse(linksIn(await session.snapshot())) as [number, number, number, string][]
+    }
+    // Region rows 5..15; the link printed on row 10, the region scrolled up two; cursor on row 15.
+    expect(await runsOf(`\x1b[?1049h\x1b[5;15r\x1b[10;1H${link}\x1b[15;1H\n\n`)).toEqual([[7 - 14, 0, 4, "https://a"]])
+    // Reverse index at the region's top twice: the link moves down to row 12; cursor on row 5.
+    expect(await runsOf(`\x1b[5;15r\x1b[10;1H${link}\x1b[5;1H\x1bM\x1bM`)).toEqual([[11 - 4, 0, 4, "https://a"]])
+  })
 })
