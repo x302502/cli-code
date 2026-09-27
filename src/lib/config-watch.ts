@@ -135,7 +135,8 @@ function hashOf(p: string, extract: (text: string) => string): string | undefine
   let text: string
   try {
     const st = fs.statSync(p)
-    stamp = `${st.mtimeMs}:${st.size}`
+    // ctime too: a same-size rewrite with its mtime put back (a restore, utimes) still moves it.
+    stamp = `${st.mtimeMs}:${st.ctimeMs}:${st.size}`
     const cached = hashes.get(p)
     if (cached?.stamp === stamp) return cached.hash
     text = fs.readFileSync(p, "utf8")

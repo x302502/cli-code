@@ -46,7 +46,8 @@ const hookFiles = [
   path.join(os.homedir(), ".pi", "agent", "extensions", "cli-code-status.ts"),
   path.join(os.homedir(), ".omp", "agent", "extensions", "cli-code-status.ts"),
 ]
-const beforeSiblings = [statFile(`${realClaudeSettingsPath}.cli-code.bak`), statFile(`${realClaudeSettingsPath}.tmp`), ...hookFiles.map(statFile)]
+// settings.json itself too, from before VS Code starts: activation must never write it.
+const beforeSiblings = [statFile(realClaudeSettingsPath), statFile(`${realClaudeSettingsPath}.cli-code.bak`), statFile(`${realClaudeSettingsPath}.tmp`), ...hookFiles.map(statFile)]
 
 function checkClaudeSettingsUntouched() {
   const snapshotFile = path.join(dirs.out, "claude-settings.before")

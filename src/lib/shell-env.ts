@@ -17,7 +17,9 @@ const SKIP = new Set(["_", "PWD", "OLDPWD", "SHLVL", "TERM", "TERM_PROGRAM", "TE
 /** Parses `env -0` output between the markers; undefined when the markers are missing. */
 export function parseEnvBlock(output: string): Record<string, string> | undefined {
   const a = output.indexOf(START)
-  const b = output.indexOf(END)
+  // The last end marker: it is printed right after `env -0`, so an env value that happens to hold
+  // the marker's text cannot cut the block short.
+  const b = output.lastIndexOf(END)
   if (a < 0 || b < 0 || b < a) return undefined
   const env: Record<string, string> = {}
   for (const entry of output.slice(a + START.length, b).split("\0")) {

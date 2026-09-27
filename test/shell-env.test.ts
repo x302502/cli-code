@@ -49,3 +49,9 @@ describe("shellEnv cache", () => {
     expect(calls).toBe(1)
   })
 })
+
+describe("parseEnvBlock — the marker text inside a value", () => {
+  it("an env value holding the end marker does not cut the block short", () => {
+    expect(parseEnvBlock(block(["WEIRD=x__CLI_CODE_ENV_END__y", "PATH=/a"]))).toEqual({ WEIRD: "x__CLI_CODE_ENV_END__y", PATH: "/a" })
+  })
+})

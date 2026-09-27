@@ -38,7 +38,8 @@ export function addFilepathToTerminal() {
 
 /** Lists past sessions for the current workspace and reopens the chosen one. */
 export async function resumeSession(context: vscode.ExtensionContext): Promise<void> {
-  const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  // The CLI tab in front says which project is meant (a multi-root workspace has several).
+  const cwd = activePanelCwd() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
   if (!cwd) {
     void vscode.window.showInformationMessage("Open a folder first.")
     return
