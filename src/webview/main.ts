@@ -375,6 +375,10 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     fit.fit()
     vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
   } else if (message.type === "reset") {
+    // A restarted CLI: whatever the old one left in the bar (a stale-config notice, a
+    // waiting banner) no longer holds.
+    actionBar.setNotice("")
+    actionBar.setStatus("")
     overlay.hide()
     term.reset()
     fit.fit()
