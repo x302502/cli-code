@@ -63,6 +63,17 @@ describe("configSnapshot / changedPath", () => {
     touch(".copilot/hooks/cli-code.json.tmp", T0 + 5000)
     expect(changedPath(before, configSnapshot([dir]))).toBeUndefined()
   })
+  it("a config file the CLI writes back unchanged (new mtime, same content) is not a change", () => {
+    const f = path.join(home, ".copilot/config.json")
+    touch(".copilot/config.json", T0)
+    fs.writeFileSync(f, '{"model":"x"}')
+    const before = configSnapshot([f])
+    fs.writeFileSync(f, '{"model":"x"}')
+    fs.utimesSync(f, (T0 + 9000) / 1000, (T0 + 9000) / 1000)
+    expect(changedPath(before, configSnapshot([f]))).toBeUndefined()
+    fs.writeFileSync(f, '{"model":"y"}')
+    expect(changedPath(before, configSnapshot([f]))).toBe(f)
+  })
   it("a plugin folder's node_modules is not config: installing a dependency is not a change", () => {
     const dir = path.join(home, ".opencode")
     touch(".opencode/plugins/a.ts", T0)

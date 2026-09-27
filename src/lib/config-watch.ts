@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import * as fs from "node:fs"
 import * as path from "node:path"
+import { codexDir } from "./codex-home.js"
 import type { AgentState } from "./protocol.js"
 
 /**
@@ -34,7 +35,7 @@ export function configPathsFor(toolId: string, historyToolId: string | undefined
   const p = CONFIG_PATHS[id]
   if (!p) return []
   // Codex's home folder moves with CODEX_HOME; its project-level `.codex/` does not.
-  const homeFile = (r: string) => (id === "codex" && process.env.CODEX_HOME ? path.join(process.env.CODEX_HOME, r.replace(/^\.codex\//, "")) : path.join(home, r))
+  const homeFile = (r: string) => (id === "codex" ? path.join(codexDir(home), r.replace(/^\.codex\//, "")) : path.join(home, r))
   return [...p.home.map(homeFile), ...(cwd ? p.project.map((r) => path.join(cwd, r)) : [])]
 }
 
@@ -71,8 +72,9 @@ function configEntries(dir: string): string[] {
 }
 
 /**
- * Per-path signature. Most files: newest mtime. Files the CLI itself rewrites while running —
- * `~/.claude.json` (Claude stores its state there) and Codex's `config.toml` (notices, trust
+ * Per-path signature. Most files: a hash of their content (a directory: its newest mtime), so
+ * a CLI writing its config back unchanged is no change. Files the CLI itself rewrites with new
+ * content while running — `~/.claude.json` (Claude stores its state there) and Codex's `config.toml` (notices, trust
  * entries, model availability) — would otherwise look "changed" all the time, so for those only
  * the parts that matter (MCP servers, hooks) are hashed. Claude's `settings*.json` also gets a
  * write whenever the user answers a permission with "don't ask again": hashed without `permissions`. A missing path is recorded as "" (not
@@ -95,7 +97,7 @@ function signature(p: string): string | undefined {
   if (base === ".claude.json") return hashOf(p, claudeMcp)
   const parent = path.dirname(p)
   if ((base === "settings.json" || base === "settings.local.json") && path.basename(parent) === ".claude") return hashOf(p, withoutPermissions)
-  if (base === "config.toml" && (path.basename(parent) === ".codex" || (process.env.CODEX_HOME && path.resolve(parent) === path.resolve(process.env.CODEX_HOME)))) return hashOf(p, codexMcpAndHooks)
+  if (base === "config.toml" && (path.basename(parent) === ".codex" || path.resolve(parent) === path.resolve(codexDir()))) return hashOf(p, codexMcpAndHooks)
   const m = newestMtime(p)
   if (m === undefined) return undefined
   // A directory also lists its entries, so a removed plugin file counts as a change.
@@ -105,7 +107,8 @@ function signature(p: string): string | undefined {
   } catch {
     return undefined
   }
-  return dir ? `${m}:${configEntries(p).sort().join(",")}` : String(m)
+  // A file by its content: a CLI writing its config back unchanged is not a change.
+  return dir ? `${m}:${configEntries(p).sort().join(",")}` : hashOf(p, (text) => text)
 }
 
 // Hash per file, keyed by its mtime+size: ~/.claude.json can be hundreds of KB and is

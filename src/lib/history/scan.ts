@@ -1,6 +1,7 @@
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
+import { codexDir } from "../codex-home.js"
 import { samePath } from "../same-path.js"
 import { encodeClaudeProjectDir, parseClaudeSession } from "./claude.js"
 import { parseCodexRollout } from "./codex.js"
@@ -53,12 +54,12 @@ export function claudeSessionsInDir(dir: string, limit: number, cwd?: string, si
  * `rollout-<start time>-<session id>.jsonl` under the day the session began, which for a
  * resumed session is no day since the tab was spawned. */
 export function codexRolloutById(sessionId: string): string | undefined {
-  const dir = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "sessions")
+  const dir = path.join(codexDir(), "sessions")
   return newestFiles(dir, (n) => n.startsWith("rollout-") && n.endsWith(`-${sessionId}.jsonl`), { depth: Infinity, limit: 1 })[0]
 }
 
 export function codexSessions(cwd: string, limit: number, sinceMs?: number): SessionSummary[] {
-  const dir = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "sessions")
+  const dir = path.join(codexDir(), "sessions")
   const isRollout = (n: string) => n.startsWith("rollout-") && n.endsWith(".jsonl")
   const files =
     sinceMs === undefined

@@ -1,6 +1,7 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
 import { GROK_HOOK_COMMAND, HOOK_EVENTS, hookCommand, hooksInstalled, isOurCommand, installHooks, readSettingsFile, uninstallHooks, writeFileAtomic, writeSettingsFile } from "../claude-hooks.js"
+import { codexDir } from "../codex-home.js"
 import { addTrust, codexTrustKeys, remapTrust, removeTrust, trustedWith } from "./codex-trust.js"
 import { copilotFile, copilotInstalled } from "./copilot.js"
 import { isManagedPlugin, pluginSource, type PluginFlavour } from "./plugin-template.js"
@@ -36,9 +37,6 @@ function readText(file: string): string | undefined {
     throw new Error(`Could not read ${file}: ${String(err)}`)
   }
 }
-function writeText(file: string, text: string): void {
-  writeFileAtomic(file, text)
-}
 
 // --- the Claude `hooks` object inside a settings file the user also edits (claude, droid) ---
 
@@ -66,10 +64,6 @@ function settingsHooks(id: string, label: string, binary: string, rel: string[],
 // --- Codex: hooks.json plus trust entries in config.toml ---
 
 const CODEX_EVENTS = ["UserPromptSubmit", "Stop", "PermissionRequest"] as const
-/** The folder Codex reads its config from: CODEX_HOME when set (as for Codex itself), else ~/.codex. */
-export function codexDir(home: string): string {
-  return process.env.CODEX_HOME || path.join(home, ".codex")
-}
 const codex: StatusHookInstaller = {
   id: "codex",
   label: "Codex",
@@ -87,7 +81,7 @@ const codex: StatusHookInstaller = {
     const { settings, changed } = installHooks(readSettingsFile(hooksFile), CODEX_EVENTS, 10, hookCommand("codex"))
     if (changed) writeSettingsFile(hooksFile, settings)
     const trust = addTrust(readText(tomlFile) ?? "", codexTrustKeys(hooksFile, settings))
-    if (trust.changed) writeText(tomlFile, trust.text)
+    if (trust.changed) writeFileAtomic(tomlFile, trust.text)
     return changed || trust.changed
   },
   uninstall: (home) => {
@@ -98,7 +92,7 @@ const codex: StatusHookInstaller = {
     if (changed) writeSettingsFile(hooksFile, settings)
     const trust = removeTrust(readText(tomlFile) ?? "", hashes)
     const moved = remapTrust(trust.text, hooksFile, before, settings)
-    if (trust.changed || moved.changed) writeText(tomlFile, moved.text)
+    if (trust.changed || moved.changed) writeFileAtomic(tomlFile, moved.text)
     return changed || trust.changed || moved.changed
   },
 }
@@ -173,7 +167,7 @@ function plugin(id: string, label: string, binary: string, rel: string[], flavou
       if (current === pluginSource(flavour, id)) return false
       // Never overwrite a file the user wrote under our name.
       if (current !== undefined && !isManagedPlugin(current)) throw new NotManagedError(`${file(home)} exists and is not managed by CLI Code`)
-      writeText(file(home), pluginSource(flavour, id))
+      writeFileAtomic(file(home), pluginSource(flavour, id))
       return true
     },
     uninstall: (home) => {
