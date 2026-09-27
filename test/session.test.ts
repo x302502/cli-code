@@ -618,6 +618,9 @@ describe("Session attach — what the client ends up showing and answering", () 
       "ab\x1b[6\nn",
       "\x1bP$qm\x1b\\z",
       "\x1b]11;?\x07t",
+      // Answered by the client alone (headless xterm 5.5 does not answer OSC 10/11): if a later
+      // xterm makes the mirror answer too, a split at the ESC of its ST would answer twice.
+      "\x1b]11;?\x1b\\u",
       "\x1b]0;title\x1b\\q",
       "\x1b[?1;2c\x1b[5n",
       "\x1b(Bk\x1b[c",
