@@ -16,8 +16,8 @@ export type CliTool = {
   historyToolId?: string
 }
 
-// Ordered roughly by popularity. Every entry is offered to the user; nothing
-// checks whether the CLI is actually installed, so an absent one fails at launch.
+// Ordered roughly by popularity. The picker lists every entry, installed CLIs first; one not
+// found on PATH is shown as "not installed" and is not launched (terminal.ts pickTool).
 // Commands carry the CLI's own permission-bypass flag where one exists — see the
 // per-entry notes for the tools that have no such flag. Icons are sourced from
 // the Orca ADE agent glyphs/favicons (github.com/stablyai/orca). Each CLI ships a
