@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { HIGH_WATER } from "../src/lib/flow-control.js"
-import { createSession, type PtyLike } from "../src/daemon/session.js"
+import { createSession, unterminatedEscape, type PtyLike } from "../src/daemon/session.js"
 
 function fakePty() {
   const calls = { written: [] as string[], resized: [] as [number, number][], paused: 0, resumed: 0, killed: 0 }
@@ -531,6 +531,18 @@ describe("Session — terminal queries while no client is attached", () => {
     await session.attach(() => {}, () => {})
     expect(calls.written).toEqual(["\x1b[1;3R"])
   })
+  it("a query split across the attach (ESC[6 detached, n attached): the client gets the whole of it, and answers", async () => {
+    const { session, calls, emit } = makeSession()
+    emit("ab\x1b[6")
+    const got: string[] = []
+    await session.attach(() => {}, (c) => got.push(new TextDecoder().decode(c)))
+    emit("n")
+    await session.snapshot()
+    // The client's parser sees ESC[6n (no stray "n" on its screen) and is the one to answer;
+    // the mirror, for a sequence completed while attached, stays quiet.
+    expect(got.join("")).toBe("\x1b[6n")
+    expect(calls.written).toEqual([])
+  })
   it("a query that arrived while attached, answered by the webview, is not answered again after a detach", async () => {
     const { session, calls, emit } = makeSession()
     session.onOutput(() => {})
@@ -538,5 +550,19 @@ describe("Session — terminal queries while no client is attached", () => {
     session.detach()
     await session.snapshot()
     expect(calls.written).toEqual([])
+  })
+})
+
+describe("unterminatedEscape", () => {
+  it("keeps an escape sequence cut off at the end, and nothing once it is complete", () => {
+    expect(unterminatedEscape("ab\x1b[6")).toBe("\x1b[6")
+    expect(unterminatedEscape("ab\x1b[6n")).toBe("")
+    expect(unterminatedEscape("x\x1b")).toBe("\x1b")
+    expect(unterminatedEscape("\x1b]11;?")).toBe("\x1b]11;?")
+    expect(unterminatedEscape("\x1b]11;?\x07")).toBe("")
+    expect(unterminatedEscape("\x1b]0;t\x1b\\")).toBe("")
+    expect(unterminatedEscape("\x1b(")).toBe("\x1b(")
+    expect(unterminatedEscape("\x1b(B")).toBe("")
+    expect(unterminatedEscape("plain text")).toBe("")
   })
 })

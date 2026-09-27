@@ -45,6 +45,8 @@ export class Session {
   private waitingTool: string | undefined
   /** Characters written to the mirror it has not parsed yet (see onData). */
   private mirrorPending = 0
+  /** The PTY stream's trailing escape sequence while it is still incomplete (see attach). */
+  private unfinished = ""
   /** Per chunk still waiting in the mirror: whether the mirror answers its queries. */
   private readonly mirrorAnswers: boolean[] = []
   private clientHeld = false
@@ -94,6 +96,7 @@ export class Session {
         })
         this.applyBackpressure()
       }
+      this.unfinished = unterminatedEscape(this.unfinished + data)
       const chunk = ENCODER.encode(data)
       // Backpressure only tracks bytes owed to an actual listener: a detached
       // session (client gone during Reload Window) must never pause its PTY,
@@ -200,11 +203,16 @@ export class Session {
     // Queue the snapshot marker before any later chunk can arrive, so every
     // byte that comes in during the await lands in `backlog`, not in the
     // snapshot.
+    // An escape sequence cut off at the snapshot's cut point (`ESC[6` now, `n` later) is not in
+    // the screen the snapshot draws: the client gets its start right after, so that the rest,
+    // arriving attached, completes a sequence the client parses — and answers, if it is a query.
+    const unfinished = this.unfinished
     const text = await this.snapshot()
     if (gen !== this.attachGen) return
     onSnapshot(text)
     this.backlog = undefined
     this.listener = onOutput
+    if (unfinished) this.forward(ENCODER.encode(unfinished))
     for (const chunk of backlog) this.forward(chunk)
     // Attaching to an exited session: the server sends Exit right after this returns.
     if (this.exit) this.coalescer.flush()
@@ -347,6 +355,28 @@ function oscLinks(term: Terminal): string {
     close(line.length)
   }
   return runs.length ? `\x1b]${SNAPSHOT_LINKS_OSC};${JSON.stringify(runs)}\x07` : ""
+}
+
+// Longest unfinished escape sequence carried over to an attaching client; a longer one (a huge
+// OSC 52 clipboard write cut mid-way) is dropped rather than held.
+const MAX_UNFINISHED = 64 * 1024
+
+/**
+ * The tail of `text` that is an escape sequence not yet complete, or "". Only the last ESC can
+ * start one: CSI and ESC sequences hold no ESC, and a string (OSC, DCS, APC, PM, SOS) ends in
+ * BEL or ESC \ — the ST's own ESC then being the last, complete one.
+ */
+export function unterminatedEscape(text: string): string {
+  const at = text.lastIndexOf("\x1b")
+  if (at === -1) return ""
+  const seq = text.slice(at)
+  if (seq.length > MAX_UNFINISHED) return ""
+  if (seq.length === 1) return seq
+  const kind = seq[1]!
+  if (kind === "[") return /^\x1b\[[\x20-\x3f]*[\x40-\x7e]/.test(seq) ? "" : seq
+  if (kind === "]" || kind === "P" || kind === "_" || kind === "^" || kind === "X") return /[\x07\x9c]/.test(seq) ? "" : seq
+  // ESC, any intermediates (0x20–0x2f), then a final byte.
+  return /^\x1b[\x20-\x2f]*[\x30-\x7e]/.test(seq) ? "" : seq
 }
 
 // Every PTY chunk goes through it: one for the module, not one per chunk.
