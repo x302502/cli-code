@@ -553,20 +553,7 @@ export async function restoreTerminalPanel(
   // panel is not registered yet, so track that here.
   let closed = false
   const closing = panel.onDidDispose(() => (closed = true))
-  let connection: SessionConnection | undefined
-  // Attaching never needs a new daemon: one spawned here holds no session, and waiting for it
-  // only delays the gone page. The current daemon first, then outdated ones, newest first.
-  // Each is probed first (500 ms): a missing or hung daemon must not cost a 5 s handshake
-  // timeout while the tab sits blank.
-  const current = context.workspaceState.get<string>(DAEMON_ID_KEY)
-  let hung = false
-  for (const id of [...(current ? [current] : []), ...[...previousDaemonIds(context)].reverse()]) {
-    if (connection || closed) break
-    const probe = await probeSocket(daemonSocketPath(id))
-    if (probe === "unknown" && id === current) hung = true
-    if (probe !== "listening") continue
-    connection = await connectSession(daemonSocketPath(id), { op: "attach", sessionId: state.sessionId })
-  }
+  const { connection, hung } = await findSession(context, state.sessionId, () => closed)
   closing.dispose()
   if (closed) {
     // A closed tab ends its CLI (same as closing a live one); nothing would ever kill it later.
@@ -588,17 +575,35 @@ export async function restoreTerminalPanel(
   void checkStale(context, panel)
 }
 
+/**
+ * Attaches to `sessionId` in whichever of this window's daemons holds it. Attaching never needs
+ * a new daemon (one spawned here would hold no session): the current one first, then outdated
+ * ones, newest first — each probed first (500 ms), so a missing or hung daemon does not cost a
+ * 5 s handshake timeout. `hung`: the current daemon did not answer the probe.
+ */
+async function findSession(
+  context: vscode.ExtensionContext,
+  sessionId: string,
+  stop: () => boolean = () => false,
+): Promise<{ connection?: SessionConnection; hung: boolean }> {
+  const current = context.workspaceState.get<string>(DAEMON_ID_KEY)
+  let hung = false
+  for (const id of [...(current ? [current] : []), ...[...previousDaemonIds(context)].reverse()]) {
+    if (stop()) break
+    const probe = await probeSocket(daemonSocketPath(id))
+    if (probe === "unknown" && id === current) hung = true
+    if (probe !== "listening") continue
+    const connection = await connectSession(daemonSocketPath(id), { op: "attach", sessionId })
+    if (connection) return { connection, hung }
+  }
+  return { hung }
+}
+
 /** Ends a session this window no longer shows, in whichever of its daemons holds it. */
 async function killSession(context: vscode.ExtensionContext, sessionId: string): Promise<void> {
-  const current = context.workspaceState.get<string>(DAEMON_ID_KEY)
-  for (const id of [...(current ? [current] : []), ...previousDaemonIds(context)]) {
-    if ((await probeSocket(daemonSocketPath(id))) !== "listening") continue
-    const connection = await connectSession(daemonSocketPath(id), { op: "attach", sessionId })
-    if (!connection) continue
-    connection.kill()
-    connection.dispose()
-    return
-  }
+  const { connection } = await findSession(context, sessionId)
+  connection?.kill()
+  connection?.dispose()
 }
 
 /** Renders the "session gone" view and wires its restart button. Shared by a failed
