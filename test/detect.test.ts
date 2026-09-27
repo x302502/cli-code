@@ -41,3 +41,12 @@ describe("binaryOnPath", () => {
     fs.rmSync(dir, { recursive: true, force: true })
   })
 })
+
+describe("binaryOnPath — a directory of the same name is not the CLI", () => {
+  it("~/bin/pi/ (a folder) does not count as the pi binary", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-detect-"))
+    fs.mkdirSync(path.join(dir, "pi"))
+    expect(binaryOnPath("pi", dir)).toBe(false)
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+})

@@ -26,8 +26,10 @@ export function binaryOnPath(binary: string, envPath: string | undefined = proce
     if (!dir) continue
     for (const suffix of suffixes) {
       try {
-        fs.accessSync(path.join(dir, binary + suffix), isWindows ? fs.constants.F_OK : fs.constants.X_OK)
-        return true
+        const file = path.join(dir, binary + suffix)
+        fs.accessSync(file, isWindows ? fs.constants.F_OK : fs.constants.X_OK)
+        // A directory is "executable" too (~/bin/pi/ is not the pi CLI).
+        if (fs.statSync(file).isFile()) return true
       } catch {
         // keep looking
       }
