@@ -326,15 +326,30 @@ function scrollRegion(term: Terminal): string {
  * private OSC at the end of the snapshot; the webview puts the links back (webview/main.ts).
  */
 function oscLinks(term: Terminal): string {
-  const links = (term as unknown as { _core?: { _oscLinkService?: { getLinkData(id: number): { uri: string } | undefined; _dataByLinkId?: Map<number, unknown> } } })._core
+  type LinkEntry = { lines?: { line: number; isDisposed?: boolean }[] }
+  const links = (term as unknown as { _core?: { _oscLinkService?: { getLinkData(id: number): { uri: string } | undefined; _dataByLinkId?: Map<number, LinkEntry> } } })._core
     ?._oscLinkService
-  // No link printed (or all of them trimmed away): skip the per-cell walk of the whole scrollback.
+  // No link printed (or all of them trimmed away): nothing to walk.
   if (!links || links._dataByLinkId?.size === 0) return ""
   const buf = term.buffer.active
   const cursorRow = buf.baseY + buf.cursorY
+  // xterm marks each row a link was printed on; with those rows (and the rows a wrap carried
+  // them onto) only those are walked cell by cell, not the whole 5000-line scrollback. Without
+  // them (an xterm that changed its internals) every row is.
+  let rows: number[] | undefined
+  if (links._dataByLinkId) {
+    const marked = new Set<number>()
+    for (const entry of links._dataByLinkId.values()) {
+      for (const m of entry.lines ?? []) {
+        if (m.isDisposed || m.line < 0) continue
+        for (let y = m.line; y < buf.length && (y === m.line || buf.getLine(y)?.isWrapped); y++) marked.add(y)
+      }
+    }
+    rows = [...marked].sort((a, b) => a - b)
+  }
   const runs: [number, number, number, string][] = []
   let cell: IBufferCell | undefined
-  for (let y = 0; y < buf.length; y++) {
+  for (const y of rows ?? Array.from({ length: buf.length }, (_, i) => i)) {
     const line = buf.getLine(y)
     if (!line) continue
     let open: { x: number; id: number } | undefined

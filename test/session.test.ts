@@ -611,3 +611,31 @@ describe("Session attach — what the client ends up showing and answering", () 
     expect([...r.answers, ...r.mirrorAnswers]).toEqual(["\x1b[1;3R"])
   })
 })
+
+describe("Session snapshot — OSC 8 links anywhere in the scrollback, wrapped too", () => {
+  it("a link far up the scrollback and one wrapped over two rows are both restored whole", async () => {
+    const { createSnapshotLinks } = await import("../src/webview/links.js")
+    const { Terminal } = await import("@xterm/headless")
+    const { session, emit } = makeSession()
+    const long = "L".repeat(100)
+    emit(`\x1b]8;;https://top\x07top\x1b]8;;\x07\r\n` + "filler\r\n".repeat(60) + `\x1b]8;;https://wrap\x07${long}\x1b]8;;\x07\r\n`)
+    let snapshot = ""
+    await session.attach((s) => (snapshot = s), () => {})
+    const replay = new Terminal({ cols: 80, rows: 24, allowProposedApi: true, scrollback: 5000 })
+    const links = createSnapshotLinks(replay as never, () => {}, () => {}, () => {})
+    links.begin()
+    await new Promise<void>((r) => replay.write(snapshot, r))
+    links.end()
+    const buf = replay.buffer.active
+    const found: string[] = []
+    for (let y = 1; y <= buf.length; y++) {
+      await new Promise<void>((r) => links.provider.provideLinks(y, (l) => (found.push(...(l ?? []).map((x) => `${x.text}@${y}:${x.range.start.x}-${x.range.end.x}`)), r())))
+    }
+    const wrapRow = found.find((f) => f.startsWith("https://wrap"))!
+    expect(found.filter((f) => f.startsWith("https://top"))).toHaveLength(1)
+    // 100 cells over an 80-column screen: one run of 80 on its first row, 20 on the next.
+    expect(found.filter((f) => f.startsWith("https://wrap")).map((f) => f.slice(f.lastIndexOf(":") + 1))).toEqual(["1-80", "1-20"])
+    expect(wrapRow).toBeDefined()
+    replay.dispose()
+  })
+})

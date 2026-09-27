@@ -102,11 +102,10 @@ function jsonlHeader(root: string, cwd: string, since: number): string | undefin
  * file must never stand in for it.
  */
 function candidates(root: string, keep: (name: string) => boolean, since: number, sessionId?: string): string[] {
-  const recent = newestFiles(root, keep, { depth: 2, sinceMs: since })
-  if (!sessionId) return recent
-  // Matched on the name before any stat: this runs on every model refresh.
-  const named = newestFiles(root, (n) => keep(n) && n.includes(sessionId), { depth: 2 })
-  return [...named, ...recent.filter((f) => !named.includes(f))]
+  // One walk: this runs on every model refresh.
+  const named = (f: string) => sessionId !== undefined && path.basename(f).includes(sessionId)
+  const files = newestFiles(root, keep, { depth: 2, sinceMs: since, anyAge: sessionId ? (n) => n.includes(sessionId) : undefined })
+  return [...files.filter(named), ...files.filter((f) => !named(f))]
 }
 
 /** Newest session file for `cwd`; with `sessionId`, that session's file or nothing. */

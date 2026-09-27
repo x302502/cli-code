@@ -37,11 +37,16 @@ export function mtimeMs(p: string): number | undefined {
 
 /**
  * Files under `dir` whose name passes `keep`, newest first. `depth` levels of subdirectories
- * are walked (0: `dir` alone), `sinceMs` drops files modified before it, `limit` caps the count.
+ * are walked (0: `dir` alone), `sinceMs` drops files modified before it (unless `anyAge` keeps
+ * them), `limit` caps the count.
  */
-export function newestFiles(dir: string, keep: (name: string) => boolean, opts: { depth?: number; sinceMs?: number; limit?: number } = {}): string[] {
+export function newestFiles(
+  dir: string,
+  keep: (name: string) => boolean,
+  opts: { depth?: number; sinceMs?: number; limit?: number; anyAge?: (name: string) => boolean } = {},
+): string[] {
   if (!fs.existsSync(dir)) return []
-  const { depth = 0, sinceMs, limit = Infinity } = opts
+  const { depth = 0, sinceMs, limit = Infinity, anyAge } = opts
   const out: { f: string; m: number }[] = []
   const walk = (d: string, level: number) => {
     let entries: fs.Dirent[]
@@ -56,7 +61,7 @@ export function newestFiles(dir: string, keep: (name: string) => boolean, opts: 
         if (level < depth) walk(p, level + 1)
       } else if (keep(e.name)) {
         const m = mtimeMs(p)
-        if (m !== undefined && (sinceMs === undefined || m >= sinceMs)) out.push({ f: p, m })
+        if (m !== undefined && (sinceMs === undefined || m >= sinceMs || anyAge?.(e.name))) out.push({ f: p, m })
       }
     }
   }
