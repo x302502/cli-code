@@ -114,3 +114,11 @@ describe("codex trust tables — a key path with quotes or backslashes", () => {
     expect(removeTrust(added.text, ["sha256:ours"]).text).toBe('model = "x"\n')
   })
 })
+
+describe("codex trust tables — with no blank line between tables", () => {
+  const toml = 'model = "example"\n[hooks.state."k"]\nenabled = true\ntrusted_hash = "sha256:ours"\n[projects."/tmp/project"]\ntrust_level = "trusted"\n'
+  it("removing or replacing ours keeps the next table on a line of its own", () => {
+    expect(removeTrust(toml, ["sha256:ours"]).text).toBe('model = "example"\n[projects."/tmp/project"]\ntrust_level = "trusted"\n')
+    expect(addTrust(toml, [{ key: "k", hash: "sha256:new" }]).text.startsWith('model = "example"\n[projects."/tmp/project"]\n')).toBe(true)
+  })
+})

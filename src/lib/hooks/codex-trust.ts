@@ -54,12 +54,19 @@ const block = (key: string, hash: string) => `[hooks.state.${tomlString(key)}]\n
 // allows whitespace before a header, so an indented `[table]` still ends ours. The key may hold
 // escapes (`\"`, `\\`).
 const KEY = String.raw`"((?:[^"\\\n]|\\.)*)"`
-const TABLE_RE = new RegExp(String.raw`\n?[ \t]*\[hooks\.state\.` + KEY + String.raw`\]\n?(?:(?![ \t]*\[)[^\n]+(?:\n|$))*`, "g")
+const TABLE_RE = new RegExp(String.raw`(\n?)[ \t]*\[hooks\.state\.` + KEY + String.raw`\]\n?(?:(?![ \t]*\[)[^\n]+(?:\n|$))*`, "g")
+/** What a removed table leaves behind: the match takes the newline before it and every line of it,
+ * so when content follows right away (the next table, no blank line between) that line must
+ * still start on a line of its own — `model = "x"[projects…]` is not TOML. */
+const cut = (lead: string, offset: number, whole: string, table: string): string => {
+  const next = whole[offset + table.length]
+  return lead && next !== undefined && next !== "\n" ? "\n" : ""
+}
 const hashIn = (table: string) => /trusted_hash = "([^"]*)"/.exec(table)?.[1]
 
 /** Whether the table at `key` trusts exactly `hash`. */
 export function trustedWith(toml: string, key: string, hash: string): boolean {
-  for (const m of toml.matchAll(TABLE_RE)) if (unquoted(m[1]!) === key && hashIn(m[0]) === hash) return true
+  for (const m of toml.matchAll(TABLE_RE)) if (unquoted(m[2]!) === key && hashIn(m[0]) === hash) return true
   return false
 }
 
@@ -73,7 +80,7 @@ export function addTrust(toml: string, entries: { key: string; hash: string }[])
   let changed = false
   for (const { key, hash } of entries) {
     if (trustedWith(text, key, hash)) continue
-    text = text.replace(TABLE_RE, (m, k: string) => (unquoted(k) === key ? "" : m))
+    text = text.replace(TABLE_RE, (m, lead: string, k: string, offset: number, whole: string) => (unquoted(k) === key ? cut(lead, offset, whole, m) : m))
     if (text.length && !text.endsWith("\n")) text += "\n"
     if (text.length && !text.endsWith("\n\n")) text += "\n"
     text += block(key, hash)
@@ -86,11 +93,11 @@ export function addTrust(toml: string, entries: { key: string; hash: string }[])
  * group index that shifted after a user edit cannot orphan a block. */
 export function removeTrust(toml: string, hashes: string[]): { text: string; changed: boolean } {
   let changed = false
-  const text = toml.replace(TABLE_RE, (m) => {
+  const text = toml.replace(TABLE_RE, (m, lead: string, _key: string, offset: number, whole: string) => {
     const h = hashIn(m)
     if (!h || !hashes.includes(h)) return m
     changed = true
-    return ""
+    return cut(lead, offset, whole, m)
   })
   return { text: changed && text.length && !text.endsWith("\n") ? `${text}\n` : text, changed }
 }
