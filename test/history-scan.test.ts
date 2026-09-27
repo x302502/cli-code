@@ -124,3 +124,14 @@ describe("grokSessions — a session's time is its newest file, not its folder",
     }
   })
 })
+
+describe("listSessionsForWorkspace — only one CLI's store when asked", () => {
+  it("only: \"codex\" reads Codex's rollouts and no other store", async () => {
+    const { listSessionsForWorkspace } = await import("../src/lib/history/scan.js")
+    const now = Date.now()
+    rollout("mine", "/w/mine", now - 1000)
+    const all = await listSessionsForWorkspace("/w/mine", 10, undefined, "codex")
+    expect(all.map((s) => [s.toolId, s.sessionId])).toEqual([["codex", "mine"]])
+    expect(await listSessionsForWorkspace("/w/mine", 10, undefined, "grok")).toEqual([])
+  })
+})

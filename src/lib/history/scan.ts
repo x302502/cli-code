@@ -157,9 +157,14 @@ export function grokSessions(cwd: string, limit: number, sinceMs = 0): SessionSu
     })
 }
 
-export async function listSessionsForWorkspace(cwd: string, limit = 200, sinceMs?: number): Promise<SessionSummary[]> {
+export async function listSessionsForWorkspace(cwd: string, limit = 200, sinceMs?: number, only?: string): Promise<SessionSummary[]> {
   // `sinceMs` (a restarting tab's spawn time): older sessions cannot be the tab's, so their
-  // transcripts are not read at all.
-  const all = [...claudeSessions(cwd, limit, sinceMs), ...codexSessions(cwd, limit, sinceMs), ...grokSessions(cwd, limit, sinceMs)]
+  // transcripts are not read at all; `only` (that tab's CLI): the other stores are not read.
+  const want = (id: string) => only === undefined || only === id
+  const all = [
+    ...(want("claude") ? claudeSessions(cwd, limit, sinceMs) : []),
+    ...(want("codex") ? codexSessions(cwd, limit, sinceMs) : []),
+    ...(want("grok") ? grokSessions(cwd, limit, sinceMs) : []),
+  ]
   return all.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, limit)
 }
