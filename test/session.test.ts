@@ -577,7 +577,9 @@ describe("EscapeTracker", () => {
     expect(pending("\x1b]0;a\x1b[1")).toBe("\x1b[1")
     // ESC ends a string on the spot (the parser handles it then): only the ESC is pending.
     expect(pending("\x1bP$qm\x1b")).toBe("\x1b")
-    expect(pending("\x1b]11;?\x1b")).toBe("\x1b")
+    // …but an OSC is kept whole until its ST completes: its effect (OSC 52) is the client's.
+    expect(pending("\x1b]52;c;aGk=\x1b")).toBe("\x1b]52;c;aGk=\x1b")
+    expect(pending("\x1b]52;c;aGk=\x1b", "\\")).toBe("")
   })
 })
 
@@ -673,5 +675,16 @@ describe("Session snapshot — OSC 8 links anywhere in the scrollback, wrapped t
     expect(found.filter((f) => f.startsWith("https://wrap")).map((f) => f.slice(f.lastIndexOf(":") + 1))).toEqual(["1-80", "1-20"])
     expect(wrapRow).toBeDefined()
     replay.dispose()
+  })
+})
+
+describe("Session snapshot — links moved by a scroll inside a region", () => {
+  const linksIn = (snap: string) => /\x1b\]9998;([^\x07]*)\x07/.exec(snap)?.[1] ?? ""
+  it("a link a TUI scrolled up inside its DECSTBM region is still in the snapshot, on its new row", async () => {
+    const { session, emit } = makeSession()
+    emit("\x1b[5;20r\x1b[10;1H\x1b]8;;https://a\x07LINK\x1b]8;;\x07\x1b[20;1H\n\n")
+    const runs = JSON.parse(linksIn(await session.snapshot())) as [number, number, number, string][]
+    // Row 10 (index 9) moved up two, to index 7; the cursor sits on index 19.
+    expect(runs).toEqual([[7 - 19, 0, 4, "https://a"]])
   })
 })

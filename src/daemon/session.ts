@@ -333,9 +333,11 @@ function oscLinks(term: Terminal): string {
   if (!links || links._dataByLinkId?.size === 0) return ""
   const buf = term.buffer.active
   const cursorRow = buf.baseY + buf.cursorY
-  // xterm marks each row a link was printed on; with those rows (and the rows a wrap carried
-  // them onto) only those are walked cell by cell, not the whole 5000-line scrollback. Without
-  // them (an xterm that changed its internals) every row is.
+  // xterm marks each row a link was printed on, and its markers follow rows that scroll into
+  // (and out of) the scrollback. They do not follow a scroll inside a region (DECSTBM) or a
+  // reverse index, which move rows on screen without telling them — so the screen itself is
+  // always walked, and the markers only point into the scrollback (with the rows a wrap carried
+  // a link onto). With no marker at all (an xterm that changed its internals) every row is.
   let rows: number[] | undefined
   if (links._dataByLinkId) {
     const marked = new Set<number>()
@@ -345,7 +347,10 @@ function oscLinks(term: Terminal): string {
         for (let y = m.line; y < buf.length && (y === m.line || buf.getLine(y)?.isWrapped); y++) marked.add(y)
       }
     }
-    rows = [...marked].sort((a, b) => a - b)
+    if (marked.size > 0) {
+      for (let y = buf.baseY; y < Math.min(buf.length, buf.baseY + term.rows); y++) marked.add(y)
+      rows = [...marked].sort((a, b) => a - b)
+    }
   }
   const runs: [number, number, number, string][] = []
   let cell: IBufferCell | undefined
@@ -376,16 +381,17 @@ function oscLinks(term: Terminal): string {
 // OSC 52 clipboard write cut mid-way) is not carried over at all.
 const MAX_UNFINISHED = 64 * 1024
 
-type EscState = "ground" | "esc" | "escInter" | "csi" | "osc" | "str"
+type EscState = "ground" | "esc" | "escInter" | "csi" | "osc" | "oscEsc" | "str"
 
 /**
  * Follows the PTY stream the way the terminal's parser does (the DEC/xterm state machine), to
  * know the escape sequence it is in the middle of — as the bytes the client still needs to see
  * to finish it (see attach). A C0 control inside a sequence is executed on the spot (the screen,
  * and the snapshot, already show it), so it is not part of what is replayed; CAN and SUB abort
- * the sequence; ESC starts a new one — inside a string (OSC, DCS…) too: the parser ends and
- * handles the string right there (a DCS query is answered then), so of `ESC \` only the ESC is
- * still pending, and nothing of the string is replayed.
+ * the sequence; ESC starts a new one — inside a string too, where the parser ends and handles
+ * the string right there. A DCS (a query the mirror answers then) is not replayed: of `ESC \`
+ * only the ESC is pending. An OSC is kept until the next byte: its effect (an OSC 52 clipboard
+ * write, a title) is for the client, which the mirror does not stand in for.
  */
 export class EscapeTracker {
   private state: EscState = "ground"
@@ -443,8 +449,20 @@ export class EscapeTracker {
         this.add(ch)
         if (c >= 0x40 && c <= 0x7e) this.state = "ground"
         return
+      case "oscEsc":
+        if (ch === "\\") {
+          this.state = "ground"
+          return
+        }
+        this.start()
+        return this.step(c, ch)
       case "osc":
       case "str":
+        if (c === 0x1b && this.state === "osc") {
+          this.add(ch)
+          this.state = "oscEsc"
+          return
+        }
         if (c === 0x1b) return this.start()
         if (c === 0x07 && this.state === "osc") {
           this.state = "ground"
