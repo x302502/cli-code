@@ -33,7 +33,13 @@ export async function openCli(context: vscode.ExtensionContext, options: { reuse
 export function addFilepathToTerminal() {
   const fileRef = getActiveFileReference()
   if (!fileRef) return
-  writeToActivePanel(fileRef)
+  if (writeToActivePanel(fileRef)) return
+  // No CLI tab (or its CLI has exited): VS Code's own terminal, as before CLI Code had tabs.
+  const terminal = vscode.window.activeTerminal
+  if (terminal) {
+    terminal.sendText(fileRef, false)
+    terminal.show()
+  } else void vscode.window.showInformationMessage("Open a CLI tab first (CLI Code: Open CLI), then insert the file.")
 }
 
 /** Lists past sessions for the current workspace and reopens the chosen one. */
