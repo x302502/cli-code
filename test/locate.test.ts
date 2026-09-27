@@ -92,6 +92,15 @@ describe("locateLatestSession", () => {
     g.close()
     expect(locateLatestSession("goose", cwd, T0, home)).toBe("g1")
   })
+  it("goose: updated_at in epoch seconds is not read as milliseconds (always 'old')", () => {
+    const { Database: DatabaseSync } = require("bun:sqlite") as { Database: new (p: string) => { exec(s: string): void; close(): void } }
+    fs.mkdirSync(path.join(home, ".local/share/goose/sessions"), { recursive: true })
+    const g = new DatabaseSync(path.join(home, ".local/share/goose/sessions/sessions.db"))
+    g.exec("CREATE TABLE sessions (id text, working_dir text, updated_at integer)")
+    g.exec(`INSERT INTO sessions VALUES ('g-sec','/w/proj',${Math.floor((T0 + 5000) / 1000)})`)
+    g.close()
+    expect(locateLatestSession("goose", cwd, T0, home)).toBe("g-sec")
+  })
   it("unknown tool or missing store → undefined", () => {
     expect(locateLatestSession("claude", cwd, T0, home)).toBeUndefined()
     expect(locateLatestSession("pi", cwd, T0, home)).toBeUndefined()

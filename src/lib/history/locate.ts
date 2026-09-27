@@ -241,7 +241,9 @@ function gooseDb(file: string, cwd: string, since: number): string | undefined {
   try {
     const row = db.prepare("SELECT id, updated_at FROM sessions WHERE working_dir = ? ORDER BY updated_at DESC LIMIT 1").get(cwd)
     if (!row || typeof row.id !== "string") return undefined
-    const at = typeof row.updated_at === "number" ? row.updated_at : Date.parse(String(row.updated_at))
+    // Epoch seconds or ms (SQLite's strftime('%s') is seconds), or ISO text.
+    const raw = typeof row.updated_at === "number" ? row.updated_at : Number(row.updated_at)
+    const at = Number.isFinite(raw) ? (raw < 1e12 ? raw * 1000 : raw) : Date.parse(String(row.updated_at))
     return Number.isFinite(at) && at >= since ? row.id : undefined
   } finally {
     db.close()
