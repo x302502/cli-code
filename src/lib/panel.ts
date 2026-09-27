@@ -531,7 +531,10 @@ export async function restoreTerminalPanel(
   tabStarting()
   const tool = CLI_TOOLS.find((t) => t.id === state.toolId)
   if (!tool) {
+    // A CLI this build no longer lists: the tab goes, and so must its process — nothing in the
+    // UI could reach it any more.
     panel.dispose()
+    await killSession(context, state.sessionId)
     return
   }
 
@@ -583,6 +586,19 @@ export async function restoreTerminalPanel(
   if (state.extensionPath) tab(panel).extensionPath = state.extensionPath
   wirePanel(context, panel, tool, connection, { reattached: true })
   void checkStale(context, panel)
+}
+
+/** Ends a session this window no longer shows, in whichever of its daemons holds it. */
+async function killSession(context: vscode.ExtensionContext, sessionId: string): Promise<void> {
+  const current = context.workspaceState.get<string>(DAEMON_ID_KEY)
+  for (const id of [...(current ? [current] : []), ...previousDaemonIds(context)]) {
+    if ((await probeSocket(daemonSocketPath(id))) !== "listening") continue
+    const connection = await connectSession(daemonSocketPath(id), { op: "attach", sessionId })
+    if (!connection) continue
+    connection.kill()
+    connection.dispose()
+    return
+  }
 }
 
 /** Renders the "session gone" view and wires its restart button. Shared by a failed
