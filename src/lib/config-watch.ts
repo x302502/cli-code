@@ -86,11 +86,19 @@ export function configSnapshot(paths: string[]): Record<string, string> {
   return out
 }
 
-/** The first path whose signature differs between two snapshots (added or removed counts too). */
+/** The first path whose signature differs between two snapshots (added or removed counts too).
+ * A tab saved by a build that signed files by their bare mtime has no content hash to compare:
+ * that path is not taken as changed (an update in place would otherwise restart every tab). */
 export function changedPath(before: Record<string, string>, after: Record<string, string>): string | undefined {
-  for (const p of new Set([...Object.keys(before), ...Object.keys(after)])) if (before[p] !== after[p]) return p
+  for (const p of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    if (before[p] === after[p]) continue
+    if (LEGACY_MTIME.test(before[p] ?? "") && HASH.test(after[p] ?? "")) continue
+    return p
+  }
   return undefined
 }
+const LEGACY_MTIME = /^\d+(\.\d+)?$/
+const HASH = /^[0-9a-f]{16}$/
 
 function signature(p: string): string | undefined {
   const base = path.basename(p)
@@ -98,17 +106,16 @@ function signature(p: string): string | undefined {
   const parent = path.dirname(p)
   if ((base === "settings.json" || base === "settings.local.json") && path.basename(parent) === ".claude") return hashOf(p, withoutPermissions)
   if (base === "config.toml" && (path.basename(parent) === ".codex" || path.resolve(parent) === path.resolve(codexDir()))) return hashOf(p, codexMcpAndHooks)
-  const m = newestMtime(p)
-  if (m === undefined) return undefined
-  // A directory also lists its entries, so a removed plugin file counts as a change.
-  let dir = false
+  let st: fs.Stats
   try {
-    dir = fs.statSync(p).isDirectory()
+    st = fs.statSync(p)
   } catch {
     return undefined
   }
   // A file by its content: a CLI writing its config back unchanged is not a change.
-  return dir ? `${m}:${configEntries(p).sort().join(",")}` : hashOf(p, (text) => text)
+  if (!st.isDirectory()) return hashOf(p, (text) => text)
+  // A directory by its newest entry, and its entries, so a removed plugin file counts too.
+  return `${newestMtime(p)}:${configEntries(p).sort().join(",")}`
 }
 
 // Hash per file, keyed by its mtime+size: ~/.claude.json can be hundreds of KB and is

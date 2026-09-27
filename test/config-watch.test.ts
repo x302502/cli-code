@@ -63,6 +63,12 @@ describe("configSnapshot / changedPath", () => {
     touch(".copilot/hooks/cli-code.json.tmp", T0 + 5000)
     expect(changedPath(before, configSnapshot([dir]))).toBeUndefined()
   })
+  it("a tab saved by an older build (files signed by mtime) is not restarted by the switch to content hashes", () => {
+    const f = path.join(home, ".copilot/config.json")
+    touch(".copilot/config.json", T0)
+    expect(changedPath({ [f]: String(T0) }, configSnapshot([f]))).toBeUndefined()
+    expect(changedPath({ [f]: "" }, configSnapshot([f]))).toBe(f)
+  })
   it("a config file the CLI writes back unchanged (new mtime, same content) is not a change", () => {
     const f = path.join(home, ".copilot/config.json")
     touch(".copilot/config.json", T0)
