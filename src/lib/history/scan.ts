@@ -108,6 +108,19 @@ function daysSince(sinceMs: number): string[] {
   return out
 }
 
+/** When a session folder was last written to: its newest file. The folder's own mtime moves
+ * only when a file is added or removed — not when the transcript grows with each reply. */
+function lastWritten(dir: string): number | undefined {
+  let newest = mtimeMs(dir)
+  if (newest === undefined) return undefined
+  try {
+    for (const name of fs.readdirSync(dir)) newest = Math.max(newest, mtimeMs(path.join(dir, name)) ?? 0)
+  } catch {
+    // unreadable: the folder's own mtime is all there is
+  }
+  return newest
+}
+
 export function grokSessions(cwd: string, limit: number, sinceMs = 0): SessionSummary[] {
   const dir = path.join(process.env.GROK_HOME ?? path.join(os.homedir(), ".grok"), "sessions", encodeURIComponent(cwd))
   if (!fs.existsSync(dir)) return []
@@ -120,7 +133,7 @@ export function grokSessions(cwd: string, limit: number, sinceMs = 0): SessionSu
   return entries
     .filter((e) => e.isDirectory())
     .map((e) => path.join(dir, e.name))
-    .map((d) => ({ d, m: mtimeMs(d) }))
+    .map((d) => ({ d, m: lastWritten(d) }))
     .filter((x): x is { d: string; m: number } => x.m !== undefined && x.m >= sinceMs)
     .sort((a, b) => b.m - a.m)
     .slice(0, limit)

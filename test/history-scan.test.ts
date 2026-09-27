@@ -98,3 +98,29 @@ describe("claudeSessionsInDir", () => {
     expect(claudeSessionsInDir(dir, 5, "/work/since").map((s) => s.sessionId)).toEqual(["new", "old"])
   })
 })
+
+describe("grokSessions — a session's time is its newest file, not its folder", () => {
+  it("an old session that just got a reply ranks first, and passes a recent sinceMs", async () => {
+    const { grokSessions } = await import("../src/lib/history/scan.js")
+    const saved = process.env.GROK_HOME
+    process.env.GROK_HOME = home
+    try {
+      const now = Date.now()
+      const session = (id: string, folderMs: number, chatMs: number) => {
+        const d = path.join(home, "sessions", encodeURIComponent("/w/g"), id)
+        fs.mkdirSync(d, { recursive: true })
+        const chat = path.join(d, "chat_history.jsonl")
+        fs.writeFileSync(chat, JSON.stringify({ type: "user", content: `<user_query>task ${id}</user_query>` }) + "\n")
+        fs.utimesSync(chat, chatMs / 1000, chatMs / 1000)
+        fs.utimesSync(d, folderMs / 1000, folderMs / 1000)
+      }
+      session("old-active", now - 86_400_000, now - 1_000) // replied a second ago
+      session("new-idle", now - 60_000, now - 60_000)
+      expect(grokSessions("/w/g", 5).map((s) => s.sessionId)).toEqual(["old-active", "new-idle"])
+      expect(grokSessions("/w/g", 5, now - 10_000).map((s) => s.sessionId)).toEqual(["old-active"])
+    } finally {
+      if (saved === undefined) delete process.env.GROK_HOME
+      else process.env.GROK_HOME = saved
+    }
+  })
+})
