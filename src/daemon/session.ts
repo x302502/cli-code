@@ -1,4 +1,4 @@
-import { Terminal, type IBufferCell } from "@xterm/headless"
+import { Terminal, type IBufferCell, type IBufferLine } from "@xterm/headless"
 import { Unicode11Addon } from "@xterm/addon-unicode11"
 import { SerializeAddon } from "@xterm/addon-serialize"
 import { COALESCE_MS, createCoalescer, nextPauseState } from "../lib/flow-control.js"
@@ -325,38 +325,31 @@ function scrollRegion(term: Terminal): string {
  * cells with one link goes out as [row offset from the cursor's row, column, cells, uri] in one
  * private OSC at the end of the snapshot; the webview puts the links back (webview/main.ts).
  */
+/** Whether any cell of the row has extended attributes (a link id among them). Unknown (an xterm
+ * without the per-row map) counts as yes: the row is then walked. */
+function hasExtendedAttrs(line: IBufferLine): boolean {
+  const attrs = (line as unknown as { _line?: { _extendedAttrs?: Record<string, unknown> } })._line?._extendedAttrs
+  if (!attrs) return true
+  for (const _ in attrs) return true
+  return false
+}
+
 function oscLinks(term: Terminal): string {
-  type LinkEntry = { lines?: { line: number; isDisposed?: boolean }[] }
-  const links = (term as unknown as { _core?: { _oscLinkService?: { getLinkData(id: number): { uri: string } | undefined; _dataByLinkId?: Map<number, LinkEntry> } } })._core
+  const links = (term as unknown as { _core?: { _oscLinkService?: { getLinkData(id: number): { uri: string } | undefined; _dataByLinkId?: Map<number, unknown> } } })._core
     ?._oscLinkService
   // No link printed (or all of them trimmed away): nothing to walk.
   if (!links || links._dataByLinkId?.size === 0) return ""
   const buf = term.buffer.active
   const cursorRow = buf.baseY + buf.cursorY
-  // xterm marks each row a link was printed on, and its markers follow rows that scroll into
-  // (and out of) the scrollback. They do not follow a scroll inside a region (DECSTBM) or a
-  // reverse index, which move rows on screen without telling them — so the screen itself is
-  // always walked, and the markers only point into the scrollback (with the rows a wrap carried
-  // a link onto). With no marker at all (an xterm that changed its internals) every row is.
-  let rows: number[] | undefined
-  if (links._dataByLinkId) {
-    const marked = new Set<number>()
-    for (const entry of links._dataByLinkId.values()) {
-      for (const m of entry.lines ?? []) {
-        if (m.isDisposed || m.line < 0) continue
-        for (let y = m.line; y < buf.length && (y === m.line || buf.getLine(y)?.isWrapped); y++) marked.add(y)
-      }
-    }
-    if (marked.size > 0) {
-      for (let y = buf.baseY; y < Math.min(buf.length, buf.baseY + term.rows); y++) marked.add(y)
-      rows = [...marked].sort((a, b) => a - b)
-    }
-  }
   const runs: [number, number, number, string][] = []
   let cell: IBufferCell | undefined
-  for (const y of rows ?? Array.from({ length: buf.length }, (_, i) => i)) {
+  for (let y = 0; y < buf.length; y++) {
     const line = buf.getLine(y)
     if (!line) continue
+    // Every row is looked at — xterm's per-link row markers go stale when a scroll region moves
+    // rows, on screen and then into the scrollback — but a row whose cells carry no extended
+    // attributes at all (xterm keeps them per row) cannot hold a link: skipped without a cell walk.
+    if (!hasExtendedAttrs(line)) continue
     let open: { x: number; id: number } | undefined
     const close = (end: number) => {
       const uri = open && links.getLinkData(open.id)?.uri

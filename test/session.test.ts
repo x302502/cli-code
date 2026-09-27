@@ -687,6 +687,13 @@ describe("Session snapshot — links moved by a scroll inside a region", () => {
     // Row 10 (index 9) moved up two, to index 7; the cursor sits on index 19.
     expect(runs).toEqual([[7 - 19, 0, 4, "https://a"]])
   })
+  it("a region-scrolled link that later scrolls into the scrollback is still in the snapshot", async () => {
+    const { session, emit } = makeSession()
+    const link = "\x1b]8;;https://a\x07LINK\x1b]8;;\x07"
+    emit(`\x1b[10;1H${link}\x1b[5;15r\x1b[15;1H\n\n\x1b[r\x1b[24;1H` + "\r\nmore".repeat(30))
+    const snap = await session.snapshot()
+    expect(linksIn(snap)).toContain("https://a")
+  })
   it("the same on the alternate screen, and for a reverse scroll (RI at the region's top)", async () => {
     const link = "\x1b]8;;https://a\x07LINK\x1b]8;;\x07"
     const runsOf = async (text: string) => {
