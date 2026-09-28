@@ -61,6 +61,23 @@ describe("codexRolloutById", () => {
   })
 })
 
+describe("codexSessions — a first prompt past the first 64 KB", () => {
+  it("instructions of ~45 KB plus injected context push the prompt out of the head: it is still the title", () => {
+    const dir = path.join(home, "sessions", "2026", "09", "20")
+    fs.mkdirSync(dir, { recursive: true })
+    const msg = (text: string) => JSON.stringify({ type: "response_item", payload: { type: "message", role: "user", content: [{ type: "input_text", text }] } })
+    fs.writeFileSync(
+      path.join(dir, "rollout-late.jsonl"),
+      [
+        JSON.stringify({ type: "session_meta", payload: { id: "late", cwd: "/w/late", instructions: "i".repeat(70 * 1024) } }),
+        msg("# AGENTS.md instructions\n\nrules"),
+        msg("fix the flaky login test"),
+      ].join("\n") + "\n",
+    )
+    expect(codexSessions("/w/late", 5).map((s) => s.title)).toEqual(["fix the flaky login test"])
+  })
+})
+
 describe("codexSessions — the history picker (no sinceMs)", () => {
   it("a session resumed today but filed under the day it began still counts among the newest", () => {
     const now = Date.now()

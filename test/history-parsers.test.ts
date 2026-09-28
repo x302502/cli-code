@@ -53,3 +53,16 @@ describe("grok", () => {
     expect(parseGrokSession(undefined, fx("grok-chat.jsonl"), fb)!.title).toBe("hỏi grok")
   })
 })
+
+describe("parseCodexRollout — context Codex injects before the first prompt", () => {
+  it("skips the AGENTS.md block and <environment_context>-style blocks for the title", () => {
+    const msg = (text: string) => JSON.stringify({ type: "response_item", payload: { type: "message", role: "user", content: [{ type: "input_text", text }] } })
+    const text = [
+      JSON.stringify({ type: "session_meta", payload: { id: "r1", cwd: "/w" } }),
+      msg("# AGENTS.md instructions\n\n<INSTRUCTIONS>\n# project rules"),
+      msg("<environment_context>\n  <cwd>/w</cwd>\n</environment_context>"),
+      msg("fix the flaky login test"),
+    ].join("\n")
+    expect(parseCodexRollout(text, { sessionId: "r1", mtimeMs: 1, source: "/x" })!.title).toBe("fix the flaky login test")
+  })
+})

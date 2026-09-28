@@ -1,6 +1,14 @@
 import { formatPromptTitle } from "../tab-title.js"
 import type { ParseFallback, SessionSummary } from "./types.js"
 
+/** Context Codex puts in a user message of its own before the first real prompt: the project's
+ * AGENTS.md, and `<environment_context>`, `<permissions>`, `<collaboration_mode>`… blocks. As a
+ * title it would name every session of the project the same. */
+function isInjectedContext(text: string): boolean {
+  const t = text.trimStart()
+  return t.startsWith("# AGENTS.md instructions") || /^<[a-z_]+>/.test(t)
+}
+
 export function parseCodexRollout(text: string, fallback: ParseFallback): SessionSummary | undefined {
   let id: string | undefined
   let cwd: string | undefined
@@ -15,8 +23,12 @@ export function parseCodexRollout(text: string, fallback: ParseFallback): Sessio
       if (typeof p.cwd === "string") cwd = p.cwd
     } else if (rec.type === "response_item" && p.type === "message" && p.role === "user" && !first) {
       const blocks = Array.isArray(p.content) ? p.content : []
-      const t = blocks.find((b) => b && typeof b === "object" && (b as { type?: unknown }).type === "input_text") as { text?: string } | undefined
-      if (t?.text) first = t.text
+      for (const b of blocks as { type?: unknown; text?: unknown }[]) {
+        if (b?.type === "input_text" && typeof b.text === "string" && !isInjectedContext(b.text)) {
+          first = b.text
+          break
+        }
+      }
     }
     if (id && first) break
   }

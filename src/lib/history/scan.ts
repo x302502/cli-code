@@ -10,6 +10,8 @@ import { head, mtimeMs, newestFiles, tail } from "./files.js"
 
 // What head() reads by default.
 const HEAD_BYTES = 64 * 1024
+// How far into a Codex rollout its first real prompt is looked for (see codexSessions).
+const CODEX_TITLE_BYTES = 512 * 1024
 import type { SessionSummary } from "./types.js"
 
 function claudeSessions(cwd: string, limit: number, sinceMs?: number): SessionSummary[] {
@@ -90,7 +92,17 @@ export function codexSessions(cwd: string, limit: number, sinceMs?: number): Ses
     } catch {
       continue
     }
-    const s = parseCodexRollout(text, { sessionId: path.basename(f, ".jsonl"), mtimeMs: m, source: f })
+    const fallback = { sessionId: path.basename(f, ".jsonl"), mtimeMs: m, source: f }
+    let s = parseCodexRollout(text, fallback)
+    // The session's instructions (tens of KB) and the context Codex injects come first: the first
+    // real prompt can sit past the usual head — read further for that session only.
+    if (s?.title === "(untitled)" && (fs.statSync(f, { throwIfNoEntry: false })?.size ?? 0) > HEAD_BYTES) {
+      try {
+        s = parseCodexRollout(head(f, CODEX_TITLE_BYTES), fallback) ?? s
+      } catch {
+        // keep the untitled one
+      }
+    }
     if (s?.cwd && samePath(s.cwd, cwd)) out.push(s)
   }
   return out
