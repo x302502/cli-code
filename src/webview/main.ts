@@ -135,7 +135,10 @@ const term = new Terminal({
 
 function oscLinkHover(event: MouseEvent, uri: string): void {
   const t = classifyOscLink(uri)
-  setHovered(t.kind === "link" ? { text: t.uri, kind: "url", path: t.uri, event } : t.kind === "path" ? { text: t.path, kind: "file", path: t.path, event } : undefined)
+  // A file link's line and column ride along (path:line:col), so the context menu's Open File
+  // lands where a Cmd/Ctrl-click does.
+  const at = t.kind === "path" ? `${t.path}${t.line ? `:${t.line}${t.col ? `:${t.col}` : ""}` : ""}` : ""
+  setHovered(t.kind === "link" ? { text: t.uri, kind: "url", path: t.uri, event } : t.kind === "path" ? { text: at, kind: "file", path: t.path, event } : undefined)
 }
 
 function oscLinkActivate(event: MouseEvent, uri: string, range: IBufferRange): void {
