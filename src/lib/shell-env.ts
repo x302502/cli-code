@@ -89,8 +89,12 @@ export function codexHomeFromShell(): Promise<void> {
   return (codexHomeReady ??= shellEnv().then(
     (env) => {
       if (env?.CODEX_HOME && !process.env.CODEX_HOME) process.env.CODEX_HOME = env.CODEX_HOME
+      // A probe that failed (timed out) is asked again next time, not remembered for the window.
+      if (!env) codexHomeReady = undefined
     },
-    () => {},
+    () => {
+      codexHomeReady = undefined
+    },
   ))
 }
 
