@@ -6,7 +6,10 @@ import { samePath } from "../same-path.js"
 import { encodeClaudeProjectDir, parseClaudeSession } from "./claude.js"
 import { parseCodexRollout } from "./codex.js"
 import { parseGrokSession } from "./grok.js"
-import { head, mtimeMs, newestFiles } from "./files.js"
+import { head, mtimeMs, newestFiles, tail } from "./files.js"
+
+// What head() reads by default.
+const HEAD_BYTES = 64 * 1024
 import type { SessionSummary } from "./types.js"
 
 function claudeSessions(cwd: string, limit: number, sinceMs?: number): SessionSummary[] {
@@ -30,7 +33,10 @@ export function claudeSessionsInDir(dir: string, limit: number, cwd?: string, si
     if (sinceMs !== undefined && m < sinceMs) break
     let text: string
     try {
+      // The start holds the session's meta and first prompt; a rename (/rename) is appended, so a
+      // long transcript's custom title is in its tail.
       text = head(f)
+      if ((fs.statSync(f).size ?? 0) > HEAD_BYTES) text += `\n${tail(f, HEAD_BYTES)}`
     } catch {
       continue
     }

@@ -88,6 +88,15 @@ describe("claudeSessionsInDir", () => {
     transcript(dir, "unknown", undefined, now)
     expect(claudeSessionsInDir(dir, 2, "/work/foo-bar").map((s) => s.sessionId)).toEqual(["mine"])
   })
+  it("a rename appended after 64 KB of transcript still names the session", () => {
+    const dir = path.join(home, "-work-long")
+    fs.mkdirSync(dir, { recursive: true })
+    const f = path.join(dir, "long.jsonl")
+    const first = JSON.stringify({ type: "user", sessionId: "long", cwd: "/work/long", message: { role: "user", content: "first prompt" } })
+    const filler = JSON.stringify({ type: "assistant", message: { content: "x".repeat(1000) } })
+    fs.writeFileSync(f, [first, ...Array(100).fill(filler), JSON.stringify({ type: "custom-title", customTitle: "My rename" })].join("\n") + "\n")
+    expect(claudeSessionsInDir(dir, 5, "/work/long").map((s) => s.title)).toEqual(["My rename"])
+  })
   it("with sinceMs (a restarting tab's spawn time) transcripts older than it are not offered", () => {
     const dir = path.join(home, "-work-since")
     fs.mkdirSync(dir, { recursive: true })
