@@ -105,14 +105,20 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
         line = ""
         unknown = typedSinceSubmit = false
       } else if (ch === "\x7f" || ch === "\b") line = dropLastGrapheme(line)
-      else if (ch === "\x03" || ch === "\x15") {
+      else if (ch === "\x03") {
         line = ""
         unknown = typedSinceSubmit = false
+      } else if (ch === "\x15") {
+        // Ctrl+U erases to the start of the line: from the end (where the tracker keeps the
+        // caret) that is everything, but after a caret move (unknown) what follows the caret is
+        // still there — the draft stays unknown rather than read as gone.
+        line = ""
+        if (!unknown) typedSinceSubmit = false
       } else if (ch >= " ") line += ch
       // Every other control key (Ctrl+P/N history, Ctrl+A/E/B/F moves, Tab completion,
       // Ctrl+W/K/Y …) changes the input in a way the tracker cannot replay.
       else unknown = true
-      if (ch !== "\r" && ch !== "\n" && ch !== "\x03" && ch !== "\x15") typedSinceSubmit = true
+      if (ch !== "\r" && ch !== "\n" && ch !== "\x03" && !(ch === "\x15" && !unknown)) typedSinceSubmit = true
       i++
     }
     return submitted

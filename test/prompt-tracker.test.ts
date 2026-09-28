@@ -158,3 +158,17 @@ describe("createPromptTracker — input split across chunks, and non-BMP charact
     expect(t.hasDraft()).toBe(false)
   })
 })
+
+describe("createPromptTracker — Ctrl+U after a caret move", () => {
+  it("erases only to the caret: a draft moved past with Home is still (maybe) there", () => {
+    const t = createPromptTracker()
+    t.feed("draft")
+    t.feed("\x1b[H") // Home
+    t.feed("\x15")
+    expect(t.hasDraft()).toBe(true)
+    // At the end of the line (where the tracker keeps the caret) Ctrl+U does clear it.
+    const u = createPromptTracker()
+    u.feed("draft\x15")
+    expect(u.hasDraft()).toBe(false)
+  })
+})
