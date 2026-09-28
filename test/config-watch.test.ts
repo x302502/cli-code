@@ -130,6 +130,9 @@ describe("configSnapshot / changedPath", () => {
     const before = configSnapshot([f])
     fs.writeFileSync(f, base + '\n[projects."/x"]\ntrust_level = "trusted"\n\n[tui.model_availability_nux]\n"gpt-5.5" = 4\n')
     expect(changedPath(before, configSnapshot([f]))).toBeUndefined()
+    // Trust entries Codex writes itself when the user trusts a hook are not config either.
+    fs.writeFileSync(f, base + '\n[hooks.state."/h/hooks.json:stop:0:0"]\ntrusted_hash = "sha256:x"\n')
+    expect(changedPath(before, configSnapshot([f]))).toBeUndefined()
     fs.writeFileSync(f, base.replace('command = "npx"', 'command = "node"'))
     expect(changedPath(before, configSnapshot([f]))).toBe(f)
   })

@@ -178,7 +178,9 @@ function codexMcpAndHooks(text: string): string {
   const kept: string[] = []
   let keep = false
   for (const line of text.split("\n")) {
-    if (/^\s*\[/.test(line)) keep = /^\s*\[(mcp_servers|hooks)\b/.test(line)
+    // Not [hooks.state.*]: Codex writes those itself when the user trusts a hook (and ours come
+    // with a hooks.json change, watched on its own).
+    if (/^\s*\[/.test(line)) keep = /^\s*\[(mcp_servers|hooks)\b/.test(line) && !/^\s*\[hooks\.state\b/.test(line)
     if (keep) kept.push(line)
   }
   return kept.join("\n")
