@@ -47,8 +47,8 @@ export type PanelState = {
   extensionPath?: string
 }
 
-// Registries for rename (Task 10) and Task 11 (focus tracking, writing at-mentions
-// into the active session).
+// The open, connected CLI panels (a gone tab leaves it): what rename, focus tracking and the
+// commands that write into a session look through.
 const activePanels = new Set<vscode.WebviewPanel>()
 
 /** `everReady`: the webview has loaded once — a later "ready" means it was reloaded (Developer:
@@ -89,6 +89,8 @@ type TabState = {
   /** When the tab last checked its CLI's config on becoming visible (see onDidChangeViewState). */
   staleCheckedAt?: number
   restarting: boolean
+  /** The gone page's Restart handler (see showGone). */
+  goneListener?: vscode.Disposable
 }
 const tabs = new WeakMap<vscode.WebviewPanel, TabState>()
 /** The panel's record, created on first use; it goes away with the panel. */
@@ -161,7 +163,7 @@ function updateTitle(panel: vscode.WebviewPanel): void {
  * node-pty would then throw inside the daemon and the user would see a misleading
  * "daemon not responding" instead of a running CLI. */
 function usableCwd(p: string | undefined): string | undefined {
-  return p && fs.existsSync(p) && fs.statSync(p).isDirectory() ? p : undefined
+  return p && statKind(p) === "dir" ? p : undefined
 }
 
 /** cwd reported (OSC 7) by the active/last-focused CLI panel, if it exists locally. */
@@ -172,7 +174,7 @@ export function focusedPanelCwd(): string | undefined {
 }
 
 export function activePanelCwd(): string | undefined {
-  const panel = activeTerminalPanel() ?? lastFocusedPanel
+  const panel = targetPanel()
   return usableCwd(panel ? tab(panel).cwd : undefined)
 }
 
@@ -186,7 +188,7 @@ function sendTo(panel: vscode.WebviewPanel, msg: unknown): void {
 
 /** Sends a message to the active (or last-focused) CLI panel, if any. */
 export function sendToActivePanel(msg: unknown): void {
-  const p = activeTerminalPanel() ?? lastFocusedPanel
+  const p = targetPanel()
   if (p) sendTo(p, msg)
 }
 
@@ -224,6 +226,11 @@ export function activeTerminalPanel(): vscode.WebviewPanel | undefined {
   return undefined
 }
 
+/** The CLI panel a command acts on: the focused one, else the last one that had focus. */
+function targetPanel(): vscode.WebviewPanel | undefined {
+  return activeTerminalPanel() ?? lastFocusedPanel
+}
+
 /** Snapshot of the open, connected CLI panels (gone panels are excluded). */
 export function listActivePanels(): vscode.WebviewPanel[] {
   return [...activePanels]
@@ -258,7 +265,7 @@ export function findExistingPanel(tool: CliTool): vscode.WebviewPanel | undefine
  * after it. Goes through xterm so a TUI with bracketed paste sees multi-line text as one
  * paste, not as line-by-line submissions. Returns false if there is no panel. */
 export function pasteToActivePanel(text: string, submit: boolean): boolean {
-  const panel = activeTerminalPanel() ?? lastFocusedPanel
+  const panel = targetPanel()
   if (!panel || !tab(panel).connection || tab(panel).exited) return false
   sendTo(panel, { type: "pasteText", text, submit })
   panel.reveal()
@@ -267,7 +274,7 @@ export function pasteToActivePanel(text: string, submit: boolean): boolean {
 
 /** "New Session": opens another tab of the same CLI as the active tab, in the same directory. */
 export async function openNewSessionLikeActive(context: vscode.ExtensionContext): Promise<boolean> {
-  const panel = activeTerminalPanel() ?? lastFocusedPanel
+  const panel = targetPanel()
   const tool = panel && tab(panel).tool
   if (!panel || !tool) return false
   await openTerminalPanel(context, tool, { cwd: tab(panel).cwd })
@@ -276,7 +283,7 @@ export async function openNewSessionLikeActive(context: vscode.ExtensionContext)
 
 /** Writes text into the active (or last-focused) panel's session. Returns false if there is none. */
 export function writeToActivePanel(text: string): boolean {
-  const panel = activeTerminalPanel() ?? lastFocusedPanel
+  const panel = targetPanel()
   if (!panel || tab(panel).exited) return false
   const connection = tab(panel).connection
   if (!connection) return false
@@ -645,7 +652,10 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   // tool must be recorded now or restartFromGone finds nothing and silently does nothing.
   tab(panel).tool = tool
   panel.webview.html = goneHtml(tool.label, reason)
-  panel.webview.onDidReceiveMessage((m) => {
+  // One Restart listener per gone page: a restart that failed and came back here must not add
+  // another (a click would then restart twice).
+  tab(panel).goneListener?.dispose()
+  tab(panel).goneListener = panel.webview.onDidReceiveMessage((m) => {
     if (m.type === "restart") void restartFromGone(context, panel)
   })
 }
@@ -661,7 +671,7 @@ function openWebLink(text: string): void {
 
 /** Right-click on a link: open it (or, with `alt`, with the default app / in Finder). */
 export function openLinkTextInActivePanel(text: string, alt: boolean): void {
-  const panel = activeTerminalPanel() ?? lastFocusedPanel
+  const panel = targetPanel()
   if (!panel) return
   if (/^(https?|mailto):/i.test(text)) {
     openWebLink(text)
@@ -673,7 +683,7 @@ export function openLinkTextInActivePanel(text: string, alt: boolean): void {
 
 /** Right-click on a file link: type `@relative/path ` into the CLI, like Insert At-Mentioned. */
 export function insertPathInActivePanel(text: string): void {
-  const panel = activeTerminalPanel() ?? lastFocusedPanel
+  const panel = targetPanel()
   if (!panel) return
   const parsed = parsePathLink(text) ?? { path: text }
   const target = resolveTarget(panel, parsed)
@@ -1165,8 +1175,9 @@ async function redrawFromDaemon(context: vscode.ExtensionContext, panel: vscode.
   // daemon evicted it during the attach, its close could land before the new one is in place.
   current.dispose()
   const fresh = await connectSession(current.socketPath, { op: "attach", sessionId: current.sessionId })
-  if (!activePanels.has(panel)) {
-    // Closed meanwhile: closing a tab ends its CLI, and nothing else would.
+  if (!activePanels.has(panel) || tab(panel).connection !== current) {
+    // Closed or restarted meanwhile: either ends this session — but their Kill went to the
+    // connection let go above, so it is sent here. A restart's new session stays the tab's.
     fresh?.kill()
     fresh?.dispose()
     return
