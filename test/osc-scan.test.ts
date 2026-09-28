@@ -71,3 +71,9 @@ describe("parseFileUrlPath — Windows", () => {
     expect(parseFileUrlPath("file:///Users/x/proj")).toBe("/Users/x/proj")
   })
 })
+
+describe("parseFileUrlPath — the scheme is case-insensitive", () => {
+  it("FILE:///tmp/a.ts is a file link like file:///tmp/a.ts", () => {
+    expect(parseFileUrlPath("FILE:///tmp/a.ts")).toBe("/tmp/a.ts")
+  })
+})

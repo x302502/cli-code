@@ -14,7 +14,7 @@ const C = "\\p{L}\\p{M}\\p{N}_"
 // stays one path instead of a bare `a.ts:12:4` resolved against the wrong folder.
 const SEP = "/\\\\"
 const PATH_RE = new RegExp(
-  `^([A-Za-z]:[${SEP}][${C}.\\-@+${SEP}]*|(?:~|\\.{1,2})?[${SEP}][${C}.\\-@+${SEP}]+|[${C}.\\-@+]+[${SEP}][${C}.\\-@+${SEP}]*|(?:${BARE_NAMES})(?:\\.[${C}.\\-]+)?|[\\p{L}_][${C}\\-]*(?:\\.[${C}\\-]+)*\\.(?:[A-Za-z][A-Za-z0-9]{1,7}|[chmsrdCHMSRD]))(?::(\\d+))?(?::(\\d+))?$`,
+  `^([A-Za-z]:[${SEP}][${C}.\\-@+${SEP}]*|(?:~|\\.{1,2})?[${SEP}][${C}.\\-@+${SEP}]+|[${C}.\\-@+]+[${SEP}][${C}.\\-@+${SEP}]*|(?:${BARE_NAMES})(?:\\.[${C}.\\-]+)?|[${C}][${C}\\-]*(?:\\.[${C}\\-]+)*\\.(?:[A-Za-z][A-Za-z0-9]{1,7}|[chmsrdCHMSRD]))(?::(\\d+))?(?::(\\d+))?$`,
   "u",
 )
 

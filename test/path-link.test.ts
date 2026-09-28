@@ -108,3 +108,12 @@ describe("Windows paths", () => {
     expect(findPathTokens("in src\\lib\\a.ts:3")).toEqual([{ text: "src\\lib\\a.ts:3", start: 3 }])
   })
 })
+
+describe("path links — a bare file name may start with a digit", () => {
+  it("2026.md, 1.ts and 123.config are file names; a version like 1.2 is not", () => {
+    expect(parsePathLink("2026.md")?.path).toBe("2026.md")
+    expect(parsePathLink("1.ts:4")).toEqual({ path: "1.ts", line: 4 })
+    expect(parsePathLink("123.config")?.path).toBe("123.config")
+    expect(parsePathLink("1.2")).toBeUndefined()
+  })
+})

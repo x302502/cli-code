@@ -10,7 +10,8 @@ const MAX_PENDING = 64 * 1024
 
 /** Path component of a file:// URL, percent-decoded; undefined for anything else. */
 export function parseFileUrlPath(url: string): string | undefined {
-  if (!url.startsWith("file://")) return undefined
+  // A URI scheme is case-insensitive: FILE:///tmp/a.ts is a file link too.
+  if (!/^file:\/\//i.test(url)) return undefined
   const afterScheme = url.slice("file://".length)
   const slash = afterScheme.indexOf("/")
   if (slash === -1) return undefined
