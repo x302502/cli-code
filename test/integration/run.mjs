@@ -10,13 +10,14 @@ import { fileURLToPath } from "node:url"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..")
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-itest-"))
-// No HOME override: overriding HOME for the Electron process breaks Chromium's
-// sandbox/helper path resolution on macOS, which silently kills webview script execution
-// and console/stdout forwarding from the extension host — see task-2-report.md ("Fix round
-// 1"). Tests run against the real HOME instead; smoke.test.ts hashes the real Claude
-// settings file before any test runs and checkClaudeSettingsUntouched() below is the safety
-// net that fails loudly if anything ever touches it.
-const dirs = { udd: path.join(tmp, "udd"), ws: path.join(tmp, "ws"), out: path.join(tmp, "out") }
+// No HOME override for the Electron process: that breaks Chromium's sandbox/helper path
+// resolution on macOS, which silently kills webview script execution and console/stdout
+// forwarding from the extension host — see task-2-report.md ("Fix round 1"). Instead the
+// extension host alone gets a home and a temp dir of their own (CLI_CODE_ITEST_HOME/TMP, applied
+// in activate() in test mode), so tests never touch the developer's real CLI configs; the
+// snapshot below still fails loudly if anything ever does. `t` is short: sockets live in it,
+// and a Unix socket path must fit in ~104 bytes.
+const dirs = { udd: path.join(tmp, "udd"), ws: path.join(tmp, "ws"), out: path.join(tmp, "out"), home: path.join(tmp, "home"), t: path.join(tmp, "t") }
 for (const d of Object.values(dirs)) fs.mkdirSync(d, { recursive: true })
 fs.writeFileSync(path.join(dirs.ws, "README.md"), "# itest workspace\n")
 
@@ -49,8 +50,18 @@ const hookFiles = [
 // Snapshotted before VS Code starts: activation must never write any of them. Every installer
 // writes through a backup (`.cli-code.bak`) and a staging file (`.tmp`) next to
 // its target: those are checked too, for Claude's settings and every other CLI's file alike.
-const withSiblings = (p) => [p, `${p}.cli-code.bak`, `${p}.tmp`]
-const beforeSiblings = [realClaudeSettingsPath, ...hookFiles].flatMap(withSiblings).map(statFile)
+// writeFileAtomic stages as `<file>.<pid>.<random>.tmp`: every such file next to a target counts.
+const stagingFiles = (p) => {
+  try {
+    const base = path.basename(p)
+    return fs.readdirSync(path.dirname(p)).filter((n) => n.startsWith(`${base}.`) && n.endsWith(".tmp")).map((n) => path.join(path.dirname(p), n))
+  } catch {
+    return []
+  }
+}
+const targets = [realClaudeSettingsPath, ...hookFiles]
+const withSiblings = (p) => [p, `${p}.cli-code.bak`, `${p}.tmp`, ...stagingFiles(p)]
+const beforeSiblings = targets.flatMap(withSiblings).map(statFile)
 
 function checkClaudeSettingsUntouched() {
   const snapshotFile = path.join(dirs.out, "claude-settings.before")
@@ -63,6 +74,8 @@ function checkClaudeSettingsUntouched() {
       throw new Error(`${before.path} changed during the run (a test must never write it; if you edited it yourself, rerun)`)
     }
   }
+  const known = new Set(befores.map((b) => b.path))
+  for (const p of targets.flatMap(stagingFiles)) if (!known.has(p)) throw new Error(`${p} appeared during the run (an interrupted write to a real config)`)
 }
 
 // Safety net, not the normal path: with HOME left alone (above) the window exits on its
@@ -91,7 +104,7 @@ async function runStage(stage) {
       extensionDevelopmentPath: root,
       extensionTestsPath: path.join(root, "dist-test", "suite", "index.js"),
       launchArgs,
-      extensionTestsEnv: { CLI_CODE_ITEST_OUT: dirs.out, CLI_CODE_ITEST_STAGE: String(stage) },
+      extensionTestsEnv: { CLI_CODE_ITEST_OUT: dirs.out, CLI_CODE_ITEST_STAGE: String(stage), CLI_CODE_ITEST_HOME: dirs.home, CLI_CODE_ITEST_TMP: dirs.t },
     }).then(
       () => ({ kind: "exited" }),
       (err) => ({ kind: "exited", err }),
@@ -116,6 +129,13 @@ async function runStage(stage) {
 }
 
 function killDaemon() {
+  // Every daemon of this run listens under dirs.t (its socket path is in its argv): end them all,
+  // whether or not a test got as far as recording a pid.
+  try {
+    execFileSync("pkill", ["-f", dirs.t], { stdio: "ignore" })
+  } catch {
+    // none left, or no pkill
+  }
   const pidFile = path.join(dirs.out, "daemon.pid")
   if (!fs.existsSync(pidFile)) return
   const pid = Number(fs.readFileSync(pidFile, "utf8"))

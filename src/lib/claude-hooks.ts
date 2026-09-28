@@ -126,7 +126,10 @@ export function uninstallHooks(value: unknown, events: readonly string[] = HOOK_
 
 // --- Disk I/O (kept out of the pure functions above so tests never touch the real file). ---
 
-export const CLAUDE_SETTINGS_PATH = path.join(os.homedir(), ".claude", "settings.json")
+/** Claude's user settings file — computed on each call (a test host moves HOME in activate()). */
+export function claudeSettingsPath(): string {
+  return path.join(os.homedir(), ".claude", "settings.json")
+}
 
 function backupPath(file: string): string {
   return `${file}.cli-code.bak`
@@ -210,16 +213,16 @@ export function writeSettingsFile(file: string, settings: unknown): void {
   writeFileAtomic(file, JSON.stringify(settings, null, 2) + "\n")
 }
 
-export function installHooksToDisk(file: string = CLAUDE_SETTINGS_PATH): boolean {
+export function installHooksToDisk(file: string = claudeSettingsPath()): boolean {
   const { settings, changed } = installHooks(readSettingsFile(file))
   if (changed) writeSettingsFile(file, settings)
   return changed
 }
-export function uninstallHooksFromDisk(file: string = CLAUDE_SETTINGS_PATH): boolean {
+export function uninstallHooksFromDisk(file: string = claudeSettingsPath()): boolean {
   const { settings, changed } = uninstallHooks(readSettingsFile(file))
   if (changed) writeSettingsFile(file, settings)
   return changed
 }
-export function hooksInstalledOnDisk(file: string = CLAUDE_SETTINGS_PATH): boolean {
+export function hooksInstalledOnDisk(file: string = claudeSettingsPath()): boolean {
   return hooksInstalled(readSettingsFile(file))
 }

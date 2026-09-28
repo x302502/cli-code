@@ -1,6 +1,6 @@
 import * as vscode from "vscode"
 import * as os from "node:os"
-import { CLAUDE_SETTINGS_PATH, hooksInstalledOnDisk, installHooksToDisk, uninstallHooksFromDisk } from "./lib/claude-hooks.js"
+import { claudeSettingsPath, hooksInstalledOnDisk, installHooksToDisk, uninstallHooksFromDisk } from "./lib/claude-hooks.js"
 import { STATUS_HOOK_INSTALLERS } from "./lib/hooks/registry.js"
 import { summarize, syncStatusHooks } from "./lib/hooks/sync.js"
 import { binaryOnPath } from "./lib/detect.js"
@@ -100,6 +100,14 @@ async function setStatusHooks(context: vscode.ExtensionContext, enabled: boolean
 }
 
 export function activate(context: vscode.ExtensionContext): TestApi {
+  // The integration-test host gets a home and a temp dir of its own (the runner cannot give the
+  // whole Electron process another HOME: Chromium breaks). Set here, for this process only —
+  // os.homedir()/os.tmpdir() read them on every call — so no code path can reach the developer's
+  // real CLI configs, and every daemon's socket sits where the runner can clean it up.
+  if (context.extensionMode === vscode.ExtensionMode.Test) {
+    if (process.env.CLI_CODE_ITEST_HOME) process.env.HOME = process.env.CLI_CODE_ITEST_HOME
+    if (process.env.CLI_CODE_ITEST_TMP) process.env.TMPDIR = process.env.CLI_CODE_ITEST_TMP
+  }
   // Restored CLI tabs only connect once they become visible; hold the daemon open in the
   // meantime so its idle-exit does not kill their sessions. Must not block activation.
   void holdDaemonAlive(context).then((d) => context.subscriptions.push(d))
@@ -191,7 +199,7 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     installHooksToDisk,
     uninstallHooksFromDisk,
     hooksInstalledOnDisk,
-    claudeSettingsPath: CLAUDE_SETTINGS_PATH,
+    claudeSettingsPath: claudeSettingsPath(),
     daemonPid,
     inspectPanel,
     restartFromGone,
