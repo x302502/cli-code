@@ -123,3 +123,12 @@ describe("formatPromptTitle — a leading path is not a /command", () => {
     expect(formatPromptTitle("/review fix the tests")).toBe("fix the tests")
   })
 })
+
+describe("resolveTabTitle — a prompt marker is stripped only before a space", () => {
+  it("#123, $HOME and %d keep their first character; '$ ls' and '# note' lose the marker", () => {
+    expect(resolveTabTitle({ oscTitle: "#123 fix bug", toolLabel: "Claude" })).toBe("#123 fix bug")
+    expect(resolveTabTitle({ oscTitle: "$HOME check", toolLabel: "Claude" })).toBe("$HOME check")
+    expect(resolveTabTitle({ oscTitle: "$ ls -la", toolLabel: "Claude" })).toBe("ls -la")
+    expect(resolveTabTitle({ oscTitle: "✳ ❯ review", toolLabel: "Claude" })).toBe("review")
+  })
+})

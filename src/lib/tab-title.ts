@@ -43,7 +43,9 @@ export function formatPromptTitle(prompt: string): string {
 }
 
 // Prompt markers and the status glyphs / spinners CLIs prefix (same set Orca strips).
-const GLYPH_PREFIX = /^(?:[\s✳✦⏲◇✋⠀-⣿◐-◓>❯›»$%#]+|[.*]\s)\s*/u
+// A glyph goes as it is; a prompt marker (>, ❯, $, #, …) only when a space follows — "#123 fix"
+// is an issue number, "$HOME" a variable.
+const GLYPH_PREFIX = /^(?:[\s✳✦⏲◇✋⠀-⣿◐-◓]|[>❯›»$%#.*](?=\s))+\s*/u
 const SHELL_NAMES = new Set(["sh", "bash", "zsh", "fish", "pwsh", "powershell", "powershell.exe", "cmd.exe"])
 
 /**
