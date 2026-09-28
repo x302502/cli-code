@@ -2,6 +2,9 @@
 .github/**
 .superpowers/**
 docs/**
+# …but the user guides the README links to.
+!docs/user-guide.md
+!docs/user-guide.vi.md
 src/**
 test/**
 scripts/**
