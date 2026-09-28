@@ -2,23 +2,13 @@ import * as fs from "node:fs"
 import * as net from "node:net"
 import { randomUUID } from "node:crypto"
 import { AGENT_STATES, type AgentState, MSG, type MetaEvent, createFrameDecoder, decodeJsonPayload, encodeFrame, encodeJsonFrame } from "../lib/protocol.js"
+import type { AttachHello, SpawnHello } from "../lib/daemon-client.js"
 import { createSession, type Session, type SpawnPty } from "./session.js"
 
 const DEFAULT_IDLE_MS = 60_000
 // The daemon's hot path (every input frame); one of each, not one per frame.
 const ENCODER = new TextEncoder()
 const DECODER = new TextDecoder()
-
-type HelloSpawn = {
-  op: "spawn"
-  toolId: string
-  command: string
-  cwd: string
-  env: Record<string, string>
-  cols: number
-  rows: number
-}
-type HelloAttach = { op: "attach"; sessionId: string }
 
 export async function startDaemon(args: {
   socketPath: string
@@ -201,7 +191,7 @@ function handleHello(
   spawnPty: SpawnPty,
   socketPath: string,
 ): Session | undefined {
-  const hello = decodeJsonPayload<HelloSpawn | HelloAttach>(payload)
+  const hello = decodeJsonPayload<SpawnHello | AttachHello>(payload)
 
   if (hello.op === "attach") {
     const existing = sessions.get(hello.sessionId)

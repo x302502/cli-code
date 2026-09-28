@@ -3,6 +3,10 @@ import * as os from "node:os"
 import * as path from "node:path"
 import { AGENT_STATES, MSG, type AgentState, type MetaEvent, createFrameDecoder, decodeJsonPayload, encodeFrame, encodeJsonFrame } from "./protocol.js"
 
+// Every input frame goes through them: one of each for the module.
+const ENCODER = new TextEncoder()
+const DECODER = new TextDecoder()
+
 export type SessionConnection = {
   sessionId: string
   /** The daemon it goes to — where to attach again for a fresh snapshot. */
@@ -148,7 +152,7 @@ export function connectSession(
                   cb()
                 }
               },
-              write: (data) => socket.write(encodeFrame(MSG.Input, new TextEncoder().encode(data))),
+              write: (data) => socket.write(encodeFrame(MSG.Input, ENCODER.encode(data))),
               writeBinary: (data) => socket.write(encodeFrame(MSG.InputBinary, Uint8Array.from(data, (c) => c.charCodeAt(0) & 0xff))),
               resize: (cols, rows) => socket.write(encodeJsonFrame(MSG.Resize, { cols, rows })),
               ack: (bytes) => {
@@ -172,7 +176,7 @@ export function connectSession(
             if (onData) onData(frame.payload)
             else pendingData.push(frame.payload)
           } else if (frame.type === MSG.Snapshot) {
-            const text = new TextDecoder().decode(frame.payload)
+            const text = DECODER.decode(frame.payload)
             if (onSnapshot) onSnapshot(text)
             else pendingSnapshot.push(text)
           } else if (frame.type === MSG.Exit) {
