@@ -221,8 +221,10 @@ export class Session {
     const unfinished = this.escapes.pending()
     const text = await this.snapshot()
     if (gen !== this.attachGen) return
-    // The client gets every held chunk and answers them itself.
+    // The client gets every held chunk and answers them itself — including the ones the mirror
+    // has yet to parse: they are the client's now, whatever attach comes next.
     this.held = this.held.filter((h) => h.gen !== gen)
+    for (let i = 0; i < this.mirrorAnswers.length; i++) if (this.mirrorAnswers[i] === gen) this.mirrorAnswers[i] = "client"
     onSnapshot(text)
     this.backlog = undefined
     this.listener = onOutput
