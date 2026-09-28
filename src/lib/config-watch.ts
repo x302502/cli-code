@@ -39,12 +39,16 @@ export function configPathsFor(toolId: string, historyToolId: string | undefined
   return [...p.home.map(homeFile), ...(cwd ? p.project.map((r) => path.join(cwd, r)) : [])]
 }
 
+// How deep a watched folder is walked: a plugin's own source tree (plugins/foo/src/index.ts)
+// counts; node_modules never does (configEntries).
+const WATCH_DEPTH = 4
+
 /**
  * Newest mtime under `p`: a file's own, or the newest of a directory's entries two levels deep.
  * A directory's own mtime is ignored — it moves whenever anything is created next to the
  * config (our `.cli-code.bak`, an editor's swap file) and says nothing about the config.
  */
-export function newestMtime(p: string, depth = 2, known?: fs.Stats): number | undefined {
+export function newestMtime(p: string, depth = WATCH_DEPTH, known?: fs.Stats): number | undefined {
   let st: fs.Stats
   try {
     st = known ?? fs.statSync(p)
@@ -123,7 +127,7 @@ function signature(p: string): string | undefined {
   // A file by its content: a CLI writing its config back unchanged is not a change.
   if (!st.isDirectory()) return hashOf(p, (text) => text)
   // A directory by its newest entry, and its entries, so a removed plugin file counts too.
-  return `${newestMtime(p, 2, st)}:${configEntries(p).sort().join(",")}`
+  return `${newestMtime(p, WATCH_DEPTH, st)}:${configEntries(p).sort().join(",")}`
 }
 
 // Hash per file, keyed by its mtime+size: ~/.claude.json can be hundreds of KB and is

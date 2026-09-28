@@ -88,6 +88,13 @@ describe("configSnapshot / changedPath", () => {
     fs.writeFileSync(f, '{"model":"y"}')
     expect(changedPath(before, configSnapshot([f]))).toBe(f)
   })
+  it("a plugin's own source tree, below the first levels, still counts", () => {
+    const dir = path.join(home, ".config/opencode/plugins")
+    touch(".config/opencode/plugins/foo/src/index.ts", T0)
+    const before = configSnapshot([dir])
+    touch(".config/opencode/plugins/foo/src/index.ts", T0 + 5000)
+    expect(changedPath(before, configSnapshot([dir]))).toBe(dir)
+  })
   it("a plugin folder's node_modules is not config: installing a dependency is not a change", () => {
     const dir = path.join(home, ".opencode")
     touch(".opencode/plugins/a.ts", T0)
