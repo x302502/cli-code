@@ -480,15 +480,17 @@ describe("Session snapshot — a recycled alternate-screen line does not keep it
 
 describe("Session — the mirror holds back a flood like a slow client would", () => {
   it("a detached tab flooding output pauses its PTY until the mirror caught up, instead of overflowing xterm", async () => {
-    const { session, calls, emit } = makeSession()
-    const chunk = "x".repeat(1024 * 1024)
-    for (let i = 0; i < 9; i++) emit(chunk)
-    expect(calls.paused).toBe(1)
-    const deadline = Date.now() + 20_000
-    while (calls.resumed === 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 20))
-    expect(calls.resumed).toBe(1)
+    const harness = fakePty()
+    // Small marks, same mechanism as the real 8 MB / 4 MB: well past them, the PTY pauses; once
+    // the mirror has parsed its backlog, it resumes on its own (no client to ack anything).
+    const session = createSession({ id: "s", toolId: "c", command: "c", cwd: "/tmp", env: {}, cols: 80, rows: 24, spawnPty: () => harness.pty, schedule: (fn) => fn(), mirrorWater: { high: 64 * 1024, low: 32 * 1024 } })
+    const chunk = "x".repeat(16 * 1024)
+    for (let i = 0; i < 8; i++) harness.emit(chunk)
+    expect(harness.calls.paused).toBe(1)
+    await session.snapshot()
+    expect(harness.calls.resumed).toBe(1)
     session.dispose()
-  }, 30_000)
+  })
 })
 
 describe("Session snapshot — a resize keeps the alternate-screen links still on screen", () => {

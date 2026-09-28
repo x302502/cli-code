@@ -65,6 +65,7 @@ export class Session {
     private readonly mirror: Terminal,
     private readonly serializer: SerializeAddon,
     schedule: (fn: () => void, ms: number) => unknown,
+    private readonly mirrorWater = { high: MIRROR_HIGH_WATER, low: MIRROR_LOW_WATER },
   ) {
     this.coalescer = createCoalescer(COALESCE_MS, (chunk) => this.listener?.(chunk), schedule)
 
@@ -281,7 +282,7 @@ export class Session {
     // latter on a far higher mark (a detached session has no client, and a burst of output is
     // fine), yet far below the 50 MB at which xterm starts throwing.
     this.clientHeld = nextPauseState(this.clientHeld, this.unacked)
-    this.mirrorHeld = this.mirrorHeld ? this.mirrorPending >= MIRROR_LOW_WATER : this.mirrorPending > MIRROR_HIGH_WATER
+    this.mirrorHeld = this.mirrorHeld ? this.mirrorPending >= this.mirrorWater.low : this.mirrorPending > this.mirrorWater.high
     const next = this.clientHeld || this.mirrorHeld
     if (next === this.paused) return
     this.paused = next
@@ -483,6 +484,8 @@ export function createSession(args: {
   rows: number
   spawnPty: SpawnPty
   schedule?: (fn: () => void, ms: number) => unknown
+  /** For tests: the mirror's hold-back marks (defaults: 8 MB / 4 MB). */
+  mirrorWater?: { high: number; low: number }
 }): Session {
   // Spawn first: if it throws (no shell, bad cwd) no 5000-line mirror is left behind for the
   // life of the daemon.
@@ -502,7 +505,7 @@ export function createSession(args: {
   mirror.loadAddon(new Unicode11Addon())
   mirror.unicode.activeVersion = "11"
 
-  const session = new Session(args.id, args.toolId, pty, mirror, serializer, args.schedule ?? setTimeout)
+  const session = new Session(args.id, args.toolId, pty, mirror, serializer, args.schedule ?? setTimeout, args.mirrorWater)
   // Seed with the spawn cwd: CLIs run via `$SHELL -ilc <cmd>` rarely emit OSC 7, and a
   // client attaching after Reload Window still needs a cwd (restart, path links).
   session.cwd = args.cwd
