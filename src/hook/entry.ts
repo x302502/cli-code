@@ -39,6 +39,10 @@ let raw = ""
 process.stdin.setEncoding("utf8")
 process.stdin.on("data", (c) => (raw += c))
 process.stdin.on("end", () => {
+  // The payload is in: from here on only the report is left, which a busy machine (ps slow,
+  // the socket slow to accept) must not lose to the deadline set for a stdin that never ends.
+  clearTimeout(deadline)
+  setTimeout(() => process.exit(0), 3000)
   let mapped: ReturnType<typeof mapHookEvent>
   try {
     mapped = mapHookEvent(JSON.parse(raw), from)
