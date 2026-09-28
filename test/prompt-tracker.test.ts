@@ -145,6 +145,13 @@ describe("createPromptTracker — input split across chunks, and non-BMP charact
     t.feed("0~abc\x1b[2")
     expect(t.feed("01~\r")).toBe("abc")
   })
+  it("Backspace removes one grapheme: e + combining accent, an emoji with a variation selector, a ZWJ family", () => {
+    for (const g of ["e\u0301", "\u2764\ufe0f", "\u{1F468}\u200d\u{1F469}\u200d\u{1F467}"]) {
+      const t = createPromptTracker()
+      t.feed(`${g}\x7f`)
+      expect(t.hasDraft()).toBe(false)
+    }
+  })
   it("Backspace removes a whole emoji, so the line is empty again", () => {
     const t = createPromptTracker()
     t.feed("😀\x7f")

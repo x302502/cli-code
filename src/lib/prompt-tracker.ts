@@ -1,5 +1,15 @@
 import { formatPromptTitle } from "./tab-title.js"
 
+const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" })
+
+/** `text` without its last user-perceived character — what one Backspace erases: an emoji (two
+ * UTF-16 units), `e` + a combining accent, a ZWJ family, a flag. */
+function dropLastGrapheme(text: string): string {
+  let last = 0
+  for (const { index } of GRAPHEMES.segment(text)) last = index
+  return text.slice(0, last)
+}
+
 const PASTE_START = "\x1b[200~"
 const PASTE_END = "\x1b[201~"
 
@@ -94,7 +104,7 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
         submitted = title || undefined
         line = ""
         unknown = typedSinceSubmit = false
-      } else if (ch === "\x7f" || ch === "\b") line = line.slice(0, /[\ud800-\udbff][\udc00-\udfff]$/.test(line) ? -2 : -1) // one code point (an emoji is two units)
+      } else if (ch === "\x7f" || ch === "\b") line = dropLastGrapheme(line)
       else if (ch === "\x03" || ch === "\x15") {
         line = ""
         unknown = typedSinceSubmit = false
