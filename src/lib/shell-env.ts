@@ -88,7 +88,9 @@ let codexHomeReady: Promise<void> | undefined
 export function codexHomeFromShell(): Promise<void> {
   return (codexHomeReady ??= shellEnv().then(
     (env) => {
-      if (env?.CODEX_HOME && !process.env.CODEX_HOME) process.env.CODEX_HOME = env.CODEX_HOME
+      // The shell's value wins over one VS Code inherited: the daemon runs Codex through that
+      // shell, so its CODEX_HOME is the folder Codex really uses.
+      if (env?.CODEX_HOME) process.env.CODEX_HOME = env.CODEX_HOME
       // A probe that failed (timed out) is asked again next time, not remembered for the window.
       if (!env) codexHomeReady = undefined
     },
