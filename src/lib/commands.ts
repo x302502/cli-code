@@ -6,16 +6,17 @@ import { getActiveFileReference } from "./editor.js"
 import { locateLatestSession } from "./history/locate.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
 import { codexHomeFromShell } from "./shell-env.js"
-import { activePanelCwd, findExistingPanel, openTerminalPanel, pasteToActivePanel, writeToActivePanel } from "./panel.js"
+import { activePanelCwd, findExistingPanel, focusedPanelCwd, openTerminalPanel, pasteToActivePanel, writeToActivePanel } from "./panel.js"
 import { mergeQuickCommands } from "./quick-commands.js"
 import { SAFE_ID, continueLatestCommand } from "./restart-command.js"
 import { pickTool } from "./terminal.js"
 
-/** The folder a new CLI tab (or Resume) is for: the CLI tab in front's, else the workspace folder
- * of the file being edited — in a multi-root workspace, not simply the first root. */
+/** The folder a new CLI tab (or Resume) is for: the focused CLI tab's, else the workspace folder
+ * of the file being edited, else the last CLI tab used — in a multi-root workspace, not simply
+ * the first root, and not a tab from a while ago over the editor in front. */
 function preferredCwd(): string | undefined {
   const doc = vscode.window.activeTextEditor?.document.uri
-  return activePanelCwd() ?? (doc ? vscode.workspace.getWorkspaceFolder(doc)?.uri.fsPath : undefined)
+  return focusedPanelCwd() ?? (doc ? vscode.workspace.getWorkspaceFolder(doc)?.uri.fsPath : undefined) ?? activePanelCwd()
 }
 
 /** Opens a CLI terminal panel, optionally reusing an already-open one for the chosen tool. */

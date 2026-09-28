@@ -7,6 +7,7 @@ import * as path from "node:path"
 import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
 import { shellQuote } from "./command-env.js"
+import { samePath } from "./same-path.js"
 import { codexHomeFromShell } from "./shell-env.js"
 import { connectSession, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
@@ -164,6 +165,12 @@ function usableCwd(p: string | undefined): string | undefined {
 }
 
 /** cwd reported (OSC 7) by the active/last-focused CLI panel, if it exists locally. */
+/** cwd of the CLI panel that has focus right now (not the last-focused one). */
+export function focusedPanelCwd(): string | undefined {
+  const panel = activeTerminalPanel()
+  return usableCwd(panel ? tab(panel).cwd : undefined)
+}
+
 export function activePanelCwd(): string | undefined {
   const panel = activeTerminalPanel() ?? lastFocusedPanel
   return usableCwd(panel ? tab(panel).cwd : undefined)
@@ -714,7 +721,8 @@ function siblingIdentities(panel: vscode.WebviewPanel, tool: CliTool, cwd: strin
     .filter((p) => {
       const t = tab(p).tool
       const c = usableCwd(tab(p).cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-      return t !== undefined && (t.historyToolId ?? t.id) === family && c !== undefined && path.resolve(c) === here
+      // samePath: case-insensitive where the file system is (C:\Proj is c:\proj on Windows).
+      return t !== undefined && (t.historyToolId ?? t.id) === family && c !== undefined && here !== undefined && samePath(c, here)
     })
     .map((p) => {
       const t = tab(p).tool!
