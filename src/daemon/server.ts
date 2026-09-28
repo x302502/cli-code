@@ -62,8 +62,9 @@ export async function startDaemon(args: {
         for (const frame of decode(new Uint8Array(chunk))) {
           if (frame.type === MSG.Hello) {
             // One session per connection: a second Hello would leave the first session wired to
-            // this socket — its output owed, never acked, until its PTY paused for good.
-            if (session) {
+            // this socket — its output owed, never acked, until its PTY paused for good. And a
+            // hook's report socket is not a client: it was never counted as one.
+            if (session || reporter) {
               socket.end(encodeJsonFrame(MSG.HelloFail, { reason: "this connection already has a session" }))
               return
             }
@@ -78,7 +79,9 @@ export async function startDaemon(args: {
             continue
           }
           if (frame.type === MSG.StatusReport) {
-            if (!reporter) {
+            // A client's own socket (it did a Hello) stays a client; only a bare socket that
+            // reports is a hook's.
+            if (!reporter && !session) {
               reporter = true
               clients--
             }

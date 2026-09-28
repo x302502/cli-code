@@ -282,6 +282,20 @@ describe("startDaemon", () => {
     client.socket.destroy()
   })
 
+  it("a hook's report socket may not become a client with a Hello afterwards", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    let spawned = 0
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => (spawned++, harness.pty) })
+    stop = daemon.close
+    const c = connect(p)
+    c.socket.write(encodeJsonFrame(MSG.StatusReport, { sessionId: "none", state: "working" }))
+    c.socket.write(encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }))
+    await c.waitFor(MSG.HelloFail)
+    expect(spawned).toBe(0)
+    c.socket.destroy()
+  })
+
   it("gửi khung Exit khi PTY thoát trong lúc client đang nối", async () => {
     const p = socketPath()
     const harness = scriptedPty()
