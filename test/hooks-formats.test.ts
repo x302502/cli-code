@@ -123,6 +123,14 @@ describe("codex trust tables — with no blank line between tables", () => {
   })
 })
 
+describe("codex trust tables — spacing around = that a formatter or a hand edit leaves", () => {
+  it("trusted_hash   =   \"…\" is still read as the table's hash", () => {
+    const toml = '[hooks.state."k"]\nenabled = true\ntrusted_hash   =   "sha256:ours"\n'
+    expect(trustedWith(toml, "k", "sha256:ours")).toBe(true)
+    expect(removeTrust(toml, ["sha256:ours"]).changed).toBe(true)
+  })
+})
+
 describe("codex trust tables — a blank line between the header and its keys", () => {
   const toml = 'model = "x"\n\n[hooks.state."k"]\n\nenabled = true\ntrusted_hash = "sha256:ours"\n\n[projects."/p"]\ntrust_level = "trusted"\n'
   it("is still one table: found, removed whole, and replaced without leaving its keys behind", () => {

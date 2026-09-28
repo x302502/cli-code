@@ -65,7 +65,8 @@ const cut = (lead: string, offset: number, whole: string, table: string): string
   const next = whole[offset + table.length]
   return lead && next !== undefined && next !== "\n" ? "\n" : ""
 }
-const hashIn = (table: string) => /trusted_hash = "([^"]*)"/.exec(table)?.[1]
+// TOML allows any spacing around `=` (a formatter, a hand edit).
+const hashIn = (table: string) => /^[ \t]*trusted_hash[ \t]*=[ \t]*"([^"]*)"/m.exec(table)?.[1]
 
 /** Whether the table at `key` trusts exactly `hash`. */
 export function trustedWith(toml: string, key: string, hash: string): boolean {
