@@ -96,7 +96,8 @@ export function codexSessions(cwd: string, limit: number, sinceMs?: number): Ses
     let s = parseCodexRollout(text, fallback)
     // The session's instructions (tens of KB) and the context Codex injects come first: the first
     // real prompt can sit past the usual head — read further for that session only.
-    if (s?.title === "(untitled)" && (fs.statSync(f, { throwIfNoEntry: false })?.size ?? 0) > HEAD_BYTES) {
+    // (Nothing parsed at all: the meta line itself was cut off by the head.)
+    if ((s === undefined || s.title === "(untitled)") && (fs.statSync(f, { throwIfNoEntry: false })?.size ?? 0) > HEAD_BYTES) {
       try {
         s = parseCodexRollout(head(f, CODEX_TITLE_BYTES), fallback) ?? s
       } catch {
