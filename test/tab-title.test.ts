@@ -116,3 +116,10 @@ describe("formatPromptTitle — a long link first", () => {
     expect(formatPromptTitle(`https://example.com/${"x".repeat(700)} fix the login bug`)).toBe("fix the login bug")
   })
 })
+
+describe("formatPromptTitle — a leading path is not a /command", () => {
+  it("/tmp/report.md keeps its folder; /review with an argument drops the command", () => {
+    expect(formatPromptTitle("/tmp/report.md looks wrong")).toBe("/tmp/report.md looks wrong")
+    expect(formatPromptTitle("/review fix the tests")).toBe("fix the tests")
+  })
+})

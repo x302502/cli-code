@@ -31,7 +31,8 @@ export function formatPromptTitle(prompt: string): string {
     .slice(0, URL_SCAN_LIMIT)
     .replace(/https?:\/\/\S+/gi, " ")
     .slice(0, SOURCE_SCAN_LIMIT)
-    .replace(/^\s*\/[a-zA-Z0-9_-]+\s*/, "")
+    // A leading /command — a word, not the first segment of a path like /tmp/report.md.
+    .replace(/^\s*\/[a-zA-Z0-9_-]+(?=\s|$)\s*/, "")
   text = text.replace(/\[Pasted text[^\]]*\]/g, "")
   const firstLine = text
     .split(/[\n\r\u2028\u2029]/u)
