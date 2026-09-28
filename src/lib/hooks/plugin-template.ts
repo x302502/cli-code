@@ -54,6 +54,11 @@ export default async function CliCodeStatus(input: { directory?: string; client?
       if (await isChild(perm?.sessionID)) report({ hook_event_name: "PermissionRequest", cwd })
       else report({ hook_event_name: "PermissionRequest", session_id: perm?.sessionID, cwd })
     },
+    // A tool ran: a permission it waited on was answered (ends "waiting", see hook-map.ts).
+    "tool.execute.after": async (inp: any) => {
+      if (await isChild(inp?.sessionID)) return
+      report({ hook_event_name: "PostToolUse", session_id: inp?.sessionID, cwd })
+    },
     event: async ({ event }: any) => {
       if (event?.type !== "session.idle" || (await isChild(event?.properties?.sessionID))) return
       report({ hook_event_name: "Stop", session_id: event?.properties?.sessionID, cwd })
@@ -76,6 +81,10 @@ export default function CliCodeStatus(api: any) {
   })
   api.on("${waiting}", async (_event: any, ctx: any) => {
     report({ hook_event_name: "PermissionRequest", session_id: sid(ctx), cwd: ctx?.cwd })
+  })
+  // A tool ran: a permission it waited on was answered (ends "waiting", see hook-map.ts).
+  api.on("tool_execution_end", async (_event: any, ctx: any) => {
+    report({ hook_event_name: "PostToolUse", session_id: sid(ctx), cwd: ctx?.cwd })
   })
 }
 `

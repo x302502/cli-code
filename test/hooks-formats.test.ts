@@ -47,10 +47,10 @@ describe("codex hook trust", () => {
 })
 
 describe("copilot hook file", () => {
-  it("is a version-1 file with bash handlers for the four events", () => {
+  it("is a version-1 file with bash handlers for its five events", () => {
     const file = copilotFile()
     expect(file.version).toBe(1)
-    expect(Object.keys(file.hooks).sort()).toEqual(["Notification", "PermissionRequest", "Stop", "UserPromptSubmit"])
+    expect(Object.keys(file.hooks).sort()).toEqual(["Notification", "PermissionRequest", "PostToolUse", "Stop", "UserPromptSubmit"])
     expect(file.hooks.Stop).toEqual([{ type: "command", bash: hookCommand("copilot"), timeoutSec: 5 }])
     expect(copilotInstalled(file)).toBe(true)
     expect(copilotInstalled({ version: 1, hooks: { Stop: [{ type: "command", bash: "other" }] } })).toBe(false)

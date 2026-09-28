@@ -63,7 +63,11 @@ function settingsHooks(id: string, label: string, binary: string, rel: string[],
 
 // --- Codex: hooks.json plus trust entries in config.toml ---
 
-const CODEX_EVENTS = ["UserPromptSubmit", "Stop", "PermissionRequest"] as const
+// PostToolUse: the end of a tool call is the only sign a permission dialog was answered (see
+// hook-map.ts). Synchronous for Codex: its trust hash covers `async`, and the formula was only
+// checked against synchronous hooks.
+const CODEX_EVENTS = ["UserPromptSubmit", "Stop", "PermissionRequest", "PostToolUse"] as const
+const CODEX_ASYNC: ReadonlySet<string> = new Set()
 const codex: StatusHookInstaller = {
   id: "codex",
   label: "Codex",
@@ -72,13 +76,13 @@ const codex: StatusHookInstaller = {
   installed: (home) => {
     const [hooksFile, tomlFile] = codex.files(home) as [string, string]
     const value = readSettingsFile(hooksFile)
-    if (!hooksInstalled(value, CODEX_EVENTS, hookCommand("codex"))) return false
+    if (!hooksInstalled(value, CODEX_EVENTS, hookCommand("codex"), CODEX_ASYNC)) return false
     const toml = readText(tomlFile) ?? ""
     return codexTrustKeys(hooksFile, value).every((e) => trustedWith(toml, e.key, e.hash))
   },
   install: (home) => {
     const [hooksFile, tomlFile] = codex.files(home) as [string, string]
-    const { settings, changed } = installHooks(readSettingsFile(hooksFile), CODEX_EVENTS, 10, hookCommand("codex"))
+    const { settings, changed } = installHooks(readSettingsFile(hooksFile), CODEX_EVENTS, 10, hookCommand("codex"), CODEX_ASYNC)
     if (changed) writeSettingsFile(hooksFile, settings)
     const trust = addTrust(readText(tomlFile) ?? "", codexTrustKeys(hooksFile, settings))
     if (trust.changed) writeFileAtomic(tomlFile, trust.text)

@@ -37,7 +37,7 @@ export function isOurCommand(command: unknown): boolean {
 export type HookEntry = { type: string; command: string; timeout?: number; async?: boolean }
 // Fired after every tool call: run in the background so a turn of many tool calls is not
 // slowed by one hook process each.
-const ASYNC_EVENTS = new Set(["PostToolUse", "PostToolBatch"])
+export const ASYNC_EVENTS: ReadonlySet<string> = new Set(["PostToolUse", "PostToolBatch"])
 export type HookGroup = { matcher?: string; hooks: HookEntry[] }
 type Settings = Record<string, unknown> & { hooks?: Record<string, HookGroup[]> }
 
@@ -62,12 +62,20 @@ export function isOurs(group: HookGroup): boolean {
 
 // The Claude `hooks` shape is shared by Droid, Codex and Grok; they differ only in which events
 // exist and whether a timeout is expected, hence the optional parameters.
-export function hooksInstalled(value: unknown, events: readonly string[] = HOOK_EVENTS, command = HOOK_COMMAND): boolean {
+/** `asyncEvents`: the events whose hook runs in the background (a CLI that cannot, or whose trust
+ * scheme was only checked for synchronous hooks, passes none). */
+export function hooksInstalled(value: unknown, events: readonly string[] = HOOK_EVENTS, command = HOOK_COMMAND, asyncEvents: ReadonlySet<string> = ASYNC_EVENTS): boolean {
   const s = asSettings(value)
-  return events.every((e) => groupsOf(hooksRecord(s), e).some((g) => Array.isArray(g?.hooks) && g.hooks.some((h) => h?.command === command && (!ASYNC_EVENTS.has(e) || h.async === true))))
+  return events.every((e) => groupsOf(hooksRecord(s), e).some((g) => Array.isArray(g?.hooks) && g.hooks.some((h) => h?.command === command && (!asyncEvents.has(e) || h.async === true))))
 }
 
-export function installHooks(value: unknown, events: readonly string[] = HOOK_EVENTS, timeout?: number, command = HOOK_COMMAND): { settings: Settings; changed: boolean } {
+export function installHooks(
+  value: unknown,
+  events: readonly string[] = HOOK_EVENTS,
+  timeout?: number,
+  command = HOOK_COMMAND,
+  asyncEvents: ReadonlySet<string> = ASYNC_EVENTS,
+): { settings: Settings; changed: boolean } {
   const s = asSettings(value)
   // A non-plain-object hooks field (null, array, primitive) is replaced, not preserved: there is
   // nothing sane to merge into.
@@ -84,7 +92,7 @@ export function installHooks(value: unknown, events: readonly string[] = HOOK_EV
         h.command = command
         changed = true
       }
-      if (ASYNC_EVENTS.has(e) && h.async !== true) {
+      if (asyncEvents.has(e) && h.async !== true) {
         h.async = true
         changed = true
       }
@@ -92,7 +100,7 @@ export function installHooks(value: unknown, events: readonly string[] = HOOK_EV
     if (!groups.some(isOurs)) {
       // Appended, never prepended: Codex keys its trust entries by group index.
       const entry: HookEntry = timeout === undefined ? { type: "command", command } : { type: "command", command, timeout }
-      if (ASYNC_EVENTS.has(e)) entry.async = true
+      if (asyncEvents.has(e)) entry.async = true
       groups.push({ hooks: [entry] })
       changed = true
     }

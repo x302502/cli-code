@@ -4,7 +4,8 @@ const COMMAND = hookCommand("copilot")
 
 /** Copilot reads every `~/.copilot/hooks/*.json`; ours is a file of its own, so install = write,
  * uninstall = delete, and nothing of the user's is ever merged. */
-export const COPILOT_EVENTS = ["UserPromptSubmit", "Stop", "PermissionRequest", "Notification"] as const
+// PostToolUse ends a permission wait (hook-map.ts): the tool ran, so the dialog was answered.
+export const COPILOT_EVENTS = ["UserPromptSubmit", "Stop", "PermissionRequest", "Notification", "PostToolUse"] as const
 
 export type CopilotHookFile = { version: 1; hooks: Record<string, { type: "command"; bash: string; timeoutSec: number }[]> }
 
