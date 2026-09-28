@@ -141,3 +141,21 @@ describe("codex trust tables — a blank line between the header and its keys", 
     expect(replaced.match(/enabled = true/g)).toHaveLength(1)
   })
 })
+
+describe("codex trust tables — a config.toml with CRLF line ends", () => {
+  const entries = [
+    { key: "a", hash: "sha256:1" },
+    { key: "b", hash: "sha256:2" },
+    { key: "c", hash: "sha256:3" },
+  ]
+  const crlf = addTrust('model = "x"\n', entries).text.replace(/\n/g, "\r\n")
+  it("install, update and remove keep one table per key and the file's own line ends", () => {
+    expect(entries.every((e) => trustedWith(crlf, e.key, e.hash))).toBe(true)
+    expect(addTrust(crlf, entries).changed).toBe(false)
+    const updated = addTrust(crlf, [{ key: "b", hash: "sha256:new" }]).text
+    expect(updated.match(/enabled = true/g)).toHaveLength(3)
+    expect(updated.match(/\[hooks\.state\."b"\]/g)).toHaveLength(1)
+    expect(updated.replace(/\r\n/g, "")).not.toContain("\n")
+    expect(removeTrust(updated, ["sha256:1", "sha256:new", "sha256:3"]).text).toBe('model = "x"\r\n')
+  })
+})

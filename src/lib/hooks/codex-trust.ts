@@ -68,8 +68,20 @@ const cut = (lead: string, offset: number, whole: string, table: string): string
 // TOML allows any spacing around `=` (a formatter, a hand edit).
 const hashIn = (table: string) => /^[ \t]*trusted_hash[ \t]*=[ \t]*"([^"]*)"/m.exec(table)?.[1]
 
+/**
+ * Runs `edit` on `toml` with LF line ends and gives the file its CRLF ones back if it had them:
+ * the table patterns work line by line on `\n`, and on a CRLF file (edited on Windows) they
+ * would cut a table's header from its keys — `enabled` defined twice, an unreadable config.
+ */
+function withLf(toml: string, edit: (text: string) => { text: string; changed: boolean }): { text: string; changed: boolean } {
+  if (!toml.includes("\r\n")) return edit(toml)
+  const out = edit(toml.replace(/\r\n/g, "\n"))
+  return { text: out.text.replace(/\n/g, "\r\n"), changed: out.changed }
+}
+
 /** Whether the table at `key` trusts exactly `hash`. */
 export function trustedWith(toml: string, key: string, hash: string): boolean {
+  toml = toml.replace(/\r\n/g, "\n")
   for (const m of toml.matchAll(TABLE_RE)) if (unquoted(m[2]!) === key && hashIn(m[0]) === hash) return true
   return false
 }
@@ -80,6 +92,9 @@ export function trustedWith(toml: string, key: string, hash: string): boolean {
  * would otherwise keep treating our hook as untrusted. Missing tables are appended.
  */
 export function addTrust(toml: string, entries: { key: string; hash: string }[]): { text: string; changed: boolean } {
+  return withLf(toml, (text) => addTrustLf(text, entries))
+}
+function addTrustLf(toml: string, entries: { key: string; hash: string }[]): { text: string; changed: boolean } {
   let text = toml
   let changed = false
   for (const { key, hash } of entries) {
@@ -96,6 +111,9 @@ export function addTrust(toml: string, entries: { key: string; hash: string }[])
 /** Removes every hooks.state table whose trusted_hash is one of ours — content-addressed, so a
  * group index that shifted after a user edit cannot orphan a block. */
 export function removeTrust(toml: string, hashes: string[]): { text: string; changed: boolean } {
+  return withLf(toml, (text) => removeTrustLf(text, hashes))
+}
+function removeTrustLf(toml: string, hashes: string[]): { text: string; changed: boolean } {
   let changed = false
   const text = toml.replace(TABLE_RE, (m, lead: string, _key: string, offset: number, whole: string) => {
     const h = hashIn(m)
@@ -132,6 +150,9 @@ function userKeys(hooksJsonPath: string, value: unknown): Map<string, string[]> 
  * user's handlers pair up one to one). All renames happen in one pass, so no chain collides.
  */
 export function remapTrust(toml: string, hooksJsonPath: string, before: unknown, after: unknown): { text: string; changed: boolean } {
+  return withLf(toml, (text) => remapTrustLf(text, hooksJsonPath, before, after))
+}
+function remapTrustLf(toml: string, hooksJsonPath: string, before: unknown, after: unknown): { text: string; changed: boolean } {
   const rename = new Map<string, string>()
   const was = userKeys(hooksJsonPath, before)
   const now = userKeys(hooksJsonPath, after)
