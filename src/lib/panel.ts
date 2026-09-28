@@ -166,13 +166,13 @@ function usableCwd(p: string | undefined): string | undefined {
   return p && statKind(p) === "dir" ? p : undefined
 }
 
-/** cwd reported (OSC 7) by the active/last-focused CLI panel, if it exists locally. */
 /** cwd of the CLI panel that has focus right now (not the last-focused one). */
 export function focusedPanelCwd(): string | undefined {
   const panel = activeTerminalPanel()
   return usableCwd(panel ? tab(panel).cwd : undefined)
 }
 
+/** cwd reported (OSC 7) by the active/last-focused CLI panel, if it exists locally. */
 export function activePanelCwd(): string | undefined {
   const panel = targetPanel()
   return usableCwd(panel ? tab(panel).cwd : undefined)
@@ -474,7 +474,8 @@ function probeSocket(socketPath: string): Promise<"listening" | "absent" | "unkn
 }
 
 // Work that waits for the first CLI tab of the window (see onFirstTab in extension.ts).
-let firstTab: (() => void) | undefined
+let firstTab: (() => Promise<void>) | undefined
+let firstTabDone: Promise<void> = Promise.resolve()
 /** Codex's folder comes from the login shell (see codexHomeFromShell): a Codex tab waits for it
  * before anything reads Codex's config or sessions; no other CLI needs to. */
 function codexHomeFor(tool: CliTool): Promise<void> {
@@ -487,12 +488,17 @@ function fallbackCwd(): string {
 }
 
 /** Runs `fn` once, when the window's first CLI tab is opened or restored. */
-export function onFirstTab(fn: () => void): void {
+export function onFirstTab(fn: () => Promise<void>): void {
   firstTab = fn
 }
-function tabStarting(): void {
-  firstTab?.()
-  firstTab = undefined
+/** Starts the first-tab work once; resolves when it is done (a new tab waits for it: see
+ * openTerminalPanel). */
+function tabStarting(): Promise<void> {
+  if (firstTab) {
+    firstTabDone = firstTab().catch(() => {})
+    firstTab = undefined
+  }
+  return firstTabDone
 }
 
 export async function openTerminalPanel(
@@ -510,9 +516,15 @@ export async function openTerminalPanel(
     viewColumn?: vscode.ViewColumn
   } = {},
 ): Promise<vscode.WebviewPanel | undefined> {
-  tabStarting()
-  // The tab's config snapshot must list Codex's real folder; the daemon comes up meanwhile.
-  const [socketPath] = await Promise.all([ensureDaemon(context).catch((err: unknown) => (err instanceof Error ? err : new Error(String(err)))), codexHomeFor(tool)])
+  // The first tab of the window waits for the status hooks to be in place: its CLI reads them
+  // at start, and its config snapshot must already include them (else it runs without, or is
+  // flagged stale the moment they land). The daemon comes up meanwhile; the tab's config
+  // snapshot must list Codex's real folder too.
+  const [socketPath] = await Promise.all([
+    ensureDaemon(context).catch((err: unknown) => (err instanceof Error ? err : new Error(String(err)))),
+    codexHomeFor(tool),
+    tabStarting(),
+  ])
   if (socketPath instanceof Error) {
     void vscode.window.showErrorMessage(`Could not open the terminal: ${socketPath.message}`)
     return undefined
@@ -556,7 +568,11 @@ export async function restoreTerminalPanel(
   panel: vscode.WebviewPanel,
   state: PanelState,
 ): Promise<void> {
-  tabStarting()
+  // VS Code restores the webview with the options it was created with — among them
+  // localResourceRoots, the extension folder of that time. After an update the folder is
+  // another one, the page's script and CSS would be refused and the tab stay blank.
+  panel.webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.file(context.extensionPath)] }
+  void tabStarting()
   const tool = CLI_TOOLS.find((t) => t.id === state.toolId)
   if (!tool) {
     // A CLI this build no longer lists: the tab goes, and so must its process — nothing in the

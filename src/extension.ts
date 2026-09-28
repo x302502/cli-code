@@ -117,8 +117,8 @@ export function activate(context: vscode.ExtensionContext): TestApi {
   // files, which a window that never opens a CLI should not pay (nor race other windows on).
   // Hooks only matter inside CLI Code's tabs, and stay installed once written. Never from the
   // integration-test host (it runs against the real home).
-  onFirstTab(() => {
-    if (context.extensionMode !== vscode.ExtensionMode.Test) void runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
+  onFirstTab(async () => {
+    if (context.extensionMode !== vscode.ExtensionMode.Test) await runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
   })
   context.subscriptions.push(
     vscode.commands.registerCommand("cli-code.open", () => openCli(context, { reuseExisting: true })),
