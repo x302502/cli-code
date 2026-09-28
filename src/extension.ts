@@ -158,7 +158,10 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     vscode.commands.registerCommand("cli-code.installStatusHooks", () => setStatusHooks(context, true)),
     vscode.commands.registerCommand("cli-code.removeStatusHooks", () => setStatusHooks(context, false)),
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("cliCode.statusHooks")) void runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
+      // Never from the integration-test host, which runs against the real home (as at activation).
+      if (e.affectsConfiguration("cliCode.statusHooks") && context.extensionMode !== vscode.ExtensionMode.Test) {
+        void runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
+      }
     }),
     vscode.window.registerWebviewPanelSerializer(VIEW_TYPE, {
       async deserializeWebviewPanel(panel: vscode.WebviewPanel, state: PanelState | undefined) {

@@ -46,8 +46,11 @@ const hookFiles = [
   path.join(os.homedir(), ".pi", "agent", "extensions", "cli-code-status.ts"),
   path.join(os.homedir(), ".omp", "agent", "extensions", "cli-code-status.ts"),
 ]
-// settings.json itself too, from before VS Code starts: activation must never write it.
-const beforeSiblings = [statFile(realClaudeSettingsPath), statFile(`${realClaudeSettingsPath}.cli-code.bak`), statFile(`${realClaudeSettingsPath}.tmp`), ...hookFiles.map(statFile)]
+// Snapshotted before VS Code starts: activation must never write any of them. Every installer
+// writes through a backup (`.cli-code.bak`) and a staging file (`.tmp`) next to
+// its target: those are checked too, for Claude's settings and every other CLI's file alike.
+const withSiblings = (p) => [p, `${p}.cli-code.bak`, `${p}.tmp`]
+const beforeSiblings = [realClaudeSettingsPath, ...hookFiles].flatMap(withSiblings).map(statFile)
 
 function checkClaudeSettingsUntouched() {
   const snapshotFile = path.join(dirs.out, "claude-settings.before")
