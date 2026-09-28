@@ -545,6 +545,25 @@ describe("Session — terminal queries while no client is attached", () => {
     expect(got.join("")).toBe("\x1b[6n")
     expect(calls.written).toEqual([])
   })
+  it("a query held for an attach that is then cancelled (detach) is answered by the mirror", async () => {
+    const { session, calls, emit } = makeSession()
+    const attaching = session.attach(() => {}, () => {})
+    emit("ab\x1b[6n") // held for the attach: it waits on its snapshot
+    session.detach()
+    await attaching
+    await session.snapshot()
+    expect(calls.written).toEqual(["\x1b[1;3R"])
+  })
+  it("a query held for an attach that completes is the client's: the mirror stays quiet", async () => {
+    const { session, calls, emit } = makeSession()
+    const got: string[] = []
+    const attaching = session.attach(() => {}, (c) => got.push(new TextDecoder().decode(c)))
+    emit("ab\x1b[6n")
+    await attaching
+    await session.snapshot()
+    expect(got.join("")).toContain("\x1b[6n")
+    expect(calls.written).toEqual([])
+  })
   it("a query that arrived while attached, answered by the webview, is not answered again after a detach", async () => {
     const { session, calls, emit } = makeSession()
     session.onOutput(() => {})

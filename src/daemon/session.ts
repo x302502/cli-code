@@ -48,7 +48,9 @@ export class Session {
   /** Where the PTY stream stands in escape sequences: an attach needs any it cut off. */
   private readonly escapes = new EscapeTracker()
   /** Per chunk still waiting in the mirror: whether the mirror answers its queries. */
-  private readonly mirrorAnswers: boolean[] = []
+  private readonly mirrorAnswers: ("mirror" | "client" | number)[] = []
+  /** Replies the mirror gave to chunks held for an attach still in progress (see onData). */
+  private held: { gen: number; reply: string }[] = []
   private clientHeld = false
   private mirrorHeld = false
   private waitingAgent: string | undefined
@@ -76,8 +78,16 @@ export class Session {
     // when the chunk arrives: the mirror parses later, when a client may have come or gone.
     // xterm parses writes in order and answers synchronously, so the head of `mirrorAnswers`
     // belongs to the chunk being parsed.
+    // A chunk held for an attach in progress (tagged with that attach's generation) is the
+    // client's if the attach completes — it gets the chunk — but the mirror's if the attach is
+    // cancelled first (a detach, another attach): its replies wait here until that is known.
     this.mirror.onData((reply) => {
-      if (this.mirrorAnswers[0] && !this.exit && !this.disposed) this.pty.write(reply)
+      const tag = this.mirrorAnswers[0]
+      if (this.exit || this.disposed || tag === undefined || tag === "client") return
+      if (tag === "mirror") return this.pty.write(reply)
+      if (tag !== this.attachGen) return this.pty.write(reply) // that attach was cancelled
+      if (this.backlog) this.held.push({ gen: tag, reply }) // still waiting on its snapshot
+      // else: it completed, and the client got (and answers) the chunk
     })
 
     this.pty.onData((data) => {
@@ -89,7 +99,7 @@ export class Session {
       // whole daemon — every tab's CLI — down with it.
       if (!this.disposed) {
         this.mirrorPending += data.length
-        this.mirrorAnswers.push(!this.listener && !this.backlog)
+        this.mirrorAnswers.push(this.backlog ? this.attachGen : this.listener ? "client" : "mirror")
         this.mirror.write(data, () => {
           this.mirrorAnswers.shift()
           this.mirrorPending -= data.length
@@ -201,6 +211,7 @@ export class Session {
     const backlog: Uint8Array[] = []
     this.backlog = backlog
     const gen = ++this.attachGen
+    this.releaseHeld()
     // Queue the snapshot marker before any later chunk can arrive, so every
     // byte that comes in during the await lands in `backlog`, not in the
     // snapshot.
@@ -210,6 +221,8 @@ export class Session {
     const unfinished = this.escapes.pending()
     const text = await this.snapshot()
     if (gen !== this.attachGen) return
+    // The client gets every held chunk and answers them itself.
+    this.held = this.held.filter((h) => h.gen !== gen)
     onSnapshot(text)
     this.backlog = undefined
     this.listener = onOutput
@@ -226,6 +239,7 @@ export class Session {
     // flush of pre-detach bytes that are already covered by its snapshot.
     this.coalescer.flush()
     this.attachGen++
+    this.releaseHeld()
     this.listener = undefined
     this.exitListener = undefined
     this.metaListener = undefined
@@ -269,6 +283,12 @@ export class Session {
    */
   snapshot(): Promise<string> {
     return new Promise<string>((resolve) => this.mirror.write("", () => resolve(this.serializer.serialize() + mouseEncoding(this.mirror) + scrollRegion(this.mirror) + oscLinks(this.mirror))))
+  }
+
+  /** Sends the PTY the mirror's replies held for an attach that will no longer complete. */
+  private releaseHeld(): void {
+    for (const h of this.held) if (h.gen !== this.attachGen && !this.exit && !this.disposed) this.pty.write(h.reply)
+    this.held = this.held.filter((h) => h.gen === this.attachGen)
   }
 
   private forward(chunk: Uint8Array): void {
