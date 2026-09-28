@@ -11,6 +11,13 @@ import { mergeQuickCommands } from "./quick-commands.js"
 import { SAFE_ID, continueLatestCommand } from "./restart-command.js"
 import { pickTool } from "./terminal.js"
 
+/** The folder a new CLI tab (or Resume) is for: the CLI tab in front's, else the workspace folder
+ * of the file being edited — in a multi-root workspace, not simply the first root. */
+function preferredCwd(): string | undefined {
+  const doc = vscode.window.activeTextEditor?.document.uri
+  return activePanelCwd() ?? (doc ? vscode.workspace.getWorkspaceFolder(doc)?.uri.fsPath : undefined)
+}
+
 /** Opens a CLI terminal panel, optionally reusing an already-open one for the chosen tool. */
 export async function openCli(context: vscode.ExtensionContext, options: { reuseExisting: boolean }) {
   const tool = await pickTool(context)
@@ -22,11 +29,8 @@ export async function openCli(context: vscode.ExtensionContext, options: { reuse
       existing.reveal()
       return
     }
-    await openTerminalPanel(context, tool)
-    return
   }
-
-  await openTerminalPanel(context, tool, { cwd: activePanelCwd() })
+  await openTerminalPanel(context, tool, { cwd: preferredCwd() })
 }
 
 /** Sends the active file's at-mention into the last-focused CLI panel. */
@@ -45,7 +49,7 @@ export function addFilepathToTerminal() {
 /** Lists past sessions for the current workspace and reopens the chosen one. */
 export async function resumeSession(context: vscode.ExtensionContext): Promise<void> {
   // The CLI tab in front says which project is meant (a multi-root workspace has several).
-  const cwd = activePanelCwd() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+  const cwd = preferredCwd() ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
   if (!cwd) {
     void vscode.window.showInformationMessage("Open a folder first.")
     return
@@ -90,7 +94,7 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
         label: `$(history) ${s.title}`,
         description: tool.label,
         detail: new Date(s.updatedAt).toLocaleString(),
-        run: () => openTerminalPanel(context, tool, { command: tool.resumeCommand!.replace("{sessionId}", s.sessionId), promptTitle: s.title }),
+        run: () => openTerminalPanel(context, tool, { cwd, command: tool.resumeCommand!.replace("{sessionId}", s.sessionId), promptTitle: s.title }),
       }
     })
   // Tools whose sessions cannot be listed (no history parser) still get a "continue latest"
@@ -105,7 +109,7 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
     .map((tool) => ({ tool, command: continueLatestCommand(tool, locateLatestSession(tool.historyToolId ?? tool.id, cwd, 0, os.homedir())) }))
     .filter((e): e is { tool: CliTool; command: string } => e.command !== undefined)
     .map(
-      ({ tool, command }): Item => ({ label: `$(debug-continue) Continue latest session`, description: tool.label, run: () => openTerminalPanel(context, tool, { command }) }),
+      ({ tool, command }): Item => ({ label: `$(debug-continue) Continue latest session`, description: tool.label, run: () => openTerminalPanel(context, tool, { cwd, command }) }),
     )
   quickPick.items = [...quickPick.items, ...continueEntries]
   quickPick.busy = false
