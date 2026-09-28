@@ -110,3 +110,9 @@ describe("OSC title prompt prefixes", () => {
     expect(resolveTabTitle({ customTitle: long, toolLabel: "X" })).toBe(long)
   })
 })
+
+describe("formatPromptTitle — a long link first", () => {
+  it("a prompt opening with a URL longer than the title window still yields its ask", () => {
+    expect(formatPromptTitle(`https://example.com/${"x".repeat(700)} fix the login bug`)).toBe("fix the login bug")
+  })
+})

@@ -20,10 +20,18 @@ export function truncateTitle(value: string, max = TAB_TITLE_MAX_LENGTH): string
  * user's real prompts that ate file names (`source ~/.zshrc` → "Source"), so it is not
  * copied — see docs/title-sync-multi-cli-note.md.
  */
+// How much of a paste-sized prompt is looked at for links before the title limit applies.
+const URL_SCAN_LIMIT = 16 * 1024
+
 export function formatPromptTitle(prompt: string): string {
   if (!prompt) return ""
   // Prompts can be paste-sized; the title only ever comes from the start.
-  let text = prompt.slice(0, SOURCE_SCAN_LIMIT).replace(/^\/[a-zA-Z0-9_-]+\s*/, "")
+  // URLs go before the limit: a prompt that opens with a long link still has its ask after it.
+  let text = prompt
+    .slice(0, URL_SCAN_LIMIT)
+    .replace(/https?:\/\/\S+/gi, " ")
+    .slice(0, SOURCE_SCAN_LIMIT)
+    .replace(/^\s*\/[a-zA-Z0-9_-]+\s*/, "")
   text = text.replace(/\[Pasted text[^\]]*\]/g, "")
   const firstLine = text
     .split(/[\n\r\u2028\u2029]/u)
