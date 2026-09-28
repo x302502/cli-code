@@ -38,7 +38,7 @@ export function binaryOnPath(binary: string, envPath: string | undefined = proce
   return false
 }
 
-let cache: { time: number; results: Map<string, boolean> } | undefined
+let cache: { time: number; path: string | undefined; results: Map<string, boolean> } | undefined
 const CACHE_TTL = 60_000 // 60 seconds — binary install status rarely changes mid-session
 
 /**
@@ -48,12 +48,13 @@ const CACHE_TTL = 60_000 // 60 seconds — binary install status rarely changes 
  * which the host never reads, and would otherwise be offered as "not installed".
  */
 export async function detectInstalled(binaries: string[]): Promise<Map<string, boolean>> {
-  if (cache && Date.now() - cache.time < CACHE_TTL) {
+  const envPath = (await shellEnv())?.PATH ?? process.env.PATH
+  // Only while PATH is the same: a CLI installed into a new PATH entry shows up at once.
+  if (cache && cache.path === envPath && Date.now() - cache.time < CACHE_TTL) {
     const cached = cache
     return new Map(binaries.map((b) => [b, cached.results.get(b) ?? false]))
   }
-  const envPath = (await shellEnv())?.PATH ?? process.env.PATH
   const results = new Map(binaries.map((b) => [b, binaryOnPath(b, envPath)] as const))
-  cache = { time: Date.now(), results: new Map(results) }
+  cache = { time: Date.now(), path: envPath, results: new Map(results) }
   return new Map(binaries.map((b) => [b, results.get(b) ?? false]))
 }
