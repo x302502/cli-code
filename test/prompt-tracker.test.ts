@@ -172,3 +172,12 @@ describe("createPromptTracker — Ctrl+U after a caret move", () => {
     expect(u.hasDraft()).toBe(false)
   })
 })
+
+describe("createPromptTracker — an SS3 key cut between chunks", () => {
+  it("ESC O then A (↑ in application mode) is one key, not a typed 'A'", () => {
+    const t = createPromptTracker()
+    t.feed("\x1bO")
+    t.feed("A")
+    expect(t.feed("\r")).toBeUndefined()
+  })
+})

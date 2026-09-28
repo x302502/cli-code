@@ -90,6 +90,10 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
           }
           if (!(j === i + 2 && (input[j] === "I" || input[j] === "O"))) unknown = typedSinceSubmit = true
           i = j + 1
+        } else if (input[i + 1] === "O" && i + 2 === input.length) {
+          // ESC O cut off before its final byte: the next chunk completes it.
+          carry = input.slice(i)
+          return submitted
         } else if (input[i + 1] === "O" && i + 2 < input.length) {
           unknown = typedSinceSubmit = true
           i += 3

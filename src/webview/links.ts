@@ -216,8 +216,10 @@ function readRow(line: IBufferLine): { text: string; col: number[]; width: numbe
   let text = ""
   const col: number[] = []
   const width: number[] = []
+  let cell: ReturnType<IBufferLine["getCell"]>
   for (let x = 0; x < line.length; x++) {
-    const cell = line.getCell(x)
+    // One cell object for the row (xterm fills it in): a hover reads every cell of a few rows.
+    cell = line.getCell(x, cell)
     if (!cell) break
     const w = cell.getWidth()
     if (w === 0) continue // right half of a wide glyph
