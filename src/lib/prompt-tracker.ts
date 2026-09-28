@@ -70,6 +70,12 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
       }
       const ch = input[i]!
       if (ch === "\x1b") {
+        // A chunk ending in a bare ESC: its sequence (a CSI, a paste marker, ESC CR) continues in
+        // the next one. Held back — an Esc key on its own changes nothing the tracker can see.
+        if (i + 1 === input.length) {
+          carry = input.slice(i)
+          return submitted
+        }
         // ESC CR is Shift+Enter (soft newline) — keep the first line, drop the rest.
         if (input[i + 1] === "\r") {
           line += "\n"

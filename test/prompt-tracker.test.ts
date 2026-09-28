@@ -181,3 +181,20 @@ describe("createPromptTracker — an SS3 key cut between chunks", () => {
     expect(t.feed("\r")).toBeUndefined()
   })
 })
+
+describe("createPromptTracker — a bare ESC at the end of a chunk", () => {
+  it("↑ split after its ESC, a paste marker split after its ESC, Shift+Enter split: all one sequence", () => {
+    const a = createPromptTracker()
+    a.feed("hello\x1b")
+    a.feed("[A")
+    expect(a.hasDraft()).toBe(true) // history recall: unknown, not "hello[A"
+    const b = createPromptTracker()
+    b.feed("hi\x1b")
+    b.feed("[200~pasted\x1b[201~")
+    expect(b.feed("\r")).toBe("hipasted")
+    const c = createPromptTracker()
+    c.feed("one\x1b")
+    c.feed("\rtwo")
+    expect(c.feed("\r")).toBe("one")
+  })
+})
