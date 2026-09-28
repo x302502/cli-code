@@ -98,6 +98,9 @@ describe("OSC title prompt prefixes", () => {
     // A multiplexer's shell name and path segments say nothing about the agent.
     expect(resolveTabTitle({ oscTitle: "zsh | /workspace/project", promptTitle: "fix bug", toolLabel: "Claude" })).toBe("fix bug")
     expect(resolveTabTitle({ oscTitle: "zsh | vim notes.md", toolLabel: "Claude" })).toBe("vim notes.md")
+    // Windows shells title the tab with the folder too: a drive or UNC path says nothing either.
+    expect(resolveTabTitle({ oscTitle: "C:\\Users\\me\\repo", promptTitle: "fix bug", toolLabel: "Claude" })).toBe("fix bug")
+    expect(resolveTabTitle({ oscTitle: "\\\\server\\share", promptTitle: "fix bug", toolLabel: "Claude" })).toBe("fix bug")
     expect(resolveTabTitle({ oscTitle: "Reply OK | my-ai-books", toolLabel: "Codex" })).toBe("Reply OK | my-ai-books")
     expect(resolveTabTitle({ oscTitle: "⠋ renaming... ⠋ | my-ai-books", toolLabel: "Codex" })).toBe("renaming... | my-ai-books")
   })

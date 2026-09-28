@@ -46,7 +46,8 @@ export function isMeaningfulOscTitle(title: string): boolean {
   const clean = title.trim()
   if (!clean) return false
   if (SHELL_NAMES.has(clean.toLowerCase())) return false
-  if (clean.startsWith("/") || clean.startsWith("~")) return false
+  // A path: POSIX, home-relative, a Windows drive (C:\…) or a UNC share (\\server\…).
+  if (clean.startsWith("/") || clean.startsWith("~") || /^[A-Za-z]:[\\/]/.test(clean) || clean.startsWith("\\\\")) return false
   return true
 }
 
