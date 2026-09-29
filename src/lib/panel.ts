@@ -9,6 +9,7 @@ import { CLI_TOOLS, type CliTool } from "./config.js"
 import { shellQuote } from "./command-env.js"
 import { samePath } from "./same-path.js"
 import { codexHomeFromShell } from "./shell-env.js"
+import { classifyOscLink } from "./osc-link.js"
 import { connectSession, connectSessionRetrying, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
 import { locateLatestSession } from "./history/locate.js"
@@ -534,18 +535,7 @@ export async function openTerminalPanel(
   const cwd = usableCwd(options.cwd) ?? fallbackCwd()
   const baseCommand = options.command ?? tool.command
 
-  let refused: string | undefined
-  // The daemon was ensured above; a retry (it may have idle-exited since) ensures it again.
-  let ensured: string | undefined = socketPath
-  const connection = await connectSessionRetrying(
-    async () => {
-      const path = ensured ?? (await ensureDaemon(context))
-      ensured = undefined
-      return path
-    },
-    { op: "spawn", toolId: tool.id, command: baseCommand, cwd, env: spawnEnv(context, tool), cols: 80, rows: 24 },
-    { onRefused: (reason) => (refused = reason) },
-  )
+  const { connection, refused } = await spawnSession(context, tool, socketPath, baseCommand, cwd)
   if (!connection) {
     void vscode.window.showErrorMessage(`Could not open the terminal: ${refused ? `the CLI could not be started (${refused}).` : "the daemon is not responding."}`)
     return undefined
@@ -569,6 +559,29 @@ export async function openTerminalPanel(
   tab(panel).cwd = cwd
   wirePanel(context, panel, tool, connection)
   return panel
+}
+
+/** Spawns the CLI in the daemon (already ensured at `socketPath`; a retry ensures it again, as it
+ * may have idle-exited since). `refused` is the daemon's reason when it turned the spawn down. */
+async function spawnSession(
+  context: vscode.ExtensionContext,
+  tool: CliTool,
+  socketPath: string,
+  command: string,
+  cwd: string,
+): Promise<{ connection: SessionConnection | undefined; refused: string | undefined }> {
+  let refused: string | undefined
+  let ensured: string | undefined = socketPath
+  const connection = await connectSessionRetrying(
+    async () => {
+      const path = ensured ?? (await ensureDaemon(context))
+      ensured = undefined
+      return path
+    },
+    { op: "spawn", toolId: tool.id, command, cwd, env: spawnEnv(context, tool), cols: 80, rows: 24 },
+    { onRefused: (reason) => (refused = reason) },
+  )
+  return { connection, refused }
 }
 
 export async function restoreTerminalPanel(
@@ -701,8 +714,9 @@ function openWebLink(text: string): void {
 export function openLinkTextInActivePanel(text: string, alt: boolean): void {
   const panel = targetPanel()
   if (!panel) return
-  if (/^(https?|mailto):/i.test(text)) {
-    openWebLink(text)
+  const link = classifyOscLink(text)
+  if (link.kind === "link") {
+    openWebLink(link.uri)
     return
   }
   const parsed = parsePathLink(text) ?? { path: text }
@@ -1153,27 +1167,9 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     tab(panel).spawnedAt = Date.now()
     tab(panel).extensionPath = context.extensionPath
     tab(panel).configSnapshot = configSnapshot(configPathsFor(tool.id, tool.historyToolId, usableCwd(tab(panel).cwd), os.homedir()))
-    let refused: string | undefined
-    let ensured: string | undefined = socketPath
-    const connection = socketPath
-      ? await connectSessionRetrying(
-          async () => {
-            const path = ensured ?? (await ensureDaemon(context))
-            ensured = undefined
-            return path
-          },
-          {
-            op: "spawn",
-            toolId: tool.id,
-            command: baseCommand,
-            cwd: usableCwd(tab(panel).cwd) ?? fallbackCwd(),
-            env: spawnEnv(context, tool),
-            cols: 80,
-            rows: 24,
-          },
-          { onRefused: (reason) => (refused = reason) },
-        )
-      : undefined
+    const { connection, refused } = socketPath
+      ? await spawnSession(context, tool, socketPath, baseCommand, usableCwd(tab(panel).cwd) ?? fallbackCwd())
+      : { connection: undefined, refused: undefined }
     if (!connection) {
       void vscode.window.showErrorMessage(`Could not restart: ${refused ? `the CLI could not be started (${refused}).` : "the daemon is not responding."}`)
       // The old session is already killed: leave the tab on the honest "gone" page (with its
