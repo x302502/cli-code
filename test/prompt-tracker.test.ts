@@ -198,3 +198,13 @@ describe("createPromptTracker — a bare ESC at the end of a chunk", () => {
     expect(c.feed("\r")).toBe("one")
   })
 })
+
+describe("createPromptTracker — a submitted title survives a chunk that ends inside a paste", () => {
+  it("'fix login bug' + Enter + the start of a paste in one chunk still reports the title", () => {
+    const t = createPromptTracker()
+    expect(t.feed("fix login bug\r\x1b[200~half a pas")).toBe("fix login bug")
+    // ...and the rest of the paste is still tracked as the next line.
+    t.feed("te\x1b[201~")
+    expect(t.feed("\r")).toBe("half a paste")
+  })
+})

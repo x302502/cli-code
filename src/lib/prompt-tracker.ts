@@ -56,7 +56,8 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
           keep = Math.min(keep, input.length - i)
           line += input.slice(i, input.length - keep)
           carry = input.slice(input.length - keep)
-          return undefined
+          // An Enter earlier in this same chunk already submitted a prompt: its title still counts.
+          return submitted
         }
         line += input.slice(i, end)
         pasting = false

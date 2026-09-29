@@ -23,6 +23,7 @@ const CHUNK = 64 * 1024
 // Codex rollout file per (cwd, tab spawn time); see the codex case below. Bounded because a
 // restart adds an entry that is never asked for again and the window may live for days.
 const CODEX_ROLLOUT_CACHE = 32
+const claudeTranscripts = new Map<string, string>()
 const codexRollouts = new Map<string, string>()
 
 /** Head and tail of a transcript — model records sit at the start (session setup) and in
@@ -48,7 +49,17 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
       case "claude-agent-teams": {
         const dir = path.join(home, ".claude", "projects", encodeClaudeProjectDir(cwd))
         if (sessionId) return modelFromFile(path.join(dir, `${sessionId}.jsonl`))
-        const file = newestFiles(dir, (n) => n.endsWith(".jsonl"), { sinceMs, limit: 1 })[0]
+        // The transcript a tab writes does not move once found: remember it, so the refresh (every
+        // hook event and 30 s) stops stat'ing every transcript in a long-lived project folder.
+        const key = `${dir}\0${sinceMs}`
+        let file = claudeTranscripts.get(key)
+        if (!file || !fs.existsSync(file)) {
+          file = newestFiles(dir, (n) => n.endsWith(".jsonl"), { sinceMs, limit: 1 })[0]
+          if (file) {
+            claudeTranscripts.set(key, file)
+            if (claudeTranscripts.size > CODEX_ROLLOUT_CACHE) claudeTranscripts.delete(claudeTranscripts.keys().next().value!)
+          }
+        }
         return file ? modelFromFile(file) : undefined
       }
       case "codex": {

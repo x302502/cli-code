@@ -49,6 +49,37 @@ export function daemonBuildStampPath(id: string): string {
   return path.join(os.tmpdir(), `cli-code-${id}.build`)
 }
 
+// A failure this quick is a connection that never got through (the daemon exited between the
+// probe and the Hello); a daemon that accepted the Hello and went quiet takes the 5 s timeout.
+const FAST_FAIL_MS = 1500
+
+/**
+ * connectSession for a spawn, once more against a freshly ensured daemon when the connection
+ * failed at once: the daemon idle-exits by itself, and it can do so between the host's probe
+ * ("listening") and the Hello. Not retried when the daemon answered (refusal) or went quiet —
+ * that Hello may have spawned the CLI already, and a second one would run it twice.
+ */
+export async function connectSessionRetrying(
+  ensure: () => Promise<string>,
+  hello: SpawnHello | AttachHello,
+  opts: { timeoutMs?: number; onRefused?: (reason: string) => void } = {},
+): Promise<SessionConnection | undefined> {
+  const started = Date.now()
+  let refused = false
+  const attempt = (socketPath: string) =>
+    connectSession(socketPath, hello, {
+      ...opts,
+      onRefused: (reason) => {
+        refused = true
+        opts.onRefused?.(reason)
+      },
+    })
+  const first = await attempt(await ensure())
+  if (first || refused || hello.op !== "spawn" || Date.now() - started > FAST_FAIL_MS) return first
+  const again = await ensure().catch(() => undefined)
+  return again ? attempt(again) : undefined
+}
+
 /** `onRefused`: the daemon answered but turned the Hello down (e.g. the CLI could not be
  * spawned), with its reason — unlike a timeout, that is not an unresponsive daemon. */
 export function connectSession(

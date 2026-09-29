@@ -1,3 +1,4 @@
+import { pruneExpired } from "../lib/ttl-cache.js"
 import type { IBufferLine, IBufferRange, ILink, ILinkProvider, IMarker, Terminal } from "@xterm/xterm"
 import { SNAPSHOT_LINKS_OSC } from "../lib/osc-link.js"
 import { findPathTokens, findUrlTokens } from "../lib/path-link.js"
@@ -13,6 +14,7 @@ export type HoveredLink = { text: string; kind: LinkKind; path?: string; event: 
 // Results are cached briefly so hovering along a row does not re-stat the same tokens; the
 // TTL keeps a file created after the first hover from staying a dead link for long.
 const CACHE_TTL_MS = 5_000
+const CACHE_MAX_ENTRIES = 500
 
 // How far a soft-wrapped line is followed up/down from the hovered row: a long URL spans a few
 // rows; a minified blob spanning thousands must not be re-read on every hover.
@@ -77,6 +79,7 @@ export function createTerminalLinkProvider(
         (results) => {
           const at = Date.now()
           for (const text of unknown) cache.set(text, { at, result: results[text] ?? null })
+          pruneExpired(cache, at, CACHE_TTL_MS, CACHE_MAX_ENTRIES)
           build()
         },
         () => build(),

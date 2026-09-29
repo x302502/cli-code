@@ -153,10 +153,18 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     vscode.commands.registerCommand("cli-code.copySelection", () => sendToActivePanel({ type: "copySelection" })),
     vscode.commands.registerCommand("cli-code.selectAll", () => sendToActivePanel({ type: "selectAll" })),
     // Content-aware right-click entries: VS Code passes the webview's data-vscode-context as the argument.
-    vscode.commands.registerCommand("cli-code.openLinkAt", (ctx?: MenuContext) => linkText(ctx) && openLinkTextInActivePanel(linkText(ctx)!, false)),
-    vscode.commands.registerCommand("cli-code.openFileAt", (ctx?: MenuContext) => linkText(ctx) && openLinkTextInActivePanel(linkText(ctx)!, false)),
-    vscode.commands.registerCommand("cli-code.openDirAt", (ctx?: MenuContext) => linkText(ctx) && openLinkTextInActivePanel(linkText(ctx)!, false)),
-    vscode.commands.registerCommand("cli-code.openWithDefaultAppAt", (ctx?: MenuContext) => linkText(ctx) && openLinkTextInActivePanel(linkText(ctx)!, true)),
+    // Open Link / File / Folder differ only in the menu entry that shows them; the host decides
+    // by what the text resolves to. Only "default app" changes what happens.
+    ...(
+      [
+        ["cli-code.openLinkAt", false],
+        ["cli-code.openFileAt", false],
+        ["cli-code.openDirAt", false],
+        ["cli-code.openWithDefaultAppAt", true],
+      ] as const
+    ).map(([id, withDefaultApp]) =>
+      vscode.commands.registerCommand(id, (ctx?: MenuContext) => linkText(ctx) && openLinkTextInActivePanel(linkText(ctx)!, withDefaultApp)),
+    ),
     vscode.commands.registerCommand("cli-code.copyLinkAt", (ctx?: MenuContext) => linkText(ctx) && vscode.env.clipboard.writeText(linkText(ctx)!)),
     vscode.commands.registerCommand("cli-code.insertPathAt", (ctx?: MenuContext) => linkText(ctx) && insertPathInActivePanel(linkText(ctx)!)),
     vscode.commands.registerCommand("cli-code.findSelection", (ctx?: MenuContext) =>

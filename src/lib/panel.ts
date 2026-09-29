@@ -9,7 +9,7 @@ import { CLI_TOOLS, type CliTool } from "./config.js"
 import { shellQuote } from "./command-env.js"
 import { samePath } from "./same-path.js"
 import { codexHomeFromShell } from "./shell-env.js"
-import { connectSession, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
+import { connectSession, connectSessionRetrying, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
 import { locateLatestSession } from "./history/locate.js"
 import { detectModel } from "./history/model.js"
@@ -533,8 +533,14 @@ export async function openTerminalPanel(
   const baseCommand = options.command ?? tool.command
 
   let refused: string | undefined
-  const connection = await connectSession(
-    socketPath,
+  // The daemon was ensured above; a retry (it may have idle-exited since) ensures it again.
+  let ensured: string | undefined = socketPath
+  const connection = await connectSessionRetrying(
+    async () => {
+      const path = ensured ?? (await ensureDaemon(context))
+      ensured = undefined
+      return path
+    },
     { op: "spawn", toolId: tool.id, command: baseCommand, cwd, env: spawnEnv(context, tool), cols: 80, rows: 24 },
     { onRefused: (reason) => (refused = reason) },
   )
@@ -1118,26 +1124,37 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
   try {
     const tool = tab(panel).tool
     if (!tool) return
+    // ensureDaemon throws when the daemon does not come up; treated like a refused spawn.
+    const socketPath = await ensureDaemon(context).catch(() => undefined)
+    const old = tab(panel).connection
+    if (!socketPath && old) {
+      // The daemon did not answer, and what runs in it (this tab's CLI) is untouched: killing it
+      // now would end the work without starting anything in its place.
+      void vscode.window.showErrorMessage("Could not restart: the daemon is not responding.")
+      return
+    }
+    const baseCommand = await commandForRestart(panel, tool)
     // A client close only detaches in the daemon; the old session keeps running until it is
     // explicitly killed. Without this it leaks an orphan CLI process on every restart.
-    const old = tab(panel).connection
     if (old) {
       old.kill()
       old.dispose()
     }
     tab(panel).connection = undefined
-    // ensureDaemon throws when the daemon does not come up; treated like a refused spawn.
-    const socketPath = await ensureDaemon(context).catch(() => undefined)
-    const baseCommand = await commandForRestart(panel, tool)
     // From now on the tab is a resume tab: later restarts keep landing in the same conversation.
     tab(panel).command = baseCommand
     tab(panel).spawnedAt = Date.now()
     tab(panel).extensionPath = context.extensionPath
     tab(panel).configSnapshot = configSnapshot(configPathsFor(tool.id, tool.historyToolId, usableCwd(tab(panel).cwd), os.homedir()))
     let refused: string | undefined
+    let ensured: string | undefined = socketPath
     const connection = socketPath
-      ? await connectSession(
-          socketPath,
+      ? await connectSessionRetrying(
+          async () => {
+            const path = ensured ?? (await ensureDaemon(context))
+            ensured = undefined
+            return path
+          },
           {
             op: "spawn",
             toolId: tool.id,

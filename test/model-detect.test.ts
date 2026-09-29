@@ -75,6 +75,22 @@ describe("detectModel — per-CLI session stores", () => {
     expect(detectModel("opencode", cwd, T0, home, "ses_a")).toBe("model-a")
     expect(detectModel("opencode", cwd, T0, home)).toBe("model-b")
   })
+  it("claude without a session id: the transcript found once is remembered, not searched for again every refresh", () => {
+    const enc = "-w-proj"
+    const dir = path.join(home, ".claude", "projects", enc)
+    fs.mkdirSync(dir, { recursive: true })
+    const a = path.join(dir, "a.jsonl")
+    fs.writeFileSync(a, '{"message":{"model":"model-a"}}\n')
+    fs.utimesSync(a, (T0 + 1000) / 1000, (T0 + 1000) / 1000)
+    expect(detectModel("claude", cwd, T0, home)).toBe("model-a")
+    // A newer transcript appears; the cached file is still this tab's answer until it vanishes.
+    const b = path.join(dir, "b.jsonl")
+    fs.writeFileSync(b, '{"message":{"model":"model-b"}}\n')
+    fs.utimesSync(b, (T0 + 2000) / 1000, (T0 + 2000) / 1000)
+    expect(detectModel("claude", cwd, T0, home)).toBe("model-a")
+    fs.rmSync(a)
+    expect(detectModel("claude", cwd, T0, home)).toBe("model-b")
+  })
   it("copilot: newest usage event of the folder's session in session-store.db", () => {
     const { Database } = require("bun:sqlite") as { Database: new (p: string) => { exec(s: string): void; close(): void } }
     write(".copilot/session-state/s-1/workspace.yaml", "id: s-1\ncwd: /w/proj\n")

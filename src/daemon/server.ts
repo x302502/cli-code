@@ -25,7 +25,6 @@ export async function startDaemon(args: {
   // of waiting forever for clients to disconnect themselves.
   const clientSockets = new Set<net.Socket>()
   const idleMs = args.idleMs ?? DEFAULT_IDLE_MS
-  let connections = 0
   // Connections that are clients (a tab, the extension's keep-alive): all but a CLI hook's
   // one-shot StatusReport socket, which says nothing about anyone watching.
   let clients = 0
@@ -33,7 +32,6 @@ export async function startDaemon(args: {
   let closed = false
 
   const server = net.createServer((socket) => {
-    connections++
     clients++
     clientSockets.add(socket)
     let reporter = false
@@ -124,7 +122,6 @@ export async function startDaemon(args: {
         session.detach()
         owners.delete(session.id)
       }
-      connections--
       clientSockets.delete(socket)
       if (reporter) {
         // A hook reporting after the window closed must not push the exit back each time — a

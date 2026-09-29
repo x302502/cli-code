@@ -78,6 +78,8 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
   })
 
   await codexHomeFromShell()
+  // Independent lookups: CLI detection runs while the history is read.
+  const installedLookup = detectInstalled(CLI_TOOLS.map((t) => extractBinary(t.command)))
   const sessions = await listSessionsForWorkspace(cwd)
   if (hidden) {
     await picked?.run()
@@ -98,17 +100,26 @@ export async function resumeSession(context: vscode.ExtensionContext): Promise<v
   // Tools whose sessions cannot be listed (no history parser) still get a "continue latest"
   // entry: this folder's newest session from the CLI's own store when it has one, else
   // --continue. Only installed CLIs are asked.
-  const installed = await detectInstalled(CLI_TOOLS.map((t) => extractBinary(t.command)))
+  const installed = await installedLookup
   if (hidden) {
     await picked?.run()
     return
   }
-  const continueEntries = CLI_TOOLS.filter((t) => installed.get(extractBinary(t.command)) && !sessions.some((s) => s.toolId === t.id))
-    .map((tool) => ({ tool, command: continueLatestCommand(tool, locateLatestSession(tool.historyToolId ?? tool.id, cwd, 0, os.homedir())) }))
-    .filter((e): e is { tool: CliTool; command: string } => e.command !== undefined)
-    .map(
-      ({ tool, command }): Item => ({ label: `$(debug-continue) Continue latest session`, description: tool.label, run: () => openTerminalPanel(context, tool, { cwd, command }) }),
-    )
+  const continueEntries: Item[] = []
+  for (const tool of CLI_TOOLS) {
+    if (!installed.get(extractBinary(tool.command)) || sessions.some((s) => s.toolId === tool.id)) continue
+    const command = continueLatestCommand(tool, locateLatestSession(tool.historyToolId ?? tool.id, cwd, 0, os.homedir()))
+    if (command !== undefined) {
+      continueEntries.push({ label: `$(debug-continue) Continue latest session`, description: tool.label, run: () => openTerminalPanel(context, tool, { cwd, command }) })
+    }
+    // Each store lookup is synchronous file work: let the extension host breathe between CLIs.
+    await new Promise<void>((r) => setImmediate(r))
+    if (hidden) break
+  }
+  if (hidden) {
+    await picked?.run()
+    return
+  }
   quickPick.items = [...quickPick.items, ...continueEntries]
   quickPick.busy = false
   if (quickPick.items.length === 0) {

@@ -3,7 +3,7 @@ import * as net from "node:net"
 import * as os from "node:os"
 import * as path from "node:path"
 import { startDaemon } from "../src/daemon/server.js"
-import { connectSession, daemonBuildStampPath, daemonSocketPath } from "../src/lib/daemon-client.js"
+import { connectSession, connectSessionRetrying, daemonBuildStampPath, daemonSocketPath } from "../src/lib/daemon-client.js"
 import type { PtyLike } from "../src/daemon/session.js"
 import { MSG, encodeFrame, encodeJsonFrame } from "../src/lib/protocol.js"
 
@@ -226,5 +226,38 @@ describe("connectSession", () => {
     connection!.onMeta((e) => seen.push(e))
     expect(seen).toEqual([{ kind: "cwd", cwd: "/tmp/z" }])
     connection!.dispose()
+  })
+})
+
+describe("connectSessionRetrying — a daemon that idle-exited between the probe and the Hello", () => {
+  it("a connection that fails at once is retried once against a freshly ensured daemon", async () => {
+    const dead = daemonSocketPath("retry-dead-" + Math.random().toString(16).slice(2, 8))
+    const live = daemonSocketPath("retry-live-" + Math.random().toString(16).slice(2, 8))
+    const harness = fakePty()
+    const daemon = await startDaemon({ socketPath: live, spawnPty: () => harness.pty })
+    stop = daemon.close
+    const ensured: string[] = []
+    // The first ensure hands out a socket whose daemon just exited; the second, a live one.
+    const ensure = async () => (ensured.push("x"), ensured.length === 1 ? dead : live)
+    const conn = await connectSessionRetrying(ensure, { op: "spawn", toolId: "x", command: "x", cwd: "/tmp", env: {}, cols: 80, rows: 24 })
+    expect(conn?.sessionId).toBeTruthy()
+    expect(ensured.length).toBe(2)
+    conn?.dispose()
+  })
+  it("a Hello the daemon refused is not retried (it would spawn the CLI twice)", async () => {
+    const live = daemonSocketPath("retry-refuse-" + Math.random().toString(16).slice(2, 8))
+    const daemon = await startDaemon({
+      socketPath: live,
+      spawnPty: () => {
+        throw new Error("no such shell")
+      },
+    })
+    stop = daemon.close
+    let ensures = 0
+    const reasons: string[] = []
+    const conn = await connectSessionRetrying(async () => (ensures++, live), { op: "spawn", toolId: "x", command: "x", cwd: "/tmp", env: {}, cols: 80, rows: 24 }, { onRefused: (r) => reasons.push(r) })
+    expect(conn).toBeUndefined()
+    expect(reasons).toEqual(["no such shell"])
+    expect(ensures).toBe(1)
   })
 })
