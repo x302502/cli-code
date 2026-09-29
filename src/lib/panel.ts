@@ -50,6 +50,8 @@ export type PanelState = {
 // The open, connected CLI panels (a gone tab leaves it): what rename, focus tracking and the
 // commands that write into a session look through.
 const activePanels = new Set<vscode.WebviewPanel>()
+// Tabs whose session ended but whose conversation a restart can still resume: siblings for the restart rules.
+const gonePanels = new Set<vscode.WebviewPanel>()
 
 /** `everReady`: the webview has loaded once — a later "ready" means it was reloaded (Developer:
  * Reload Webviews, a crashed webview process) and is blank. */
@@ -666,6 +668,10 @@ function showGone(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, 
   // A "gone" panel has no session, so it must not be picked by cli-code.open (reuse)
   // or addFilepath — they should open/target a working CLI instead.
   activePanels.delete(panel)
+  if (!gonePanels.has(panel)) {
+    gonePanels.add(panel)
+    panel.onDidDispose(() => gonePanels.delete(panel))
+  }
   tab(panel).status = undefined
   tab(panel).unread = false
   panel.title = tool.label
@@ -748,7 +754,7 @@ async function commandForRestart(panel: vscode.WebviewPanel, tool: CliTool): Pro
 function siblingIdentities(panel: vscode.WebviewPanel, tool: CliTool, cwd: string | undefined): { sessionId?: string }[] {
   const family = tool.historyToolId ?? tool.id
   const here = cwd ? path.resolve(cwd) : undefined
-  return [...activePanels]
+  return [...activePanels, ...gonePanels]
     .filter((p) => p !== panel)
     .filter((p) => {
       const t = tab(p).tool
@@ -805,6 +811,7 @@ function wirePanel(
   panel.webview.html = terminalHtml(context, panel.webview)
 
   activePanels.add(panel)
+  gonePanels.delete(panel)
   tab(panel).tool = tool
   updateTitle(panel)
   lastFocusedPanel = panel
