@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "types": ["node", "mocha"],
+    "noEmit": true
+  },
+  "include": ["./suite", "../../src/extension.ts"]
+}

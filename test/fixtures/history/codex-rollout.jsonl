@@ -1,0 +1,2 @@
+{"type":"session_meta","payload":{"id":"c0dex-1","cwd":"/w","timestamp":"2026-09-02T10:00:00.000Z"}}
+{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"refactor auth"}]}}

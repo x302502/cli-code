@@ -1,0 +1,210 @@
+import { describe, expect, it } from "bun:test"
+import { createPromptTracker } from "../src/lib/prompt-tracker.js"
+
+describe("createPromptTracker", () => {
+  it("emits a title on Enter, then resets", () => {
+    const { feed } = createPromptTracker()
+    expect(feed("fix login bug")).toBeUndefined()
+    expect(feed("\r")).toBe("fix login bug")
+    expect(feed("\r")).toBeUndefined()
+  })
+  it("types characters and deletes with backspace", () => {
+    const { feed } = createPromptTracker()
+    for (const ch of "abcd") feed(ch)
+    feed("\x7f")
+    expect(feed("\r")).toBe("abc")
+  })
+  it("skips CSI (arrow keys) and lone ESC, keeps printable characters", () => {
+    const { feed } = createPromptTracker()
+    feed("a\x1b[Ab\x1b[D\x1bc")
+    expect(feed("\r")).toBe("abc")
+  })
+  it("takes bracketed paste content verbatim", () => {
+    const { feed } = createPromptTracker()
+    feed("\x1b[200~review PR\x1b[201~")
+    expect(feed("\r")).toBe("review PR")
+  })
+  it("Shift+Enter (ESC CR) is a soft newline, not a submit", () => {
+    const { feed } = createPromptTracker()
+    feed("line one\x1b\rline two")
+    expect(feed("\r")).toBe("line one")
+  })
+  it("does not emit when the formatted line is under 2 characters", () => {
+    const { feed } = createPromptTracker()
+    feed("y")
+    expect(feed("\r")).toBeUndefined()
+    feed("/clear")
+    expect(feed("\r")).toBeUndefined()
+  })
+  it("Ctrl+C cancels the line being typed", () => {
+    const { feed } = createPromptTracker()
+    feed("halfway\x03")
+    expect(feed("\r")).toBeUndefined()
+  })
+  it("hasDraft: text typed and not yet sent; Enter, Ctrl+C and backspacing it all clear it", () => {
+    const { feed, hasDraft } = createPromptTracker()
+    expect(hasDraft()).toBe(false)
+    feed("ab\x1b[A")
+    expect(hasDraft()).toBe(true)
+    feed("\r")
+    expect(hasDraft()).toBe(false)
+    feed("x\x03")
+    expect(hasDraft()).toBe(false)
+    feed("x\x7f")
+    expect(hasDraft()).toBe(false)
+  })
+  it("after a reattach the input's content is unknown: assume a draft until Enter / Ctrl+C / reset() says otherwise", () => {
+    const { feed, hasDraft, reset } = createPromptTracker({ draftUnknown: true })
+    expect(hasDraft()).toBe(true)
+    feed("\x1b[A")
+    expect(hasDraft()).toBe(true)
+    feed("\r")
+    expect(hasDraft()).toBe(false)
+    const other = createPromptTracker({ draftUnknown: true })
+    other.feed("abc\x03")
+    expect(other.hasDraft()).toBe(false)
+    const third = createPromptTracker({ draftUnknown: true })
+    third.reset()
+    expect(third.hasDraft()).toBe(false)
+    expect(createPromptTracker().hasDraft()).toBe(false)
+  })
+  it("reset() drops a one-key dialog answer (y, 1) so it is not mistaken for an unsent prompt", () => {
+    const { feed, hasDraft, reset } = createPromptTracker()
+    feed("1")
+    expect(hasDraft()).toBe(true)
+    reset()
+    expect(hasDraft()).toBe(false)
+  })
+})
+
+describe("createPromptTracker — promptStarted (the CLI's hook reports a prompt began)", () => {
+  it("keeps a draft typed after the Enter: the hook for the sent prompt may arrive after it", () => {
+    const t = createPromptTracker()
+    t.feed("prompt A\r")
+    t.feed("draft B")
+    t.promptStarted()
+    expect(t.hasDraft()).toBe(true)
+  })
+  it("clears state nothing was typed over since the last submit (e.g. an unknown draft after reattach)", () => {
+    const t = createPromptTracker({ draftUnknown: true })
+    t.promptStarted()
+    expect(t.hasDraft()).toBe(false)
+    const u = createPromptTracker()
+    u.feed("A\r")
+    u.promptStarted()
+    expect(u.hasDraft()).toBe(false)
+  })
+})
+
+describe("createPromptTracker — history recall", () => {
+  it("↑/↓ (CSI or SS3) and Ctrl+P/Ctrl+N recall a prompt the tracker cannot see: the draft becomes unknown", () => {
+    for (const key of ["\x1b[A", "\x1b[B", "\x1bOA", "\x1bOB", "\x10", "\x0e"]) {
+      const t = createPromptTracker()
+      expect(t.hasDraft()).toBe(false)
+      t.feed(key)
+      expect(t.hasDraft()).toBe(true)
+      t.feed("\r")
+      expect(t.hasDraft()).toBe(false)
+    }
+  })
+  it("SS3 arrows are skipped whole, not typed as text", () => {
+    const t = createPromptTracker()
+    t.feed("ab\x1bOCc")
+    expect(t.feed("\r")).toBe("abc")
+  })
+})
+
+describe("createPromptTracker — edits it cannot replay", () => {
+  it("after the caret moves (Home/←/→/End, Ctrl+A/E) the line is unknown: Backspace no longer means 'delete the last char'", () => {
+    for (const move of ["\x1b[H", "\x1bOH", "\x1b[D", "\x1b[1~", "\x01", "\x02"]) {
+      const t = createPromptTracker()
+      t.feed("abc")
+      t.feed(move)
+      t.feed("\x7f\x7f\x7f")
+      expect(t.hasDraft()).toBe(true)
+    }
+  })
+  it("other editing keys it does not model (Tab completion, Ctrl+W/K/Y) also make the draft unknown", () => {
+    for (const key of ["\t", "\x17", "\x0b", "\x19"]) {
+      const t = createPromptTracker()
+      t.feed(key)
+      expect(t.hasDraft()).toBe(true)
+    }
+  })
+  it("focus reports (ESC [ I / ESC [ O) are not edits", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b[I\x1b[O")
+    expect(t.hasDraft()).toBe(false)
+  })
+})
+
+describe("createPromptTracker — input split across chunks, and non-BMP characters", () => {
+  it("a bracketed-paste marker (or any CSI) cut between two chunks is still one sequence", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b[20")
+    t.feed("0~abc\x1b[2")
+    expect(t.feed("01~\r")).toBe("abc")
+  })
+  it("Backspace removes one grapheme: e + combining accent, an emoji with a variation selector, a ZWJ family", () => {
+    for (const g of ["e\u0301", "\u2764\ufe0f", "\u{1F468}\u200d\u{1F469}\u200d\u{1F467}"]) {
+      const t = createPromptTracker()
+      t.feed(`${g}\x7f`)
+      expect(t.hasDraft()).toBe(false)
+    }
+  })
+  it("Backspace removes a whole emoji, so the line is empty again", () => {
+    const t = createPromptTracker()
+    t.feed("😀\x7f")
+    expect(t.hasDraft()).toBe(false)
+  })
+})
+
+describe("createPromptTracker — Ctrl+U after a caret move", () => {
+  it("erases only to the caret: a draft moved past with Home is still (maybe) there", () => {
+    const t = createPromptTracker()
+    t.feed("draft")
+    t.feed("\x1b[H") // Home
+    t.feed("\x15")
+    expect(t.hasDraft()).toBe(true)
+    // At the end of the line (where the tracker keeps the caret) Ctrl+U does clear it.
+    const u = createPromptTracker()
+    u.feed("draft\x15")
+    expect(u.hasDraft()).toBe(false)
+  })
+})
+
+describe("createPromptTracker — an SS3 key cut between chunks", () => {
+  it("ESC O then A (↑ in application mode) is one key, not a typed 'A'", () => {
+    const t = createPromptTracker()
+    t.feed("\x1bO")
+    t.feed("A")
+    expect(t.feed("\r")).toBeUndefined()
+  })
+})
+
+describe("createPromptTracker — a bare ESC at the end of a chunk", () => {
+  it("↑ split after its ESC, a paste marker split after its ESC, Shift+Enter split: all one sequence", () => {
+    const a = createPromptTracker()
+    a.feed("hello\x1b")
+    a.feed("[A")
+    expect(a.hasDraft()).toBe(true) // history recall: unknown, not "hello[A"
+    const b = createPromptTracker()
+    b.feed("hi\x1b")
+    b.feed("[200~pasted\x1b[201~")
+    expect(b.feed("\r")).toBe("hipasted")
+    const c = createPromptTracker()
+    c.feed("one\x1b")
+    c.feed("\rtwo")
+    expect(c.feed("\r")).toBe("one")
+  })
+})
+
+describe("createPromptTracker — a submitted title survives a chunk that ends inside a paste", () => {
+  it("'fix login bug' + Enter + the start of a paste in one chunk still reports the title", () => {
+    const t = createPromptTracker()
+    expect(t.feed("fix login bug\r\x1b[200~half a pas")).toBe("fix login bug")
+    // ...and the rest of the paste is still tracked as the next line.
+    t.feed("te\x1b[201~")
+    expect(t.feed("\r")).toBe("half a paste")
+  })
+})

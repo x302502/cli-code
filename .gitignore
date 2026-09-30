@@ -4,4 +4,15 @@ out/
 *.vsix
 .DS_Store
 docs/
+# User-facing docs are shipped (linked from the README on GitHub/Marketplace)
+!docs/
+docs/*
+!docs/user-guide.md
+!docs/user-guide.vi.md
+!docs/release-0.2.0.vi.md
 .codegraph
+.vscode-test/
+dist-test/
+# Local tooling output
+.playwright-mcp/
+.superpowers/
