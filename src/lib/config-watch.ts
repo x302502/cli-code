@@ -117,6 +117,7 @@ function signature(p: string): string | undefined {
   if (base === ".claude.json") return hashOf(p, claudeMcp)
   const parent = path.dirname(p)
   if ((base === "settings.json" || base === "settings.local.json") && path.basename(parent) === ".claude") return hashOf(p, withoutPermissions)
+  if (base === "settings.json" && path.basename(parent) === "antigravity-cli") return hashOf(p, withoutTrustedWorkspaces)
   if (base === "config.toml" && (path.basename(parent) === ".codex" || path.resolve(parent) === path.resolve(codexDir()))) return hashOf(p, codexMcpAndHooks)
   let st: fs.Stats
   try {
@@ -162,12 +163,25 @@ function withoutPermissions(text: string): string {
   }
 }
 
+/** Antigravity lists a folder in `trustedWorkspaces` when the user answers its trust dialog. */
+function withoutTrustedWorkspaces(text: string): string {
+  try {
+    const { trustedWorkspaces: _trusted, ...rest } = JSON.parse(text) as Record<string, unknown>
+    return JSON.stringify(rest)
+  } catch {
+    return text
+  }
+}
+
 /** `mcpServers` at the top level and per project. */
 function claudeMcp(text: string): string {
   try {
     const j = JSON.parse(text) as { mcpServers?: unknown; projects?: Record<string, { mcpServers?: unknown }> }
-    const projects = Object.fromEntries(Object.entries(j.projects ?? {}).map(([k, v]) => [k, v?.mcpServers]))
-    return JSON.stringify({ mcpServers: j.mcpServers, projects })
+    // An empty object is "none": Claude writes `mcpServers: {}` into a project's entry the first
+    // time a folder is trusted, which is not a change to what a session loads.
+    const set = (v: unknown) => (v && typeof v === "object" && Object.keys(v).length === 0 ? undefined : v)
+    const projects = Object.fromEntries(Object.entries(j.projects ?? {}).map(([k, v]) => [k, set(v?.mcpServers)]).filter(([, v]) => v !== undefined))
+    return JSON.stringify({ mcpServers: set(j.mcpServers), projects })
   } catch {
     return text
   }
