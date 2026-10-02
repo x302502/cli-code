@@ -10,6 +10,7 @@ docs/*
 !docs/user-guide.md
 !docs/user-guide.vi.md
 !docs/release-0.2.0.vi.md
+!docs/releasing.md
 .codegraph
 .vscode-test/
 dist-test/
