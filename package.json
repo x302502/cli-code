@@ -44,7 +44,7 @@
       "cli-code-logo": {
         "description": "CLI Code logo",
         "default": {
-          "fontPath": "images/cli-code-logo.woff",
+          "fontPath": "images/cli-code-logo-7e5a8153.woff",
           "fontCharacter": "\\E000"
         }
       }
@@ -53,18 +53,12 @@
       {
         "command": "cli-code.open",
         "title": "Open CLI",
-        "icon": {
-          "light": "images/button-dark.svg",
-          "dark": "images/button-light.svg"
-        }
+        "icon": "images/icon.svg"
       },
       {
         "command": "cli-code.openNew",
         "title": "Open CLI in new tab",
-        "icon": {
-          "light": "images/button-dark.svg",
-          "dark": "images/button-light.svg"
-        }
+        "icon": "images/icon.svg"
       },
       {
         "command": "cli-code.addFilepath",

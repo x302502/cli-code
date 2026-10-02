@@ -1,11 +1,16 @@
-"""Builds the small monochrome bee (an outlined round badge with a mortarboard, a visor with two
-slot eyes and a mouth bar, ring wings and curled legs) for the status bar and the editor title buttons:
-  images/cli-code-logo.woff  — icon font, one glyph at U+E000 (status bar, `$(cli-code-logo)`)
-  images/button-light.svg    — light glyph for dark themes (editor title buttons)
-  images/button-dark.svg     — dark glyph for light themes
+"""Builds the status bar glyph: a simplified single-colour bee (an outlined round badge with a mortarboard,
+a visor with two slot eyes and a mouth bar, ring wings and curled legs), as an icon font with one glyph
+at U+E000 (`$(cli-code-logo)`). The font is written to images/cli-code-logo-<hash>.woff, where <hash>
+comes from the outlines, and package.json's icon fontPath is updated to match: VS Code loads the font
+by URL and Chromium keeps serving a cached file, so a changed glyph needs a new file name.
 Needs `pip install fonttools shapely`. The shapes are the design's SVG mask in a 128-unit space
 (y down), painted in the same order: each step adds white (ink) or cuts black (a true cutout).
 VS Code icon SVGs and fonts cannot use masks, so the result is flattened to plain outlines."""
+import glob
+import hashlib
+import os
+import re
+
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from shapely import affinity
@@ -79,33 +84,21 @@ def to_cell(g, fit_w, fit_h, cx, cy):
     return affinity.translate(g, cx, cy)
 
 
-def path_d(g, digits=2):
-    out = []
-    for p in polys(g):
-        for r in [p.exterior, *p.interiors]:
-            out.append("M" + " ".join(f"{x:.{digits}f} {y:.{digits}f}" for x, y in list(r.coords)[:-1]) + "Z")
-    return "".join(out)
-
-
-# --- editor title buttons: 16x16, the bee filling it like a built-in icon
-btn = to_cell(bee, 15.2, 15.2, 8, 8).simplify(0.01)
-for name, fill in (("button-light.svg", "#C5C5C5"), ("button-dark.svg", "#424242")):
-    with open(f"images/{name}", "w") as f:
-        f.write(f'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><path fill="{fill}" fill-rule="evenodd" d="{path_d(btn, 2)}"/></svg>\n')
-
-# --- status bar glyph: 1000 upm; Copilot's Sign In icon is ~31x28 device px, about 0.9 em tall
+# 1000 upm; Copilot's Sign In icon is ~31x28 device px, about 0.9 em tall
 CENTER_Y = 355  # font units above the baseline: puts the mark level with the status bar text
 fg = to_cell(bee, 900, 880, 500, 1000 - CENTER_Y)
 fg = affinity.scale(fg, 1, -1, origin=(0, 500))  # font y is up
-pen = TTGlyphPen(None)
+contours = []
 for p in polys(fg):
     p = orient(p, sign=1.0)  # outer rings and holes wound opposite ways: non-zero fill leaves the holes
     for r in [p.exterior, *p.interiors]:
-        pts = [(round(x), round(y)) for x, y in list(r.coords)[:-1]]
-        pen.moveTo(pts[0])
-        for pt in pts[1:]:
-            pen.lineTo(pt)
-        pen.closePath()
+        contours.append([(round(x), round(y)) for x, y in list(r.coords)[:-1]])
+pen = TTGlyphPen(None)
+for pts in contours:
+    pen.moveTo(pts[0])
+    for pt in pts[1:]:
+        pen.lineTo(pt)
+    pen.closePath()
 fb = FontBuilder(1000, isTTF=True)
 fb.setupGlyphOrder([".notdef", "logo"])
 fb.setupCharacterMap({0xE000: "logo"})
@@ -116,4 +109,13 @@ fb.setupNameTable({"familyName": "cli-code-logo", "styleName": "Regular"})
 fb.setupOS2(sTypoAscender=800, sTypoDescender=-200, usWinAscent=800, usWinDescent=200)
 fb.setupPost()
 fb.font.flavor = "woff"
-fb.save("images/cli-code-logo.woff")
+digest = hashlib.sha1(repr(contours).encode()).hexdigest()[:8]
+name = f"cli-code-logo-{digest}.woff"
+for old in glob.glob("images/cli-code-logo*.woff"):
+    os.remove(old)
+fb.save(f"images/{name}")
+with open("package.json") as f:
+    pkg = f.read()
+with open("package.json", "w") as f:
+    f.write(re.sub(r"images/cli-code-logo[^\"]*\.woff", f"images/{name}", pkg))
+print(name)
