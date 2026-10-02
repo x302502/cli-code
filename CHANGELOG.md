@@ -6,7 +6,6 @@
 ### Features
 
 * a CLI Code button in the status bar, with the bee as an icon-font glyph ([59cfe06](https://github.com/x302502/cli-code/commit/59cfe061ced6a7bc30492db779158965bcb1c3f5))
-* CLI Code status bar button and the new worker-bee icon set ([016e5c6](https://github.com/x302502/cli-code/commit/016e5c601bf3e0d7fff55d5ede1f042c8b7bd44b))
 * the new worker-bee icon for the Marketplace and the editor title buttons ([0d52f62](https://github.com/x302502/cli-code/commit/0d52f625088192cd370bb858bbb4373466d810d7))
 
 
@@ -18,7 +17,6 @@
 
 ### Documentation
 
-* **changelog:** take the status bar button out of the published 0.2.0 section ([cc52f85](https://github.com/x302502/cli-code/commit/cc52f85c9ad8368153103faf36fbf64b02509cfa))
 * mention the status bar button in the changelog and the user guides ([2159665](https://github.com/x302502/cli-code/commit/215966523ecead40c03716e56978bce706eec841))
 * show the new icon in the toolbar, picker and hero screenshots ([31636a4](https://github.com/x302502/cli-code/commit/31636a4353b0adfc497eaccd2d94b32a3f05b250))
 
