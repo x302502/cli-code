@@ -44,7 +44,7 @@ CLI Code **không** dùng terminal tích hợp của VS Code. Mỗi agent mở t
 
 1. **Cài** từ Marketplace (`Cmd/Ctrl + Shift + X` → *CLI Code*). VS Code 1.101+, macOS hoặc Linux để có đủ tính năng.
 2. **Cài và đăng nhập** các agent bạn dùng, trong terminal thường (`claude`, `codex`, `copilot`, `opencode`…). CLI Code khởi chạy chúng chứ không cài. Lệnh chạy được trong terminal là chạy được ở đây.
-3. **Bấm `Cmd/Ctrl + Esc`**, chọn agent, gõ. Trong editor bấm `Cmd/Ctrl + Alt + K` để đưa file hiện tại cho agent.
+3. **Bấm `Cmd/Ctrl + Esc`** (hoặc bấm nút **CLI Code** trên thanh trạng thái), chọn agent, gõ. Trong editor bấm `Cmd/Ctrl + Alt + K` để đưa file hiện tại cho agent.
 
 > ⚠️ Agent được khởi chạy với chế độ **tắt hỏi quyền** (`claude --dangerously-skip-permissions`, `codex --dangerously-bypass-approvals-and-sandbox`, `copilot --yolo`, …) để làm việc không bị ngắt. Chúng sẽ sửa file và chạy lệnh mà không hỏi — chỉ dùng CLI Code trên repository bạn tin, hoặc mở agent từ terminal thường khi muốn có lại hộp thoại xác nhận.
 

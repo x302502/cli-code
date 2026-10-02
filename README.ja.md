@@ -44,7 +44,7 @@ CLI Code は VS Code の統合ターミナルを**使いません**。各エー�
 
 1. Marketplace から**インストール**（`Cmd/Ctrl + Shift + X` → *CLI Code*）。VS Code 1.101 以上、全機能は macOS / Linux。
 2. 使うエージェントを普通のターミナルで**インストールしてログイン**（`claude`、`codex`、`copilot`、`opencode`…）。CLI Code は起動するだけで、インストールはしません。ターミナルで動くコマンドはここでも動きます。
-3. **`Cmd/Ctrl + Esc`** を押してエージェントを選び、入力を始めます。エディタで `Cmd/Ctrl + Alt + K` を押すと現在のファイルを渡せます。
+3. **`Cmd/Ctrl + Esc`** を押して（またはステータスバーの **CLI Code** ボタンをクリックして）エージェントを選び、入力を始めます。エディタで `Cmd/Ctrl + Alt + K` を押すと現在のファイルを渡せます。
 
 > ⚠️ エージェントは承認プロンプトを**無効化**して起動されます（`claude --dangerously-skip-permissions`、`codex --dangerously-bypass-approvals-and-sandbox`、`copilot --yolo` …）。ファイル編集やコマンド実行を確認なしに行います — 信頼できるリポジトリで使うか、プロンプトが欲しいときは普通のターミナルから起動してください。
 

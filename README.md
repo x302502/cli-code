@@ -44,7 +44,7 @@ What that means for you:
 
 1. **Install** from the Marketplace (`Cmd/Ctrl + Shift + X` → *CLI Code*). VS Code 1.101+, macOS or Linux for the full feature set.
 2. **Install and sign in** to the agents you use, in a normal terminal (`claude`, `codex`, `copilot`, `opencode`…). CLI Code launches them; it doesn't install them. If a command works in your terminal, it works here.
-3. **Press `Cmd/Ctrl + Esc`**, pick an agent, start typing. Press `Cmd/Ctrl + Alt + K` in the editor to hand it the current file.
+3. **Press `Cmd/Ctrl + Esc`** (or click **CLI Code** in the status bar), pick an agent, start typing. Press `Cmd/Ctrl + Alt + K` in the editor to hand it the current file.
 
 > ⚠️ Agents are launched with their approval prompts **disabled** (`claude --dangerously-skip-permissions`, `codex --dangerously-bypass-approvals-and-sandbox`, `copilot --yolo`, …) so they can work without interruption. They will edit files and run commands without asking — use CLI Code on repositories you trust, or start the agent from a plain terminal when you want its prompts back.
 
