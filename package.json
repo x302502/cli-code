@@ -40,6 +40,15 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "icons": {
+      "cli-code-logo": {
+        "description": "CLI Code logo",
+        "default": {
+          "fontPath": "images/cli-code-logo.woff",
+          "fontCharacter": "\\E000"
+        }
+      }
+    },
     "commands": [
       {
         "command": "cli-code.open",

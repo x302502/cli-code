@@ -22,6 +22,8 @@ export function resetVscodeMock() {
 
 const ViewColumn = { Beside: -2 }
 
+const StatusBarAlignment = { Left: 1, Right: 2 }
+
 const QuickPickItemKind = { Separator: 2, Default: 0 }
 
 function createQuickPick<T extends { id?: string }>(): {
@@ -55,6 +57,7 @@ class ThemeIcon {
 const vscode = {
   ViewColumn,
   QuickPickItemKind,
+  StatusBarAlignment,
   ThemeIcon,
   Uri: {
     file: (p: string) => ({ fsPath: p, toString: () => p }),

@@ -5,6 +5,7 @@ import { STATUS_HOOK_INSTALLERS } from "./lib/hooks/registry.js"
 import { summarize, syncStatusHooks } from "./lib/hooks/sync.js"
 import { binaryOnPath } from "./lib/detect.js"
 import { codexHomeFromShell, shellEnv } from "./lib/shell-env.js"
+import { addStatusBarButton } from "./lib/status-button.js"
 import { addFilepathToTerminal, addQuickCommand, openCli, resumeSession, runQuickCommand } from "./lib/commands.js"
 import {
   activeTerminalPanel,
@@ -120,6 +121,7 @@ export function activate(context: vscode.ExtensionContext): TestApi {
   onFirstTab(async () => {
     if (context.extensionMode !== vscode.ExtensionMode.Test) await runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
   })
+  addStatusBarButton(context)
   context.subscriptions.push(
     vscode.commands.registerCommand("cli-code.open", () => openCli(context, { reuseExisting: true })),
     vscode.commands.registerCommand("cli-code.openNew", () => openCli(context, { reuseExisting: false })),
