@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3](https://github.com/x302502/cli-code/compare/v0.2.2...v0.2.3) (2026-10-02)
+
+
+### Documentation
+
+* show how to open CLI Code from the status bar button ([#9](https://github.com/x302502/cli-code/issues/9)) ([875e113](https://github.com/x302502/cli-code/commit/875e113fb39b4f26348b00ae62caaa2331fd21d5))
+* show how to open CLI Code from the title bar and the status bar after installing ([#11](https://github.com/x302502/cli-code/issues/11)) ([2d7da30](https://github.com/x302502/cli-code/commit/2d7da30a2ce3fa6a58d004c2b75ad75b45a802aa))
+
 ## [0.2.2](https://github.com/x302502/cli-code/compare/v0.2.1...v0.2.2) (2026-10-02)
 
 
