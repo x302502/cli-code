@@ -2,7 +2,7 @@
   "name": "cli-code",
   "displayName": "CLI Code",
   "description": "The agent terminal for VS Code: run Claude Code, Codex, Copilot, opencode, Pi, Grok and 22 more coding agents in tabs that show the agent's state, open what it prints, survive reloads and restart into the same conversation.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "x302502",
   "license": "MIT",
   "icon": "images/icon.png",
@@ -378,7 +378,10 @@
           "scope": "resource",
           "items": {
             "type": "object",
-            "required": ["label", "text"],
+            "required": [
+              "label",
+              "text"
+            ],
             "properties": {
               "label": {
                 "type": "string"

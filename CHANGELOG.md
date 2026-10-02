@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.1](https://github.com/x302502/cli-code/compare/v0.2.0...v0.2.1) (2026-10-02)
+
+
+### Features
+
+* a CLI Code button in the status bar, with the bee as an icon-font glyph ([59cfe06](https://github.com/x302502/cli-code/commit/59cfe061ced6a7bc30492db779158965bcb1c3f5))
+* the new worker-bee icon for the Marketplace and the editor title buttons ([0d52f62](https://github.com/x302502/cli-code/commit/0d52f625088192cd370bb858bbb4373466d810d7))
+
+
+### Bug fixes
+
+* the status bar font gets a content-hash file name; the title-bar buttons use the colour icon ([f5b3793](https://github.com/x302502/cli-code/commit/f5b379393f006151e7788ad0065c2fe6bb0eb7aa))
+* **verify-vsix:** allow the two user guides under docs/, reject anything else there ([763a517](https://github.com/x302502/cli-code/commit/763a517bfd1c5cba7783fbe7c651b9884d4a6197))
+
+
+### Documentation
+
+* mention the status bar button in the changelog and the user guides ([2159665](https://github.com/x302502/cli-code/commit/215966523ecead40c03716e56978bce706eec841))
+* show the new icon in the toolbar, picker and hero screenshots ([31636a4](https://github.com/x302502/cli-code/commit/31636a4353b0adfc497eaccd2d94b32a3f05b250))
+
 ## 0.2.0
 
 The big one: every assistant now runs in CLI Code's own terminal, with the things a plain
