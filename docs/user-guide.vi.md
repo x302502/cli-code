@@ -48,7 +48,7 @@ của bạn được sao lưu trước khi sửa.
 4. Một tab mở ở cột bên cạnh editor, mang icon màu của trợ lý, và CLI khởi động ngay trong thư
    mục dự án.
 
-Cách khác: bấm icon CLI Code trên thanh tiêu đề editor, hoặc Command Palette → **Open CLI**.
+Cách khác: bấm icon CLI Code trên thanh tiêu đề editor, nút **CLI Code** bên phải thanh trạng thái, hoặc Command Palette → **Open CLI**.
 
 ![Icon CLI Code trên thanh tiêu đề editor](../images/screenshots/toolbar-highlighted.png)
 

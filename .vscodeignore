@@ -16,7 +16,6 @@ bunfig.toml
 .prettierignore
 .gitignore
 .codegraph
-images/icon.svg
 **/*.map
 **/*.ts
 *.vsix

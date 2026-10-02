@@ -48,7 +48,7 @@ Your files are backed up before they are touched.
 4. A tab opens beside the editor with the assistant's coloured icon, and the CLI starts right in
    your project folder.
 
-Alternatives: the CLI Code icon in the editor title bar, or Command Palette → **Open CLI**.
+Alternatives: the CLI Code icon in the editor title bar, the **CLI Code** button on the right of the status bar, or Command Palette → **Open CLI**.
 
 ![The CLI Code icon in the editor title bar](../images/screenshots/toolbar-highlighted.png)
 
