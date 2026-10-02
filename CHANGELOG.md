@@ -23,6 +23,8 @@ Node 22.13, which VS Code ships from 1.101 on.
   own title with status glyphs, prompt markers and empty `… | folder` segments stripped.
 - **Agent status on the tab** (working · waiting on you · done), an unread dot for tabs you
   are not looking at, and a **notification** when an agent finishes on a hidden tab.
+- **CLI Code button in the status bar** (right side, next to the bell) opens the CLI picker, like
+  the title-bar icon. Its glyph is a simplified version of the new worker-bee extension icon, which the title-bar button now uses too.
 - **Action bar** above the terminal (Claude-style outline icons, flush right): New Session
   (CLI picker, same folder), Resume Session, Restart Session, Find, and under `…` Rename Tab
   (`F2`), Copy Context, Quick Command. Its left side shows the **model** the CLI is using
