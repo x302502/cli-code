@@ -8,6 +8,12 @@
 
 ![Nhiều AI CLI chạy song song trong VS Code](images/screenshots/terminals.png)
 
+## Mở bằng một lần bấm
+
+Sau khi cài, bấm icon **CLI Code** trên thanh tiêu đề editor, hoặc nút **CLI Code** bên phải thanh trạng thái, cạnh chuông thông báo. `Cmd/Ctrl + Esc` cũng mở được.
+
+![Icon CLI Code trên thanh tiêu đề editor](images/screenshots/open-title-bar.png) ![Nút CLI Code trên thanh trạng thái](images/screenshots/open-status-bar.png)
+
 ## Vì sao
 
 Mọi agent lập trình nghiêm túc đều là một chương trình dòng lệnh. Chạy nó trong tab terminal thường thì tab đó "mù": không biết agent đang chờ bạn duyệt, không biết agent vừa sửa file nào, reload là mất, khởi động lại là quên hội thoại.

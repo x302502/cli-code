@@ -8,6 +8,12 @@
 
 ![Multiple AI CLIs running side by side in VS Code](images/screenshots/terminals.png)
 
+## Open it in one click
+
+After installing, click the **CLI Code** icon in the editor title bar, or the **CLI Code** button on the right of the status bar, next to the bell. `Cmd/Ctrl + Esc` opens it too.
+
+![The CLI Code icon in the editor title bar](images/screenshots/open-title-bar.png) ![The CLI Code button in the status bar](images/screenshots/open-status-bar.png)
+
 ## Why
 
 Every serious coding agent ships as a terminal program. Running it in a plain terminal tab means the tab is blind: it can't tell you the agent is waiting for approval, it doesn't know which file the agent just edited, a reload kills it, and a restart forgets the conversation.

@@ -48,13 +48,11 @@ của bạn được sao lưu trước khi sửa.
 4. Một tab mở ở cột bên cạnh editor, mang icon màu của trợ lý, và CLI khởi động ngay trong thư
    mục dự án.
 
-Cách khác: bấm icon CLI Code trên thanh tiêu đề editor, nút **CLI Code** bên phải thanh trạng thái, hoặc Command Palette → **Open CLI**.
+Cách khác (cả hai được khoanh đỏ trong hình bên dưới, và đều mở cùng một bộ chọn): bấm icon CLI Code trên thanh tiêu đề editor, hoặc nút **CLI Code** bên phải thanh trạng thái, cạnh chuông thông báo. Command Palette → **Open CLI** cũng được.
 
-![Icon CLI Code trên thanh tiêu đề editor](../images/screenshots/toolbar-highlighted.png)
+![Icon CLI Code trên thanh tiêu đề editor](../images/screenshots/open-title-bar.png)
 
-Nút **CLI Code** ở bên phải thanh trạng thái, cạnh chuông thông báo, cũng mở ra bộ chọn đó:
-
-![Nút CLI Code trên thanh trạng thái](../images/screenshots/status-bar-button.png)
+![Nút CLI Code trên thanh trạng thái](../images/screenshots/open-status-bar.png)
 
 💡 Bấm `Cmd + Esc` lần nữa khi trợ lý đó đã có tab sẽ **nhảy về tab đó** chứ không mở thêm. Muốn
 thêm một tab nữa cùng trợ lý: `Cmd/Ctrl + Shift + Esc`, hoặc nút **Open CLI in new tab** trên

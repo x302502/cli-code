@@ -8,6 +8,12 @@
 
 ![多个 AI CLI 在 VS Code 中并排运行](images/screenshots/terminals.png)
 
+## 一键打开
+
+安装后，点击编辑器标题栏里的 **CLI Code** 图标，或状态栏右侧（通知铃铛旁）的 **CLI Code** 按钮即可。也可以按 `Cmd/Ctrl + Esc`。
+
+![编辑器标题栏里的 CLI Code 图标](images/screenshots/open-title-bar.png) ![状态栏里的 CLI Code 按钮](images/screenshots/open-status-bar.png)
+
 ## 为什么
 
 每个正经的编程智能体都是终端程序。放在普通终端标签里运行，那个标签是"瞎"的：它不知道智能体在等你批准，不知道智能体刚改了哪个文件，重载就没了，重启就忘了会话。

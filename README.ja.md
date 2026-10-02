@@ -8,6 +8,12 @@
 
 ![複数の AI CLI を VS Code で横に並べて実行](images/screenshots/terminals.png)
 
+## ワンクリックで開く
+
+インストール後は、エディタのタイトルバーの **CLI Code** アイコン、またはステータスバー右側（通知ベルの隣）の **CLI Code** ボタンをクリックします。`Cmd/Ctrl + Esc` でも開けます。
+
+![エディタのタイトルバーにある CLI Code アイコン](images/screenshots/open-title-bar.png) ![ステータスバーにある CLI Code ボタン](images/screenshots/open-status-bar.png)
+
 ## なぜ
 
 本格的なコーディングエージェントはどれもターミナルプログラムです。普通のターミナルタブで動かすと、そのタブは何も知りません：エージェントが承認待ちなのか分からず、どのファイルを直したのかも知らず、リロードで死に、再起動すれば会話を忘れます。
