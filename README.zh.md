@@ -44,7 +44,7 @@ CLI Code **不**使用 VS Code 的集成终端。每个智能体都在一个**�
 
 1. 从应用市场**安装**（`Cmd/Ctrl + Shift + X` → *CLI Code*）。VS Code 1.101+，macOS 或 Linux 可获得全部功能。
 2. 在普通终端里**安装并登录**你要用的智能体（`claude`、`codex`、`copilot`、`opencode`…）。CLI Code 只负责启动，不负责安装。终端里能跑的命令这里就能跑。
-3. **按 `Cmd/Ctrl + Esc`**，选一个智能体，开始输入。在编辑器里按 `Cmd/Ctrl + Alt + K` 把当前文件交给它。
+3. **按 `Cmd/Ctrl + Esc`**（或点击状态栏里的 **CLI Code** 按钮），选一个智能体，开始输入。在编辑器里按 `Cmd/Ctrl + Alt + K` 把当前文件交给它。
 
 > ⚠️ 智能体启动时**关闭了审批提示**（`claude --dangerously-skip-permissions`、`codex --dangerously-bypass-approvals-and-sandbox`、`copilot --yolo` …），以便不间断工作。它们会不经询问地改文件、跑命令——只在你信任的仓库上使用 CLI Code，想要审批提示时请从普通终端启动智能体。
 

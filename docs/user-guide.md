@@ -52,6 +52,10 @@ Alternatives: the CLI Code icon in the editor title bar, the **CLI Code** button
 
 ![The CLI Code icon in the editor title bar](../images/screenshots/toolbar-highlighted.png)
 
+Or click the **CLI Code** button on the right of the status bar, next to the bell, to open the same picker:
+
+![The CLI Code button in the status bar](../images/screenshots/status-bar-button.png)
+
 💡 Pressing `Cmd + Esc` again when that assistant already has a tab **jumps to it** instead of
 opening another. For a second tab of the same assistant use `Cmd/Ctrl + Shift + Esc` or the
 **Open CLI in new tab** button in the title bar.
