@@ -30,7 +30,14 @@ try {
   for (const m of must) if (!existsSync(join(ext, m))) failures.push(`missing ${m}`)
   const prebuilds = existsSync(join(ext, "node_modules/node-pty/prebuilds")) ? readdirSync(join(ext, "node_modules/node-pty/prebuilds")) : []
   if (prebuilds.length !== 1) failures.push(`expected exactly one prebuild dir, got ${prebuilds.join(",") || "none"}`)
-  for (const bad of ["src", "test", "docs", "scripts"]) if (existsSync(join(ext, bad))) failures.push(`should not ship ${bad}/`)
+  for (const bad of ["src", "test", "scripts"]) if (existsSync(join(ext, bad))) failures.push(`should not ship ${bad}/`)
+  // docs/ ships only the user guides the README links to (see .vscodeignore).
+  const guides = ["user-guide.md", "user-guide.vi.md"]
+  if (existsSync(join(ext, "docs"))) {
+    for (const entry of readdirSync(join(ext, "docs"), { withFileTypes: true })) {
+      if (entry.isDirectory() || !guides.includes(entry.name)) failures.push(`should not ship docs/${entry.name}`)
+    }
+  }
   // node-pty builds spawn-helper on macOS only; Linux and Windows have no such file.
   if (!target.startsWith("win32") && !existsSync(join(ext, `node_modules/node-pty/prebuilds/${target}/pty.node`))) failures.push("missing pty.node")
   if (target.startsWith("darwin")) {
