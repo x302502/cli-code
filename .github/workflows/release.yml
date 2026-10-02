@@ -1,0 +1,48 @@
+name: release
+
+# Every push to main (a merged PR) lets release-please update its "Release PR". Merging that PR
+# makes release-please tag vX.Y.Z and create the GitHub Release (body = the Release PR description); this
+# workflow then calls package.yml to build, verify, publish and attach the packages.
+#
+# Why package.yml is *called* instead of left to its `tags: v*` trigger: a tag created with the
+# built-in GITHUB_TOKEN never starts another workflow. Calling it keeps GITHUB_TOKEN as the only
+# credential (no long-lived personal access token) and runs only when a release was created.
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+# One run at a time, and never cancelled halfway through a publish.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.rp.outputs.release_created }}
+      tag_name: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  package:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/package.yml
+    permissions:
+      contents: write
+    with:
+      ref: ${{ needs.release-please.outputs.tag_name }}
+      publish: true
+    secrets:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}

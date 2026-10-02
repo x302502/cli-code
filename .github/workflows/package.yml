@@ -2,12 +2,27 @@ name: package
 on:
   push:
     tags: ["v*"]
+  # Manual run. Leave "publish" off for a dry run: it builds, verifies and checks everything,
+  # then stops before the Marketplace and the GitHub Release.
   workflow_dispatch:
     inputs:
       publish:
-        description: "Publish to VS Code Marketplace"
+        description: "Publish to VS Code Marketplace (needs a v* tag as the selected ref)"
         type: boolean
         default: false
+  # Called by release.yml with the tag release-please just created.
+  workflow_call:
+    inputs:
+      ref:
+        description: "The vX.Y.Z tag to build and publish"
+        type: string
+        required: true
+      publish:
+        type: boolean
+        default: false
+    secrets:
+      VSCE_PAT:
+        required: false
 
 # Read-only by default; only the job that creates the release gets write access.
 permissions:
@@ -49,6 +64,39 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      # Decide first, so a wrong tag fails before the long build. A publish needs a vX.Y.Z tag
+      # that matches package.json; the tag comes from the caller (release.yml), the pushed tag,
+      # or the ref a manual run was started on. Untrusted values go through env, never inline.
+      - name: Decide what this run publishes
+        id: target
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+          INPUT_PUBLISH: ${{ inputs.publish }}
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag=""
+          if [ -n "$INPUT_REF" ]; then tag="$INPUT_REF"; elif [ "$REF_TYPE" = tag ]; then tag="$REF_NAME"; fi
+          publish=false
+          # A pushed tag publishes; a manual or called run publishes only when asked to.
+          if [ "$INPUT_PUBLISH" = true ] || { [ "$EVENT" = push ] && [ "$REF_TYPE" = tag ]; }; then publish=true; fi
+          if [ "$publish" = true ]; then
+            case "$tag" in
+              v[0-9]*.[0-9]*.[0-9]*) ;;
+              *) echo "::error::publishing needs a vX.Y.Z tag, got '$tag'"; exit 1 ;;
+            esac
+            version=$(node -p "require('./package.json').version")
+            if [ "v$version" != "$tag" ]; then
+              echo "::error::tag $tag does not match the version in package.json ($version)"; exit 1
+            fi
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
       - uses: oven-sh/setup-bun@v2
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
@@ -72,19 +120,59 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: vsix, path: "cli-code-*.vsix" }
 
+      # Every package must be the version in package.json (which the tag was checked against),
+      # because `vsce publish --skip-duplicate` would quietly skip or publish the wrong one.
+      - name: Check the version of every package
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          for f in cli-code-*.vsix; do
+            case "$f" in cli-code-"$version"-*.vsix) ;; *) echo "::error::$f is not version $version"; exit 1 ;; esac
+            inner=$(unzip -p "$f" extension/package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
+            if [ "$inner" != "$version" ]; then echo "::error::$f carries version $inner"; exit 1; fi
+          done
+      # CHANGELOG.md ships in the package (the Marketplace Changelog tab), so its section for this
+      # version must exist; and a release that already exists must have a body (release-please
+      # fills it from the Release PR's description). Fail before publishing if either is missing.
+      - name: Check the release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.target.outputs.tag }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          node scripts/release-notes.mjs "$version" > release-notes.md
+          if [ ! -s release-notes.md ]; then echo "::error::CHANGELOG.md has no notes for $version"; exit 1; fi
+          # (not grep -q: it exits early, unzip dies of SIGPIPE and pipefail fails a big changelog)
+          unzip -Cp cli-code-"$version"-darwin-arm64.vsix extension/changelog.md | grep . > /dev/null \
+            || { echo "::error::the package has no CHANGELOG.md"; exit 1; }
+          if [ -n "$TAG" ] && gh release view "$TAG" > /dev/null 2>&1; then
+            body=$(gh release view "$TAG" --json body --jq .body)
+            if [ -z "$body" ]; then echo "::error::release $TAG exists with an empty body"; exit 1; fi
+          fi
+
       - name: Publish to VS Code Marketplace
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.publish == true
+        if: steps.target.outputs.publish == 'true'
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
+          if [ -z "$VSCE_PAT" ]; then echo "::error::the VSCE_PAT secret is not set"; exit 1; fi
           for f in cli-code-*.vsix; do
             echo "Publishing $f..."
             npx @vscode/vsce publish --packagePath "$f" --skip-duplicate
           done
 
-      - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
-        with:
-          files: cli-code-*.vsix
-          generate_release_notes: true
+      # release-please has already created the release (its body is the Release PR's description);
+      # only the packages are attached. For a tag pushed by hand there is no release yet, so it is
+      # created here, with the CHANGELOG section for this version as its body. Either way exactly one release exists.
+      - name: Attach the packages to the GitHub Release
+        if: steps.target.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.target.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file release-notes.md
+          fi
+          gh release upload "$TAG" cli-code-*.vsix --clobber
