@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process"
 import { existsSync, readdirSync, statSync, rmSync, mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { unexpectedEntries } from "./vsix-allowlist.mjs"
 
 const file = process.argv[2]
 if (!file || !existsSync(file)) { console.error("usage: verify-vsix <file.vsix>"); process.exit(2) }
@@ -30,7 +31,6 @@ try {
   for (const m of must) if (!existsSync(join(ext, m))) failures.push(`missing ${m}`)
   const prebuilds = existsSync(join(ext, "node_modules/node-pty/prebuilds")) ? readdirSync(join(ext, "node_modules/node-pty/prebuilds")) : []
   if (prebuilds.length !== 1) failures.push(`expected exactly one prebuild dir, got ${prebuilds.join(",") || "none"}`)
-  for (const bad of ["src", "test", "scripts"]) if (existsSync(join(ext, bad))) failures.push(`should not ship ${bad}/`)
   // docs/ ships only the user guides the README links to (see .vscodeignore).
   const guides = ["user-guide.md", "user-guide.vi.md"]
   if (existsSync(join(ext, "docs"))) {
@@ -38,6 +38,8 @@ try {
       if (entry.isDirectory() || !guides.includes(entry.name)) failures.push(`should not ship docs/${entry.name}`)
     }
   }
+  const list = (p) => (existsSync(p) ? readdirSync(p) : [])
+  failures.push(...unexpectedEntries({ root: list(dir), extension: list(ext), nodeModules: list(join(ext, "node_modules")) }))
   // node-pty builds spawn-helper on macOS only; Linux and Windows have no such file.
   if (!target.startsWith("win32") && !existsSync(join(ext, `node_modules/node-pty/prebuilds/${target}/pty.node`))) failures.push("missing pty.node")
   if (target.startsWith("darwin")) {
@@ -49,14 +51,14 @@ try {
     if (!existsSync(conpty)) failures.push(`missing node_modules/node-pty/prebuilds/${target}/conpty.node`)
   }
   // Recursively reject shipped source maps and dev-only directories anywhere under extension/,
-  // not just at its top level (the bad-dir check above only covers extension/<name>).
+  // not just at its top level (the allow-list only covers the top level).
   const walk = (dirPath, relPath) => {
     for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
       const entryRel = relPath ? `${relPath}/${entry.name}` : entry.name
       const entryAbs = join(dirPath, entry.name)
       if (entry.isDirectory()) {
         if (["src", "test", "docs", "scripts"].includes(entry.name) && relPath === "") {
-          continue // already reported by the top-level bad-dir check above
+          continue // reported by the allow-list (src, test, scripts) or the docs check above
         }
         walk(entryAbs, entryRel)
       } else if (entry.name.endsWith(".map")) {

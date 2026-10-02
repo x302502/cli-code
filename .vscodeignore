@@ -16,6 +16,11 @@ bunfig.toml
 .prettierignore
 .gitignore
 .codegraph
+# CI-only leftovers: release-please's files, and the prebuilt Linux binaries the packaging job
+# downloads into the checkout (scripts/package-target.mjs adds the one target's own prebuild back).
+release-please-config.json
+.release-please-manifest.json
+linux-prebuilds/**
 **/*.map
 **/*.ts
 *.vsix
