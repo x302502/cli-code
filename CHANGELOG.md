@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/x302502/cli-code/compare/v0.2.1...v0.2.2) (2026-10-02)
+
+
+### Bug fixes
+
+* **package:** stop shipping CI-only files in the vsix ([#7](https://github.com/x302502/cli-code/issues/7)) ([234af0f](https://github.com/x302502/cli-code/commit/234af0fbb976991d780c07870f66b3f143f34b77))
+
 ## [0.2.1](https://github.com/x302502/cli-code/compare/v0.2.0...v0.2.1) (2026-10-02)
 
 
