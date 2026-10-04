@@ -123,7 +123,7 @@ Claude for feature A, another for review). Useful habits:
 - **Drag tabs** into another column, split them, group them — they are ordinary VS Code tabs.
 - **Closing a tab ends the CLI inside it**, without a warning (VS Code gives extensions no way to
   veto a close). To get that conversation back: [Resume Session](#12-reopen-an-earlier-conversation).
-- **Quitting VS Code ends every session.** Reload Window does not — see [section 10](#10-reload-window-without-losing-anything).
+- **Quitting VS Code does not end the sessions**: the CLIs keep running and the tabs reattach when you reopen the folder — see [section 10](#10-reload-window-or-quit-without-losing-anything).
 
 ### 6. The action bar above the terminal
 
@@ -209,16 +209,21 @@ way to tell the assistant "look at this file" when the file was just mentioned i
 
 ## Part C — Managing sessions
 
-### 10. Reload Window without losing anything
+### 10. Reload Window or quit without losing anything
 
 The CLIs do not run inside the webview; they run under a **background daemon** that belongs to the
 VS Code window. So **Developer: Reload Window** (after installing an extension, changing a setting,
 or when VS Code reloads itself) loses nothing: every tab comes back attached to its still-running
 CLI, with scrollback, tab name and state intact.
 
-The daemon exits by itself 60 s after the last tab is closed. Quitting VS Code ends every session;
-when you open VS Code again the tabs show *"Session … has ended"* with a **Restart** button that
-takes you back to the conversation ([section 14](#14-when-the-cli-exits-or-the-session-is-gone)).
+Quitting VS Code works the same way: the daemon keeps every CLI running (it exits only once none
+is left), and reopening the folder reattaches each tab where it was. If the CLI did not survive (the
+machine restarted, the daemon was killed), the tab starts its CLI again by itself, back in the same
+conversation where the CLI can resume one ([section 11](#11-restart-and-stay-in-the-same-conversation)),
+and says *"Session restored"* — or *"Previous session unavailable, started fresh"*.
+
+If VS Code itself is killed or crashes, it may not have saved its newest tabs; CLI Code keeps its own
+list of open tabs and reopens the missing ones.
 
 ### 11. Restart and stay in the same conversation
 
@@ -272,8 +277,8 @@ back to the Codex tab: if it was idle it has already restarted, and `/mcp` lists
 ### 14. When the CLI exits or the session is gone
 
 - **The CLI exited** (`/exit`, a crash…): the tab shows *"Process exited (code N)"* with **Restart**.
-- **The session is gone** after VS Code was reopened or the daemon was killed: the tab shows
-  *"Session … has ended"* with **Restart**.
+- **The session is gone** while the tab is open (the daemon was killed), or it could not be started
+  again on reopen: the tab shows *"Session … has ended"* with **Restart**.
 
 Both restart by the rules in [section 11](#11-restart-and-stay-in-the-same-conversation), so with
 nineteen assistants you land back in the conversation.
@@ -453,7 +458,7 @@ and the modification times of the configuration files in [section 13](#13-when-y
 | --- | --- |
 | Codex `/mcp` shows servers as *failed*, but they work in a terminal | Older builds ran CLIs in a non-interactive shell with an incomplete `PATH`. Fixed in 0.2.0; Reload Window so the new daemon replaces the old one — idle tabs restart themselves. |
 | No `⟳ ?` marks on the tab | The assistant has no hook, or the CLI started before the hook was installed. Run **Install Status Hooks**, then **Restart Session**. No hooks on Windows. |
-| *"Session … has ended"* after opening VS Code | The session ended with VS Code. Press **Restart** to get the conversation back. |
+| *"Session … has ended"* | The daemon was killed while the tab was open, or the CLI could not be started again. Press **Restart** to get the conversation back. |
 | Restart opened a fresh conversation | The assistant is in the `--continue` group, or no prompt had been sent yet, so there was no session to return to. |
 | A hook warning inside the CLI | Codex: run `/hooks` in Codex and approve the CLI Code hook. Grok: run Remove, then Install Status Hooks to refresh the file. |
 | `Ctrl + F` types into the CLI (Windows/Linux) | The terminal keeps that key. Use the palette or the right-click entry. |

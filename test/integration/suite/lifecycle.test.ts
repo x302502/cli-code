@@ -1,6 +1,6 @@
 import * as assert from "node:assert/strict"
 import * as vscode from "vscode"
-import { api, openReady, pidAlive, readEnvFile, waitFor } from "./helpers.js"
+import { api, fixture, openReady, pidAlive, readEnvFile, waitFor } from "./helpers.js"
 
 describe("lifecycle (checklist B, A-e)", () => {
   // A failed assertion must not leak the panel (and its PTY) into the next test.
@@ -57,6 +57,52 @@ describe("lifecycle (checklist B, A-e)", () => {
     openPanel = undefined
   })
 
+  // The editor writes its list of open tabs once a minute: killed, it comes back without the
+  // newest tabs. The window's own list (written at once) brings them back.
+  it("a tab the editor did not restore comes back from the window's own tab list; the editor's late copy of a tab is dropped", async () => {
+    const { a, panel } = await openReady("recover")
+    openPanel = panel
+    type OpenTab = { state: { tabId?: string; sessionId: string; toolId: string; createdAt?: number }; viewColumn?: number }
+    const saved = await waitFor(() => a.context.workspaceState.get<OpenTab[]>("cliCode.openTabs")?.find((t) => t.state.sessionId === a.inspectPanel(panel).sessionId), 5_000, "tab saved")
+    assert.ok(saved.state.tabId)
+    const lost: OpenTab = {
+      state: {
+        sessionId: "00000000-0000-0000-0000-00000000000a",
+        toolId: "codex",
+        cwd: "/tmp",
+        command: `sh "${fixture("echo-tool.sh")}"`,
+        customTitle: "Bị mất",
+        tabId: "lost-tab",
+        createdAt: Date.now() + 1_000,
+      } as OpenTab["state"],
+    }
+    await a.context.workspaceState.update("cliCode.openTabs", [saved, lost])
+    const before = new Set(a.activePanels())
+    await a.recoverMissingTabs(a.context)
+    const back = await waitFor(() => a.activePanels().find((p) => !before.has(p)), 20_000, "recovered tab")
+    try {
+      await waitFor(() => a.inspectPanel(back).ready, 15_000, "recovered webview ready")
+      assert.equal(back.title, "Bị mất")
+
+      // The editor reviving its own (older) copy of the recovered tab: that copy goes, the CLI stays.
+      const sessionId = a.inspectPanel(back).sessionId
+      const late = vscode.window.createWebviewPanel("cliCode.terminal", "late", vscode.ViewColumn.One, {
+        enableScripts: true,
+        localResourceRoots: [vscode.Uri.file(a.context.extensionPath)],
+      })
+      let disposed = false
+      late.onDidDispose(() => (disposed = true))
+      await a.restoreTerminalPanel(a.context, late, { sessionId: sessionId!, toolId: "codex", tabId: "lost-tab" })
+      assert.ok(disposed, "the duplicate is closed")
+      assert.equal(a.inspectPanel(back).sessionId, sessionId)
+      assert.ok(a.activePanels().includes(back))
+    } finally {
+      back.dispose()
+    }
+    const left = a.context.workspaceState.get<OpenTab[]>("cliCode.openTabs") ?? []
+    assert.ok(!left.some((t) => t.state.tabId === "lost-tab"), "a closed tab leaves the list")
+  })
+
   // Runs last in stage 1: it kills this window's daemon.
   it("a dead daemon turns the tab into the gone page, and restart opens a fresh session", async () => {
     const { a, panel, env } = await openReady("gone", {}, { title: "Sau khi chết" })
@@ -71,7 +117,10 @@ describe("lifecycle (checklist B, A-e)", () => {
     assert.ok(panel.webview.html.includes("Restart"))
     assert.ok(!a.activePanels().includes(panel))
 
-    await a.restartFromGone(a.context, panel)
+    // Clicked twice (review finding: no in-flight guard opened two tabs resuming one conversation).
+    const before = new Set(a.activePanels())
+    await Promise.all([a.restartFromGone(a.context, panel), a.restartFromGone(a.context, panel)])
+    assert.equal(a.activePanels().filter((p) => !before.has(p)).length, 1)
     const fresh = await waitFor(() => a.activePanels().find((p) => p !== panel), 20_000, "fresh panel")
     openPanel = fresh
     await waitFor(() => a.inspectPanel(fresh).ready, 15_000, "fresh webview ready")
