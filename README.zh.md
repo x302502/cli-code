@@ -4,7 +4,7 @@
 
 📖 [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
 
-> **VS Code 的智能体终端。** Claude Code、Codex、Copilot、opencode、Pi、Grok、Droid 等 28 个编程智能体，每个都运行在一个懂它的标签里：显示智能体在做什么，打开它提到的东西，重载后保留会话，并能重启回同一会话。
+> **VS Code 的智能体终端。** Claude Code、Codex、Copilot、opencode、Pi、Grok、Droid 等 28 个编程智能体，每个都运行在一个懂它的标签里：显示智能体在做什么，打开它提到的东西，重载或退出 VS Code 后保留会话，并能重启回同一会话。
 
 ![多个 AI CLI 在 VS Code 中并排运行](images/screenshots/terminals.png)
 
@@ -16,7 +16,7 @@
 
 ## 为什么
 
-每个正经的编程智能体都是终端程序。放在普通终端标签里运行，那个标签是"瞎"的：它不知道智能体在等你批准，不知道智能体刚改了哪个文件，重载就没了，重启就忘了会话。
+每个正经的编程智能体都是终端程序。放在普通终端标签里运行，那个标签是"瞎"的：它不知道智能体在等你批准，不知道智能体刚改了哪个文件，重载或退出 VS Code 就没了，重启就忘了会话。
 
 CLI Code 用一个为智能体而生的界面取而代之——自带操作栏、实时状态、可点击输出和框内提示的独立 webview 终端——而智能体本身原封不动：同样的 CLI、同样的 shell、同样的 MCP 服务器和插件。
 
@@ -24,11 +24,11 @@ CLI Code 用一个为智能体而生的界面取而代之——自带操作栏�
 
 **知道智能体状态的标签。** 标签按你交代的任务自动改名，并带一个标记：`⟳` 工作中，`?` 等你，`●` 你在别的标签时已完成。隐藏标签上的智能体需要你时会发出带 *Open tab* 按钮的通知。终端上方的操作栏显示正在使用的模型。
 
-**围绕智能体的界面，而不是裸终端。** 终端上方是一条采用 Claude 视觉语言的安静操作栏：New Session（带智能体选择器）、Resume、Restart、Find，以及 `…` 菜单（Rename、Copy Context、Quick Command）。左侧显示正在使用的模型、智能体等你时的状态行，以及运行中的智能体比其配置更旧时的 *"… changed — restart to apply"* 提示。悬停链接可见它将打开什么；查找支持区分大小写和正则；智能体退出时出现带 Restart 按钮的覆盖层，进程消失时出现 *session ended* 页面。字体和颜色跟随 VS Code 主题；还可在终端下方启用聊天式输入框。
+**围绕智能体的界面，而不是裸终端。** 终端上方是一条采用 Claude 视觉语言的安静操作栏：New Session（带智能体选择器）、Resume、Restart、Find，以及 `…` 菜单（Rename、Copy Context、Quick Command）。左侧显示标签名（双击即可就地重命名）、正在使用的模型、智能体等你时的状态行，以及运行中的智能体比其配置更旧时的 *"… changed — restart to apply"* 提示。悬停链接可见它将打开什么；查找支持区分大小写和正则；智能体退出时出现带 Restart 按钮的覆盖层，进程消失时出现 *session ended* 页面。字体和颜色跟随 VS Code 主题；还可在终端下方启用聊天式输入框。
 
-**智能体打印的一切都可点击。** 文件路径在编辑器中精确到行列打开，文件夹在资源管理器中显示（工作区之外则用 Finder/Explorer），URL 在浏览器打开，Markdown 打开预览。只有真实存在的路径才会加下划线。普通点击选中整个链接，`Cmd/Ctrl + C` 即可复制；即使 Claude Code 正捕获鼠标，选择与复制照样可用。
+**智能体打印的一切都可点击。** 文件路径在编辑器中精确到行列打开（已打开的文件会切到它所在的标签，而不是再开一个），文件夹在资源管理器中显示（工作区之外则用 Finder/Explorer），URL 在浏览器打开，Markdown 打开预览。只有真实存在的路径才会加下划线。普通点击选中整个链接，`Cmd/Ctrl + C` 即可复制；即使 Claude Code 正捕获鼠标，选择与复制照样可用。
 
-**会话不会丢。** 智能体运行在后台守护进程下，*Reload Window* 会把每个标签连同回滚缓冲、标题、状态一起重新接上。真需要新进程时——新增 MCP 服务器、装插件、更新——*Restart Session* 让 28 个智能体中的 19 个回到完全相同的会话，配置变化的标签会在空闲时自动重启。
+**会话不会丢。** 智能体运行在后台守护进程下，*Reload Window* 会把每个标签连同回滚缓冲、标题、状态一起重新接上——退出 VS Code 之后再打开该文件夹也一样，期间智能体一直在运行。如果智能体没能保留（机器重启），标签会自动把它恢复到同一会话，并显示 *Session restored*。崩溃的 VS Code 没来得及保存的标签也会回来。真需要新进程时——新增 MCP 服务器、装插件、更新——*Restart Session* 让 28 个智能体中的 19 个回到完全相同的会话，配置变化的标签会在空闲时自动重启。
 
 **一个快捷键，你真正的 shell。** `Cmd/Ctrl + Esc` 在编辑器旁、项目目录里、你的交互式登录 shell 中打开 28 个智能体中的任何一个——`PATH`、nvm、pnpm、MCP 服务器，与终端完全一致。`Cmd/Ctrl + Alt + K` 把正在看的文件以 `@src/app.ts#L10-20` 的形式放进提示词。
 
@@ -38,7 +38,7 @@ CLI Code 用一个为智能体而生的界面取而代之——自带操作栏�
 
 ## 工作原理
 
-CLI Code **不**使用 VS Code 的集成终端。每个智能体都在一个**扩展自己的 webview 面板**中打开——一个渲染终端（xterm.js）的编辑器标签，周围是操作栏、状态标记、链接提示、搜索栏和各种提示。智能体进程本身运行在属于该 VS Code 窗口的**后台守护进程**中，所以 *Reload Window* 是重新接上而不是杀掉它。
+CLI Code **不**使用 VS Code 的集成终端。每个智能体都在一个**扩展自己的 webview 面板**中打开——一个渲染终端（xterm.js）的编辑器标签，周围是操作栏、状态标记、链接提示、搜索栏和各种提示。智能体进程本身运行在属于该 VS Code 窗口的**后台守护进程**中，所以 *Reload Window* 或退出 VS Code 都是重新接上而不是杀掉它。
 
 这对你意味着：
 
@@ -93,11 +93,11 @@ CLI Code **不**使用 VS Code 的集成终端。每个智能体都在一个**�
 
 **打开并交出文件。** `Cmd/Ctrl + Esc` 打开或聚焦一个智能体；`Cmd/Ctrl + Shift + Esc` 再开一个它的标签；*New Session* 按钮在当前标签的目录里再开一个。`Cmd/Ctrl + Alt + K` 按编辑器的文件和选区插入 `@path`、`@path#L10` 或 `@path#L10-20`。
 
-**读标签。** 标题 = 你起的名字（`F2`）› 打开它的快捷命令 › 智能体自己的标题（已清理）› 你的最后一条提示词（40 字符，按词截断）› 智能体名。标记：`⟳` 工作中 · `?` 等你 · `●` 隐藏时已完成。
+**读标签。** 标题 = 你起的名字（双击左上角的名字、右键标签，或 `F2`）› 打开它的快捷命令 › 智能体自己的标题（已清理）› 你的最后一条提示词（40 字符，按词截断）› 智能体名。标记：`⟳` 工作中 · `?` 等你 · `●` 隐藏时已完成。
 
 **点击智能体打印的内容。** `Cmd/Ctrl + click` 打开文件（到 `行:列`）、文件夹和 URL；`Shift + Cmd/Ctrl + click` 用默认应用打开；悬停显示目标。右键提供 *Open File / Open Folder / Open Link*、*Open with Default App*、*Insert @path into CLI*、*Copy Link / Path*、*Find Selection*，以及 *Copy / Paste / Select All / Find in Terminal*。
 
-**保住会话。** *Reload Window* 保留一切。*Restart Session*（↻）重启回同一会话——按钩子上报的会话 ID，否则按智能体自己存储中该目录的最新会话，再否则用智能体的 `--continue`。*Resume Session* 列出历史会话（Claude Code、Codex、Grok），其余智能体提供 *Continue latest session*。MCP/插件/钩子文件变化时，空闲标签自动重启，忙碌标签显示 *"… changed — restart to apply"* 直到你按 ↻。*Restart All Sessions* 重启所有标签。
+**保住会话。** *Reload Window* 和退出 VS Code 都保留一切；没能保留的智能体会在重新打开时于标签内恢复。*Restart Session*（↻）重启回同一会话——按钩子上报的会话 ID，否则按智能体自己存储中该目录的最新会话，再否则用智能体的 `--continue`。*Resume Session* 列出历史会话（Claude Code、Codex、Grok），其余智能体提供 *Continue latest session*。MCP/插件/钩子文件变化时，空闲标签自动重启，忙碌标签显示 *"… changed — restart to apply"* 直到你按 ↻。*Restart All Sessions* 重启所有标签。
 
 **快捷命令。** 把提示词存进 `cliCode.quickCommands`（User 或 Workspace 设置），或选中文本后运行 *Save as Quick Command*；从操作栏的 `…` 菜单运行。它们作为一次粘贴送达，随后 Enter，除非 `"submit": false`。
 
@@ -111,7 +111,7 @@ CLI Code **不**使用 VS Code 的集成终端。每个智能体都在一个**�
 | 提示词内换行 | `Shift + Enter` | `Shift + Enter` |
 | 终端内查找 | `Cmd + F` | `Ctrl + F` \* |
 | 放大 / 缩小 / 重置 | `Cmd + =` / `-` / `0` | `Ctrl + =` / `-` / `0` |
-| 重命名标签 | `F2` | `F2` |
+| 重命名标签 | `F2`（或双击名字） | `F2`（或双击名字） |
 
 \* Windows/Linux 上终端把 `Ctrl + F` 留给智能体——请用命令面板或右键菜单。终端快捷键只在 CLI Code 标签内生效。
 
@@ -132,7 +132,7 @@ CLI Code **不**使用 VS Code 的集成终端。每个智能体都在一个**�
 
 ## 限制
 
-- 关闭标签会结束其中的智能体（VS Code 无法先询问）；退出 VS Code 会结束所有会话。Reload Window 不会。
+- 关闭标签会结束其中的智能体（VS Code 无法先询问）。退出 VS Code 不会：智能体会一直运行到你重新打开该文件夹。
 - 状态钩子和交互式 shell 启动仅限 POSIX（macOS、Linux）。Windows 上标签可用但无状态标记。
 - 九个智能体没有可寻址的会话，用它们的 `--continue` 标志重启（见表）。
 
