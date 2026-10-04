@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.4](https://github.com/x302502/cli-code/compare/v0.2.3...v0.2.4) (2026-10-04)
+
+
+### Features
+
+* keep CLI sessions across quitting VS Code and restore them like Orca ([bbd65c2](https://github.com/x302502/cli-code/commit/bbd65c2144c781098276892421701f43f4331996))
+* rename a CLI tab by double-clicking its name, or from the tab's right-click menu ([819fa7c](https://github.com/x302502/cli-code/commit/819fa7cb5f43d88a656de59e608c40b395299cfd))
+
+
+### Bug fixes
+
+* a file link focuses the tab already showing the file instead of opening another ([f80fbdd](https://github.com/x302502/cli-code/commit/f80fbdd9f47e8924478a139d6c85ea3532cd1fc4))
+
+
+### Documentation
+
+* **readme:** sessions survive quitting VS Code, open files are reused, tabs rename by double-click ([f7281da](https://github.com/x302502/cli-code/commit/f7281da4c2be891c6aaf5755d8343869b6501b22))
+
 ## [0.2.3](https://github.com/x302502/cli-code/compare/v0.2.2...v0.2.3) (2026-10-02)
 
 
