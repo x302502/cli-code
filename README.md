@@ -4,7 +4,7 @@
 
 📖 [User Guide](docs/user-guide.md) · [Hướng dẫn sử dụng](docs/user-guide.vi.md) · [Changelog](CHANGELOG.md)
 
-> **The agent terminal for VS Code.** Claude Code, Codex, Copilot, opencode, Pi, Grok, Droid and 21 more coding agents, each in a tab that understands the agent: it shows what the agent is doing, opens what it mentions, keeps the session through reloads, and restarts back into the same conversation.
+> **The agent terminal for VS Code.** Claude Code, Codex, Copilot, opencode, Pi, Grok, Droid and 21 more coding agents, each in a tab that understands the agent: it shows what the agent is doing, opens what it mentions, keeps the session through reloads and quitting VS Code, and restarts back into the same conversation.
 
 ![Multiple AI CLIs running side by side in VS Code](images/screenshots/terminals.png)
 
@@ -16,7 +16,7 @@ After installing, click the **CLI Code** icon in the editor title bar, or the **
 
 ## Why
 
-Every serious coding agent ships as a terminal program. Running it in a plain terminal tab means the tab is blind: it can't tell you the agent is waiting for approval, it doesn't know which file the agent just edited, a reload kills it, and a restart forgets the conversation.
+Every serious coding agent ships as a terminal program. Running it in a plain terminal tab means the tab is blind: it can't tell you the agent is waiting for approval, it doesn't know which file the agent just edited, a reload or quitting VS Code kills it, and a restart forgets the conversation.
 
 CLI Code replaces that tab with an interface built for agents — its own webview terminal with an action bar, live state, clickable output and notices — while the agent itself runs untouched: same CLI, same shell, same MCP servers and plugins.
 
@@ -24,11 +24,11 @@ CLI Code replaces that tab with an interface built for agents — its own webvie
 
 **Tabs that know the agent's state.** The tab renames itself after the task you gave and carries a mark: `⟳` working, `?` waiting for you, `●` finished while you were on another tab. An agent that needs you on a hidden tab sends a notification with an *Open tab* button. The action bar above the terminal shows the model in use.
 
-**An interface around the agent, not a bare terminal.** Above the terminal sits a quiet action bar in Claude's visual language: New Session (with the agent picker), Resume, Restart, Find, and a `…` menu (Rename, Copy Context, Quick Command). Its left side shows the model in use, a status line while the agent waits on you, and a *"… changed — restart to apply"* notice when the running agent is older than its configuration. Hovering a link shows what it opens; find has match-case and regex; an overlay with a Restart button appears when the agent exits, a *session ended* page when its process is gone. Fonts and colours follow your VS Code theme; an optional chat-style composer can sit under the terminal.
+**An interface around the agent, not a bare terminal.** Above the terminal sits a quiet action bar in Claude's visual language: New Session (with the agent picker), Resume, Restart, Find, and a `…` menu (Rename, Copy Context, Quick Command). Its left side shows the tab's name (double-click it to rename the tab in place), the model in use, a status line while the agent waits on you, and a *"… changed — restart to apply"* notice when the running agent is older than its configuration. Hovering a link shows what it opens; find has match-case and regex; an overlay with a Restart button appears when the agent exits, a *session ended* page when its process is gone. Fonts and colours follow your VS Code theme; an optional chat-style composer can sit under the terminal.
 
-**Everything the agent prints is clickable.** File paths open in the editor at the exact line and column, folders reveal in the Explorer (or Finder/Explorer when outside the workspace), URLs open in the browser, Markdown opens in the preview. Only paths that really exist are underlined. A plain click selects the whole link so `Cmd/Ctrl + C` copies it; selection and copy keep working even while Claude Code is capturing the mouse.
+**Everything the agent prints is clickable.** File paths open in the editor at the exact line and column (a file that is already open comes to front in its own tab instead of opening twice), folders reveal in the Explorer (or Finder/Explorer when outside the workspace), URLs open in the browser, Markdown opens in the preview. Only paths that really exist are underlined. A plain click selects the whole link so `Cmd/Ctrl + C` copies it; selection and copy keep working even while Claude Code is capturing the mouse.
 
-**Sessions that survive.** Agents run under a background daemon, so *Reload Window* re-attaches every tab with its scrollback, title and state. When you do need a fresh process — a new MCP server, a plugin, an update — *Restart Session* brings 19 of the 28 agents back into the exact conversation, and tabs whose configuration changed restart themselves when idle.
+**Sessions that survive.** Agents run under a background daemon, so *Reload Window* re-attaches every tab with its scrollback, title and state — and so does quitting VS Code and reopening the folder later: the agents keep running meanwhile. If an agent did not survive (the machine restarted), its tab starts it again by itself, back in the same conversation, and says *Session restored*. Tabs a crashed VS Code forgot to save come back too. When you do need a fresh process — a new MCP server, a plugin, an update — *Restart Session* brings 19 of the 28 agents back into the exact conversation, and tabs whose configuration changed restart themselves when idle.
 
 **One shortcut, your real shell.** `Cmd/Ctrl + Esc` opens any of 28 agents beside your editor, in your project folder, inside your interactive login shell — `PATH`, nvm, pnpm, MCP servers, all exactly as in a terminal. `Cmd/Ctrl + Alt + K` drops the file you are looking at into the prompt as `@src/app.ts#L10-20`.
 
@@ -38,7 +38,7 @@ How it knows: CLI Code installs a small *status hook* into each agent's own conf
 
 ## How it works
 
-CLI Code does **not** use VS Code's integrated terminal. Each agent opens in a **webview panel of the extension's own** — an editor tab that renders a terminal (xterm.js) and, around it, the action bar, state marks, link tooltips, search bar and notices. The agent process itself runs in a **background daemon** that belongs to the VS Code window, which is why *Reload Window* re-attaches instead of killing it.
+CLI Code does **not** use VS Code's integrated terminal. Each agent opens in a **webview panel of the extension's own** — an editor tab that renders a terminal (xterm.js) and, around it, the action bar, state marks, link tooltips, search bar and notices. The agent process itself runs in a **background daemon** that belongs to the VS Code window, which is why *Reload Window* or quitting VS Code re-attaches instead of killing it.
 
 What that means for you:
 
@@ -93,11 +93,11 @@ What that means for you:
 
 **Open and hand over files.** `Cmd/Ctrl + Esc` opens or focuses an agent; `Cmd/Ctrl + Shift + Esc` opens another tab of it; the *New Session* button opens one in the current tab's folder. `Cmd/Ctrl + Alt + K` inserts `@path`, `@path#L10` or `@path#L10-20` for the editor's file and selection.
 
-**Read the tab.** Title = your name (`F2`) › the quick command that opened it › the agent's own title, cleaned › your last prompt (40 chars, cut at a word) › the agent's name. Marks: `⟳` working · `?` waiting for you · `●` done while hidden.
+**Read the tab.** Title = your name (double-click it at the top left, right-click the tab, or `F2`) › the quick command that opened it › the agent's own title, cleaned › your last prompt (40 chars, cut at a word) › the agent's name. Marks: `⟳` working · `?` waiting for you · `●` done while hidden.
 
 **Click what the agent prints.** `Cmd/Ctrl + click` opens files (at `line:col`), folders and URLs; `Shift + Cmd/Ctrl + click` opens with the default app; hover shows the target. Right-click offers *Open File / Open Folder / Open Link*, *Open with Default App*, *Insert @path into CLI*, *Copy Link / Path*, *Find Selection*, plus *Copy / Paste / Select All / Find in Terminal*.
 
-**Keep the conversation.** *Reload Window* keeps everything. *Restart Session* (↻) relaunches into the same conversation — by the session id the hook reported, else the newest session in the agent's own store for this folder, else the agent's `--continue`. *Resume Session* lists past sessions (Claude Code, Codex, Grok) and offers *Continue latest session* for the rest. When an MCP/plugin/hook file changes, idle tabs restart themselves; busy ones show *"… changed — restart to apply"* until you press ↻. *Restart All Sessions* does every tab.
+**Keep the conversation.** *Reload Window* and quitting VS Code keep everything; an agent that did not survive is resumed in its tab on reopen. *Restart Session* (↻) relaunches into the same conversation — by the session id the hook reported, else the newest session in the agent's own store for this folder, else the agent's `--continue`. *Resume Session* lists past sessions (Claude Code, Codex, Grok) and offers *Continue latest session* for the rest. When an MCP/plugin/hook file changes, idle tabs restart themselves; busy ones show *"… changed — restart to apply"* until you press ↻. *Restart All Sessions* does every tab.
 
 **Quick commands.** Store prompts in `cliCode.quickCommands` (User or Workspace settings) or select text and run *Save as Quick Command*; run them from the action bar's `…` menu. They arrive as one paste, followed by Enter unless `"submit": false`.
 
@@ -111,7 +111,7 @@ What that means for you:
 | Newline in the prompt | `Shift + Enter` | `Shift + Enter` |
 | Find in terminal | `Cmd + F` | `Ctrl + F` \* |
 | Zoom in / out / reset | `Cmd + =` / `-` / `0` | `Ctrl + =` / `-` / `0` |
-| Rename tab | `F2` | `F2` |
+| Rename tab | `F2` (or double-click its name) | `F2` (or double-click its name) |
 
 \* On Windows/Linux the terminal keeps `Ctrl + F` for the agent — use the palette or the right-click entry. Terminal shortcuts are active only in a CLI Code tab.
 
@@ -132,7 +132,7 @@ Command Palette (`CLI Code:`): New Session · Resume Session · Restart Session 
 
 ## Limits
 
-- Closing a tab ends the agent inside it (VS Code cannot ask first); quitting VS Code ends every session. Reload Window does not.
+- Closing a tab ends the agent inside it (VS Code cannot ask first). Quitting VS Code does not: agents keep running until you reopen the folder.
 - Status hooks and the interactive-shell launch are POSIX only (macOS, Linux). On Windows tabs work but show no state marks.
 - Nine agents have no addressable sessions and restart with their `--continue` flag (see the table).
 

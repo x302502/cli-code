@@ -244,24 +244,38 @@ describe("startDaemon", () => {
     hold.socket.destroy()
   })
 
-  it("cửa sổ đã đóng mà CLI vẫn gửi hook liên tục: hook không đẩy lùi idle-exit", async () => {
+  it("VS Code đã đóng (không còn client) mà CLI còn chạy: daemon không tự thoát, phiên chờ cửa sổ sau attach lại", async () => {
     const p = socketPath()
     const harness = scriptedPty()
     let exited = false
-    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty, idleMs: 80, onIdleExit: () => (exited = true) })
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty, idleMs: 30, onIdleExit: () => (exited = true) })
     stop = daemon.close
     const owner = connect(p)
     owner.socket.write(encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }))
     const ok = await owner.waitFor(MSG.HelloOk)
     const { sessionId } = decodeJsonPayload<{ sessionId: string }>(ok.payload)
     owner.socket.destroy() // the window closed; the CLI keeps working
-    const started = Date.now()
-    while (!exited && Date.now() - started < 400) {
-      const hook = net.createConnection(p)
-      hook.on("error", () => {})
-      hook.end(encodeJsonFrame(MSG.StatusReport, { sessionId, state: "working" }))
-      await new Promise((r) => setTimeout(r, 20))
-    }
+    await new Promise((r) => setTimeout(r, 200))
+    expect(exited).toBe(false)
+    const again = connect(p)
+    again.socket.write(encodeJsonFrame(MSG.Hello, { op: "attach", sessionId }))
+    await again.waitFor(MSG.HelloOk)
+    again.socket.destroy()
+  })
+
+  it("CLI thoát khi không còn ai nối: daemon tự thoát sau khoảng rảnh", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    let exited = false
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty, idleMs: 30, onIdleExit: () => (exited = true) })
+    stop = daemon.close
+    const owner = connect(p)
+    owner.socket.write(encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }))
+    await owner.waitFor(MSG.HelloOk)
+    owner.socket.destroy()
+    await new Promise((r) => setTimeout(r, 80))
+    harness.die(0)
+    await new Promise((r) => setTimeout(r, 150))
     expect(exited).toBe(true)
   })
 

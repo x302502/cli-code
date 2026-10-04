@@ -22,6 +22,7 @@ import {
   pasteToActivePanel,
   restartFromGone,
   restartPanel,
+  recoverMissingTabs,
   restoreTerminalPanel,
   sendToActivePanel,
   setCustomTitle,
@@ -53,6 +54,8 @@ export type TestApi = {
   daemonPid: typeof daemonPid
   inspectPanel: typeof inspectPanel
   restartFromGone: typeof restartFromGone
+  recoverMissingTabs: typeof recoverMissingTabs
+  openLinkTextInActivePanel: typeof openLinkTextInActivePanel
 }
 
 /** Shape of the `data-vscode-context` object the terminal webview sets before a right-click. */
@@ -122,6 +125,8 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     if (context.extensionMode !== vscode.ExtensionMode.Test) await runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
   })
   addStatusBarButton(context)
+  // Tabs the editor lost (it was killed before writing its list of open tabs) come back.
+  void recoverMissingTabs(context)
   context.subscriptions.push(
     vscode.commands.registerCommand("cli-code.open", () => openCli(context, { reuseExisting: true })),
     vscode.commands.registerCommand("cli-code.openNew", () => openCli(context, { reuseExisting: false })),
@@ -133,7 +138,16 @@ export function activate(context: vscode.ExtensionContext): TestApi {
       // Outside a CLI tab there is nothing to copy the tool from: fall back to the picker.
       if (!(await openNewSessionLikeActive(context))) await openCli(context, { reuseExisting: false })
     }),
-    vscode.commands.registerCommand("cli-code.renameTab", async () => {
+    vscode.commands.registerCommand("cli-code.renameTab", async (_resource?: unknown, ctx?: { editorIndex?: unknown }) => {
+      // From a tab's right-click menu, which VS Code shows only while a CLI tab is in front: the
+      // clicked tab may be another one of that group, and VS Code does not bring it to front.
+      const clicked = typeof ctx?.editorIndex === "number" ? vscode.window.tabGroups.activeTabGroup.tabs[ctx.editorIndex] : undefined
+      if (clicked && !clicked.isActive) {
+        const before = activeTerminalPanel()
+        await vscode.commands.executeCommand("workbench.action.openEditorAtIndex", ctx!.editorIndex)
+        // The extension host hears that another tab is in front a moment after the command returns.
+        for (let i = 0; i < 40 && activeTerminalPanel() === before; i++) await new Promise((r) => setTimeout(r, 25))
+      }
       const panel = activeTerminalPanel()
       if (!panel) return
       const title = await vscode.window.showInputBox({ prompt: "New tab name", value: baseTitle(panel) })
@@ -213,6 +227,8 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     daemonPid,
     inspectPanel,
     restartFromGone,
+    recoverMissingTabs,
+    openLinkTextInActivePanel,
   }
 }
 

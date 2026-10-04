@@ -11,7 +11,7 @@ import { samePath } from "./same-path.js"
 import { codexHomeFromShell } from "./shell-env.js"
 import { classifyOscLink } from "./osc-link.js"
 import { connectSession, connectSessionRetrying, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
-import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
+import { type LinkTarget, type OpenTabRef, findOpenTab, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
 import { locateLatestSession } from "./history/locate.js"
 import { detectModel } from "./history/model.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
@@ -21,7 +21,7 @@ import { restartCommand, resumesConversation, sessionIdFromCommand } from "./res
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
 import { buildEnv, iconFor } from "./terminal.js"
-import { resolveTabTitle } from "./tab-title.js"
+import { renamedTitle, resolveTabTitle } from "./tab-title.js"
 
 export const VIEW_TYPE = "cliCode.terminal"
 const UNRESPONSIVE = "The CLI Code terminal daemon is not responding."
@@ -31,6 +31,11 @@ const DAEMON_ID_KEY = "cliCode.daemonId"
 // that must still find the tabs attached to the old daemon.
 const PREVIOUS_DAEMON_IDS_KEY = "cliCode.previousDaemonIds"
 const FONT_ZOOM_KEY = "cliCode.fontZoom"
+// The window's open CLI tabs, kept by the extension itself: the editor writes its own list of
+// open tabs only once a minute, so a killed or crashed editor comes back without the newest tabs
+// (Orca keeps its own list for the same reason). Extension state is on disk within ~100 ms.
+const OPEN_TABS_KEY = "cliCode.openTabs"
+type OpenTab = { state: PanelState; viewColumn?: vscode.ViewColumn }
 
 export type PanelState = {
   sessionId: string
@@ -46,6 +51,9 @@ export type PanelState = {
   cliSessionId?: string
   configSnapshot?: Record<string, string>
   extensionPath?: string
+  /** Which tab this is, across restarts of its CLI and of the editor (see OPEN_TABS_KEY). */
+  tabId?: string
+  createdAt?: number
 }
 
 // The open, connected CLI panels (a gone tab leaves it): what rename, focus tracking and the
@@ -94,6 +102,10 @@ type TabState = {
   restarting: boolean
   /** The gone page's Restart handler (see showGone). */
   goneListener?: vscode.Disposable
+  tabId?: string
+  createdAt?: number
+  /** The name last shown in the webview's action bar (see postTitle). */
+  postedTitle?: string
 }
 const tabs = new WeakMap<vscode.WebviewPanel, TabState>()
 /** The panel's record, created on first use; it goes away with the panel. */
@@ -159,6 +171,15 @@ export function baseTitle(panel: vscode.WebviewPanel): string {
 function updateTitle(panel: vscode.WebviewPanel): void {
   if (!tab(panel).tool) return
   panel.title = decorateTitle(baseTitle(panel), tab(panel).status?.state, tab(panel).unread)
+  postTitle(panel)
+}
+
+/** The name the action bar shows (and a double-click edits): the tab's, without its status glyph. */
+function postTitle(panel: vscode.WebviewPanel): void {
+  const title = baseTitle(panel)
+  if (title === tab(panel).postedTitle || !tab(panel).wiring?.ready) return
+  tab(panel).postedTitle = title
+  sendTo(panel, { type: "title", title })
 }
 
 /** A cwd is only usable as a spawn cwd if it exists locally as a directory. OSC 7 drops the
@@ -548,6 +569,7 @@ export async function openTerminalPanel(
     retainContextWhenHidden: true,
     localResourceRoots: [vscode.Uri.file(context.extensionPath)],
   })
+  claimTab(panel)
   tab(panel).command = baseCommand
   tab(panel).spawnedAt = Date.now()
   tab(panel).extensionPath = context.extensionPath
@@ -593,6 +615,12 @@ export async function restoreTerminalPanel(
   // localResourceRoots, the extension folder of that time. After an update the folder is
   // another one, the page's script and CSS would be refused and the tab stay blank.
   panel.webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.file(context.extensionPath)] }
+  // Already reopened from OPEN_TABS_KEY (the editor revives a hidden tab only once it is clicked):
+  // this one is the duplicate. Not the tab's close: its CLI stays with the copy.
+  if (!claimTab(panel, state.tabId, state.createdAt)) {
+    panel.dispose()
+    return
+  }
   void tabStarting()
   const tool = CLI_TOOLS.find((t) => t.id === state.toolId)
   if (!tool) {
@@ -633,17 +661,50 @@ export async function restoreTerminalPanel(
     return
   }
   if (!connection) {
-    // The session is gone (the app quit, or the daemon cleaned it up itself). Be honest with the user.
     panel.iconPath = iconFor(context, tool)
     panel.title = tool.label
     // A hung daemon is not an ended session: say so, the CLI may still be running in it.
-    showGone(context, panel, tool, hung ? UNRESPONSIVE : undefined)
+    if (hung) showGone(context, panel, tool, UNRESPONSIVE)
+    // The session did not survive (the daemon was killed, the machine restarted): start the CLI
+    // again in this tab, back in its conversation where it can, as Orca's cold restore does.
+    else await resumeInPlace(context, panel, tool)
     return
   }
   if (state.configSnapshot) tab(panel).configSnapshot = upgradeSnapshot(state.configSnapshot)
   if (state.extensionPath) tab(panel).extensionPath = state.extensionPath
   wirePanel(context, panel, tool, connection, { reattached: true })
   void checkStale(context, panel)
+}
+
+/** Starts a restored tab's CLI afresh in the tab itself (its old session is gone), resuming its
+ * conversation when the CLI can; the page says which happened. Falls back to the gone page. */
+async function resumeInPlace(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, tool: CliTool): Promise<void> {
+  let closed = false
+  const closing = panel.onDidDispose(() => (closed = true))
+  const command = await commandForRestart(panel, tool)
+  const socketPath = await ensureDaemon(context).catch(() => undefined)
+  await tabStarting()
+  const cwd = usableCwd(tab(panel).cwd) ?? fallbackCwd()
+  const { connection, refused } = socketPath ? await spawnSession(context, tool, socketPath, command, cwd) : { connection: undefined, refused: undefined }
+  closing.dispose()
+  if (closed) {
+    connection?.kill()
+    connection?.dispose()
+    return
+  }
+  if (!connection) {
+    showGone(context, panel, tool, refused ? `The CLI could not be started (${refused}).` : socketPath ? undefined : UNRESPONSIVE)
+    return
+  }
+  const resumed = resumesConversation(tool, command)
+  tab(panel).command = command
+  tab(panel).spawnedAt = Date.now()
+  tab(panel).extensionPath = context.extensionPath
+  tab(panel).configSnapshot = configSnapshot(configPathsFor(tool.id, tool.historyToolId, cwd, os.homedir()))
+  // A new conversation is not named by the old one's first prompt.
+  if (!resumed) tab(panel).promptTitle = undefined
+  wirePanel(context, panel, tool, connection)
+  sendTo(panel, { type: "restored", resumed })
 }
 
 /**
@@ -976,6 +1037,9 @@ function attachConnection(
       for (const msg of wiring.pending) void panel.webview.postMessage(msg)
       wiring.pending.length = 0
       postState(panel)
+      // A fresh page (first load, or reloaded) shows no name yet.
+      tab(panel).postedTitle = undefined
+      postTitle(panel)
       if (wiring.everReady) {
         // A reloaded webview is blank and the daemon sends a screen only on attach: attach again.
         void redrawFromDaemon(context, panel, tool, connection)
@@ -1005,6 +1069,9 @@ function attachConnection(
       // From an OSC 8 file:// link: the path is exact (may contain spaces), no regex parsing.
       const num = (v: unknown) => (typeof v === "number" ? v : undefined)
       void openLinkTarget(panel, { path: message.path, line: num(message.line), col: num(message.col) }, message.alt === true)
+    } else if (message.type === "rename" && typeof message.title === "string") {
+      const title = renamedTitle(baseTitle(panel), message.title)
+      if (title) setCustomTitle(panel, title)
     } else if (message.type === "command" && typeof message.id === "string" && BAR_COMMANDS.has(message.id)) {
       // The in-frame action bar; only tab-level commands are reachable this way.
       void vscode.commands.executeCommand(`cli-code.${message.id}`)
@@ -1055,6 +1122,21 @@ function resolveTarget(panel: vscode.WebviewPanel, parsed: { path: string; line?
 /** Opens a path link from the terminal (resolved against the panel's cwd, then each workspace
  * folder, then ~). Directories open in Finder/Explorer; files open in an editor at line/col,
  * markdown in the preview, HTML in the browser; `alt` (shift) opens a file with its default app. */
+// The markdown extension's preview, as a custom editor: the tab records which file it shows.
+const MARKDOWN_PREVIEW = "vscode.markdown.preview.editor"
+
+/** Every editor tab of the window, as findOpenTab sees it. */
+function openTabRefs(): OpenTabRef[] {
+  return vscode.window.tabGroups.all.flatMap((g) =>
+    g.tabs.map((t): OpenTabRef => {
+      const ref = { group: g.viewColumn, active: t.isActive }
+      if (t.input instanceof vscode.TabInputText && t.input.uri.scheme === "file") return { ...ref, kind: "text", path: t.input.uri.fsPath }
+      if (t.input instanceof vscode.TabInputCustom && t.input.viewType === MARKDOWN_PREVIEW) return { ...ref, kind: "markdownPreview", path: t.input.uri.fsPath }
+      return { ...ref, kind: "other" }
+    }),
+  )
+}
+
 async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string; line?: number; col?: number }, alt: boolean): Promise<void> {
   const target = resolveTarget(panel, parsed)
   if (!target) {
@@ -1077,13 +1159,20 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
     }
     const mode = openMode(target.path)
     // Markdown and HTML are meant to be read rendered, not as source.
-    if (mode === "markdown") await vscode.commands.executeCommand("markdown.showPreview", uri)
-    else if (mode === "browser") await vscode.env.openExternal(uri)
-    else {
+    if (mode === "browser") {
+      await vscode.env.openExternal(uri)
+      return
+    }
+    // A file already open goes to front in its own group; only a new one opens a tab here.
+    const open = findOpenTab(openTabRefs(), target.path, mode)
+    if (mode === "markdown") {
+      if (open) await vscode.commands.executeCommand("vscode.openWith", uri, MARKDOWN_PREVIEW, { viewColumn: open.group })
+      else await vscode.commands.executeCommand("markdown.showPreview", uri)
+    } else {
       const line = Math.max(0, (target.line ?? 1) - 1)
       const col = Math.max(0, (target.col ?? 1) - 1)
       const doc = await vscode.workspace.openTextDocument(uri)
-      await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, col, line, col), preview: true })
+      await vscode.window.showTextDocument(doc, { viewColumn: open?.group, selection: new vscode.Range(line, col, line, col), preview: true })
     }
   } catch {
     void vscode.window.showWarningMessage(`Could not open: ${target.path}`)
@@ -1229,27 +1318,83 @@ async function redrawFromDaemon(context: vscode.ExtensionContext, panel: vscode.
   attachConnection(context, panel, tool, fresh, { reattached: true })
 }
 
-/** Posts the state VS Code hands back to the serializer after a Reload Window. */
+/** Posts the state VS Code hands back to the serializer after a Reload Window, and keeps the
+ * window's own list of open tabs (OPEN_TABS_KEY) in step. */
 function postState(panel: vscode.WebviewPanel): void {
   const connection = tab(panel).connection
   const tool = tab(panel).tool
   if (!connection || !tool) return
-  void panel.webview.postMessage({
-    type: "state",
-    state: {
-      sessionId: connection.sessionId,
-      toolId: tool.id,
-      cwd: tab(panel).cwd,
-      customTitle: tab(panel).customTitle,
-      promptTitle: tab(panel).promptTitle,
-      quickCommandLabel: tab(panel).quickLabel,
-      command: tab(panel).command,
-      spawnedAt: tab(panel).spawnedAt,
-      cliSessionId: tab(panel).cliSessionId,
-      configSnapshot: tab(panel).configSnapshot,
-      extensionPath: tab(panel).extensionPath,
-    },
+  const state: PanelState = {
+    sessionId: connection.sessionId,
+    toolId: tool.id,
+    cwd: tab(panel).cwd,
+    customTitle: tab(panel).customTitle,
+    promptTitle: tab(panel).promptTitle,
+    quickCommandLabel: tab(panel).quickLabel,
+    command: tab(panel).command,
+    spawnedAt: tab(panel).spawnedAt,
+    cliSessionId: tab(panel).cliSessionId,
+    configSnapshot: tab(panel).configSnapshot,
+    extensionPath: tab(panel).extensionPath,
+    tabId: tab(panel).tabId,
+    createdAt: tab(panel).createdAt,
+  }
+  void panel.webview.postMessage({ type: "state", state })
+  if (!openTabsStore || !state.tabId) return
+  const saved = openTabsStore.get<OpenTab[]>(OPEN_TABS_KEY) ?? []
+  const entry: OpenTab = { state, viewColumn: panel.viewColumn }
+  const at = saved.findIndex((t) => t.state.tabId === state.tabId)
+  void openTabsStore.update(OPEN_TABS_KEY, at === -1 ? [...saved, entry] : saved.map((t, i) => (i === at ? entry : t)))
+}
+
+// Which panel holds each tab id. The editor revives a hidden restored tab only once it is clicked,
+// so a tab may be reopened from OPEN_TABS_KEY before the editor's own copy of it shows up.
+const claimedTabs = new Map<string, vscode.WebviewPanel>()
+let openTabsStore: vscode.Memento | undefined
+
+/** Gives the panel its tab id (a new one by default); false when another panel holds it. A tab
+ * closed by the user leaves OPEN_TABS_KEY (the editor quitting closes none: processes live on). */
+function claimTab(panel: vscode.WebviewPanel, tabId = randomBytes(8).toString("hex"), createdAt = Date.now()): boolean {
+  const holder = claimedTabs.get(tabId)
+  if (holder && holder !== panel) return false
+  claimedTabs.set(tabId, panel)
+  tab(panel).tabId = tabId
+  tab(panel).createdAt = createdAt
+  panel.onDidDispose(() => {
+    if (claimedTabs.get(tabId) !== panel) return
+    claimedTabs.delete(tabId)
+    const saved = openTabsStore?.get<OpenTab[]>(OPEN_TABS_KEY) ?? []
+    if (saved.some((t) => t.state.tabId === tabId)) void openTabsStore?.update(OPEN_TABS_KEY, saved.filter((t) => t.state.tabId !== tabId))
   })
+  return true
+}
+
+/**
+ * Reopens the CLI tabs the editor did not restore. Its list of open tabs is written once a minute,
+ * so after a crash or a kill it lacks the tabs opened last: as many of the newest saved tabs as are
+ * missing come back — attached to their CLI if it still runs, else resumed (restoreTerminalPanel).
+ */
+export async function recoverMissingTabs(context: vscode.ExtensionContext): Promise<void> {
+  openTabsStore = context.workspaceState
+  const saved = context.workspaceState.get<OpenTab[]>(OPEN_TABS_KEY) ?? []
+  const restored = vscode.window.tabGroups.all
+    .flatMap((g) => g.tabs)
+    .filter((t) => t.input instanceof vscode.TabInputWebview && t.input.viewType.endsWith(VIEW_TYPE)).length
+  const missing = [...saved].sort((x, y) => (y.state.createdAt ?? 0) - (x.state.createdAt ?? 0)).slice(0, Math.max(0, saved.length - restored))
+  for (const { state, viewColumn } of missing.reverse()) {
+    if (state.tabId && claimedTabs.has(state.tabId)) continue
+    const panel = vscode.window.createWebviewPanel(
+      VIEW_TYPE,
+      state.customTitle ?? state.promptTitle ?? CLI_TOOLS.find((t) => t.id === state.toolId)?.label ?? "CLI",
+      { viewColumn: viewColumn ?? vscode.ViewColumn.Beside, preserveFocus: true },
+      { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.file(context.extensionPath)] },
+    )
+    try {
+      await restoreTerminalPanel(context, panel, state)
+    } catch (err) {
+      void vscode.window.showErrorMessage(String(err))
+    }
+  }
 }
 
 function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview): string {

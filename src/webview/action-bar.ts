@@ -17,11 +17,19 @@ const MORE =
 export function createActionBar(handlers: {
   onCommand(id: string): void
   onFind(): void
-}): { setStatus(text: string): void; setModel(model: string): void; setNotice(text: string): void } {
+  /** The tab's new name, from a double-click on its name (Orca's inline rename). */
+  onRename(title: string): void
+  /** Where focus goes when an inline rename ends. */
+  onRenameEnd(): void
+}): { setStatus(text: string): void; setModel(model: string): void; setNotice(text: string): void; setTitle(text: string): void } {
   const bar = document.createElement("div")
   bar.id = "action-bar"
   const left = document.createElement("div")
   left.id = "action-left"
+  const title = document.createElement("span")
+  title.id = "action-title"
+  title.title = "Double-click to rename"
+  title.addEventListener("dblclick", () => startRename())
   const model = document.createElement("span")
   model.id = "action-model"
   model.hidden = true
@@ -30,7 +38,7 @@ export function createActionBar(handlers: {
   const notice = document.createElement("div")
   notice.id = "action-notice"
   notice.hidden = true
-  left.append(model, status, notice)
+  left.append(title, model, status, notice)
   const right = document.createElement("div")
   right.id = "action-icons"
   bar.append(left, right)
@@ -88,6 +96,30 @@ export function createActionBar(handlers: {
     },
     true,
   )
+  // Double-click the name to edit it in place: Enter or leaving the field saves, Escape cancels.
+  function startRename() {
+    const input = document.createElement("input")
+    input.id = "action-title-input"
+    input.value = title.textContent ?? ""
+    let done = false
+    const finish = (save: boolean) => {
+      if (done) return
+      done = true
+      if (save) handlers.onRename(input.value)
+      input.replaceWith(title)
+      handlers.onRenameEnd()
+    }
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") finish(true)
+      else if (e.key === "Escape") finish(false)
+      else return
+      e.preventDefault()
+    })
+    input.addEventListener("blur", () => finish(true))
+    title.replaceWith(input)
+    input.focus()
+    input.select()
+  }
   function show() {
     menu.hidden = false
     more.setAttribute("aria-expanded", "true")
@@ -105,6 +137,9 @@ export function createActionBar(handlers: {
     setNotice(text) {
       notice.textContent = text
       notice.hidden = !text
+    },
+    setTitle(text) {
+      title.textContent = text
     },
     setModel(id) {
       model.textContent = id

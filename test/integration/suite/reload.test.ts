@@ -97,37 +97,21 @@ if (stage() === "1") {
       await waitFor(() => !pidAlive(s.toolPid), 5_000, "PTY killed on close")
     })
 
-    // Regression: the failed-attach path never ran wirePanel, so showGone had no tool
-    // recorded for the panel and "Restart" silently did nothing on a tab restored
-    // after Reload Window whose session was gone.
-    it("a restored tab whose session is gone shows the gone page, and its restart opens a fresh tab with the saved title", async () => {
+    // Orca-style cold restore: a tab whose session did not survive (the daemon was killed, the
+    // machine rebooted) resumes its CLI in the same tab instead of showing the gone page.
+    it("a restored tab whose session is gone resumes in the same tab, keeping its saved title", async () => {
       const a = await api()
-      const panel = await restoredPanel(a, { ...saved(), sessionId: "00000000-0000-0000-0000-000000000000", title: "Mất phiên" })
+      const goneId = "00000000-0000-0000-0000-000000000000"
+      const panel = await restoredPanel(a, { ...saved(), sessionId: goneId, title: "Mất phiên" })
       openPanel = panel
-      await waitFor(() => a.inspectPanel(panel).gone, 15_000, "gone page")
-      assert.ok(panel.webview.html.includes("Restart"))
-
-      // Spawns the real `codex` command (no command override survives a restore); it may
-      // not be installed — the tab still opens, the shell reports the missing command.
-      await a.restartFromGone(a.context, panel)
-      const fresh = await waitFor(() => a.activePanels().find((p) => p !== panel), 20_000, "fresh panel")
-      openPanel = fresh
-      await waitFor(() => a.inspectPanel(fresh).ready, 15_000, "fresh webview ready")
-      assert.equal(fresh.title, "Mất phiên")
-    })
-
-    // Review finding: restartFromGone had no in-flight guard, so a double click opened two tabs
-    // resuming the same conversation.
-    it("clicking Restart twice on a gone page opens one tab", async () => {
-      const a = await api()
-      const panel = await restoredPanel(a, { ...saved(), sessionId: "00000000-0000-0000-0000-000000000001", title: "Hai lần" })
-      openPanel = panel
-      await waitFor(() => a.inspectPanel(panel).gone, 15_000, "gone page")
-      const before = new Set(a.activePanels())
-      await Promise.all([a.restartFromGone(a.context, panel), a.restartFromGone(a.context, panel)])
-      const fresh = a.activePanels().filter((p) => !before.has(p))
-      assert.equal(fresh.length, 1)
-      for (const p of fresh) p.dispose()
+      // Spawns the real `codex` command (no command override survives a restore); it may not
+      // be installed — the tab still opens, the shell reports the missing command.
+      await waitFor(() => a.inspectPanel(panel).ready, 20_000, "resumed webview ready")
+      assert.ok(a.activePanels().includes(panel), "the same tab is live again")
+      assert.equal(a.inspectPanel(panel).gone, false)
+      const sessionId = a.inspectPanel(panel).sessionId
+      assert.ok(sessionId && sessionId !== goneId, "a fresh daemon session")
+      assert.equal(panel.title, "Mất phiên")
     })
   })
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { formatPromptTitle, isMeaningfulOscTitle, resolveTabTitle } from "../src/lib/tab-title.js"
+import { formatPromptTitle, isMeaningfulOscTitle, resolveTabTitle, renamedTitle } from "../src/lib/tab-title.js"
 
 describe("formatPromptTitle — Orca's 40-char budget with word-boundary … (no sentence/punctuation folding)", () => {
   it("keeps short prompts as typed, file names included", () => {
@@ -131,5 +131,15 @@ describe("resolveTabTitle — a prompt marker is stripped only before a space", 
     expect(resolveTabTitle({ oscTitle: "$HOME check", toolLabel: "Claude" })).toBe("$HOME check")
     expect(resolveTabTitle({ oscTitle: "$ ls -la", toolLabel: "Claude" })).toBe("ls -la")
     expect(resolveTabTitle({ oscTitle: "✳ ❯ review", toolLabel: "Claude" })).toBe("review")
+  })
+})
+
+describe("renamedTitle", () => {
+  it("tên mới (đã cắt khoảng trắng) được lưu", () => {
+    expect(renamedTitle("Claude Code", "  Fix login  ")).toBe("Fix login")
+  })
+  it("để trống hoặc giữ nguyên: huỷ, không đổi gì", () => {
+    expect(renamedTitle("Claude Code", "   ")).toBeUndefined()
+    expect(renamedTitle("Claude Code", "Claude Code ")).toBeUndefined()
   })
 })

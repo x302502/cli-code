@@ -117,12 +117,13 @@ năng A, Claude khác cho review). Vài thói quen hữu ích:
 
 - **Thêm tab cùng trợ lý, cùng thư mục:** nút 💬+ **New Session** trên thanh action của tab đang
   mở (hiện bộ chọn CLI, mở trong đúng thư mục của tab đó), hoặc `Cmd/Ctrl + Shift + Esc`.
-- **Đổi tên tab:** `F2` khi tab đang focus, hoặc … → **Rename Tab**. Tên bạn đặt giữ nguyên qua
-  reload và restart.
+- **Đổi tên tab:** double-click vào tên ở góc trên bên trái trong tab (Enter lưu, Esc huỷ), click
+  phải vào tab → **Rename Tab**, `F2` khi tab đang focus, hoặc … → **Rename Tab**. Tên bạn đặt giữ
+  nguyên qua reload và restart.
 - **Kéo tab** sang cột khác, chia đôi, đưa vào nhóm editor… đều là tab VS Code bình thường.
 - **Đóng tab = kết thúc CLI trong tab đó**, không có cảnh báo (VS Code không cho extension chặn
   việc đóng tab). Muốn mở lại hội thoại đó: [Resume Session](#12-mở-lại-hội-thoại-cũ).
-- **Thoát VS Code = kết thúc mọi phiên.** Reload Window thì không — xem [mục 10](#10-reload-window-mà-không-mất-gì).
+- **Thoát VS Code không kết thúc phiên**: các CLI vẫn chạy, mở lại folder thì tab nối lại đúng chỗ — xem [mục 10](#10-reload-window-hay-thoát-vs-code-mà-không-mất-gì).
 
 ### 6. Thanh action trên đầu terminal
 
@@ -205,15 +206,19 @@ bảo trợ lý "nhìn vào file này" khi file đó vừa được nhắc trong
 
 ## Phần C — Quản lý phiên làm việc
 
-### 10. Reload Window mà không mất gì
+### 10. Reload Window hay thoát VS Code mà không mất gì
 
 Các CLI không chạy trong webview mà dưới một **daemon nền** thuộc cửa sổ VS Code. Vì thế
 **Developer: Reload Window** (cài extension mới, đổi setting, VS Code tự reload…) không làm mất
 gì: mọi tab mở lại, nối vào đúng CLI đang chạy, scrollback, tên tab, trạng thái còn nguyên.
 
-Daemon tự tắt 60 giây sau khi tab cuối cùng đóng. Thoát hẳn VS Code thì mọi phiên kết thúc; mở lại
-VS Code, tab hiện *"Session … has ended"* với nút **Restart** — bấm để quay về hội thoại
-([mục 14](#14-khi-cli-thoát-hoặc-phiên-đã-mất)).
+Thoát hẳn VS Code cũng vậy: daemon giữ mọi CLI chạy tiếp (chỉ tự tắt khi không còn CLI nào), mở lại
+folder thì từng tab nối lại đúng chỗ. Nếu CLI không còn (máy khởi động lại, daemon bị kill), tab tự
+chạy lại CLI, quay về đúng hội thoại khi CLI resume được ([mục 11](#11-khởi-động-lại-mà-vẫn-ở-đúng-hội-thoại)),
+và báo *"Session restored"* — hoặc *"Previous session unavailable, started fresh"*.
+
+Nếu chính VS Code bị kill hay crash, nó có thể chưa kịp lưu các tab mới nhất; CLI Code tự giữ danh
+sách tab đang mở và mở lại các tab bị thiếu.
 
 ### 11. Khởi động lại mà vẫn ở đúng hội thoại
 
@@ -267,8 +272,8 @@ Codex: nếu nó đang rảnh, nó đã tự chạy lại và `/mcp` thấy serv
 ### 14. Khi CLI thoát hoặc phiên đã mất
 
 - **CLI thoát** (gõ `/exit`, crash…): tab hiện *"Process exited (code N)"* với nút **Restart**.
-- **Phiên mất sau khi mở lại VS Code** hoặc daemon bị kill: tab hiện *"Session … has ended"* với
-  nút **Restart**.
+- **Phiên mất khi tab đang mở** (daemon bị kill), hoặc không chạy lại được lúc mở lại VS Code: tab
+  hiện *"Session … has ended"* với nút **Restart**.
 
 Cả hai đều restart theo đúng luật ở [mục 11](#11-khởi-động-lại-mà-vẫn-ở-đúng-hội-thoại), nên với
 19 trợ lý bạn quay về đúng hội thoại.
@@ -447,7 +452,7 @@ và thời gian sửa của các file cấu hình ở [mục 13](#13-khi-bạn-�
 | --- | --- |
 | Codex `/mcp` báo server *failed* nhưng trong terminal thường thì chạy | Bản cũ chạy CLI qua shell không tương tác nên `PATH` thiếu. 0.2.0 đã sửa; Reload Window để daemon mới thay daemon cũ, tab rảnh sẽ tự restart. |
 | Tab không có glyph `⟳ ?` | Trợ lý chưa có hook, hoặc CLI khởi động trước khi hook được cài. Chạy **Install Status Hooks** rồi **Restart Session**. Windows không có hook. |
-| *"Session … has ended"* sau khi mở VS Code | Phiên đã kết thúc cùng VS Code. Bấm **Restart** để quay về hội thoại. |
+| *"Session … has ended"* | Daemon bị kill khi tab đang mở, hoặc CLI không chạy lại được. Bấm **Restart** để quay về hội thoại. |
 | Restart lại ra hội thoại mới | Trợ lý thuộc nhóm `--continue`, hoặc chưa gửi prompt nào nên chưa có phiên. |
 | Bên trong CLI có cảnh báo về hook | Codex: gõ `/hooks` trong Codex và chấp thuận hook CLI Code. Grok: chạy Remove rồi Install Status Hooks để cập nhật file. |
 | `Ctrl + F` gõ vào CLI (Windows/Linux) | Terminal giữ phím đó. Dùng palette hoặc menu chuột phải. |

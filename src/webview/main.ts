@@ -8,6 +8,7 @@ import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createActionBar } from "./action-bar.js"
 import { createComposer } from "./composer.js"
 import { createExitOverlay } from "./exit-overlay.js"
+import { createRestoredBanner } from "./restored-banner.js"
 import { createSnapshotLinks, createTerminalLinkProvider, selectRange, type HoveredLink, type ProbeResult } from "./links.js"
 import { createLinkTooltip } from "./link-tooltip.js"
 import { createSearchBar } from "./search-bar.js"
@@ -26,6 +27,8 @@ type HostMessage =
   | { type: "data"; bytes: Uint8Array }
   | { type: "snapshot"; text: string }
   | { type: "exit"; code: number }
+  | { type: "restored"; resumed: boolean }
+  | { type: "title"; title: string }
   | { type: "state"; state: unknown }
   | { type: "font"; size: number }
   | { type: "reset" }
@@ -334,10 +337,13 @@ term.onData((data) => vscode.postMessage({ type: "input", data }))
 term.onBinary((data) => vscode.postMessage({ type: "input", data, binary: true }))
 
 const overlay = createExitOverlay(() => vscode.postMessage({ type: "restart" }))
+const restoredBanner = createRestoredBanner()
 const searchBar = createSearchBar(term, searchAddon)
 const actionBar = createActionBar({
   onCommand: (id) => vscode.postMessage({ type: "command", id }),
   onFind: () => searchBar.show(),
+  onRename: (title) => vscode.postMessage({ type: "rename", title }),
+  onRenameEnd: () => term.focus(),
 })
 // Opt-out via the cliCode.composer setting, which the host reflects on <body data-composer>.
 if (document.body.dataset.composer !== "off") createComposer(term)
@@ -371,6 +377,10 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   } else if (message.type === "exit") {
     term.write(`\r\n\x1b[2m[process exited, code ${message.code}]\x1b[0m\r\n`)
     overlay.show(message.code)
+  } else if (message.type === "restored") {
+    restoredBanner.show(message.resumed)
+  } else if (message.type === "title") {
+    actionBar.setTitle(message.title)
   } else if (message.type === "state") {
     vscode.setState(message.state)
   } else if (message.type === "font") {

@@ -2,7 +2,7 @@ import * as assert from "node:assert/strict"
 import * as fs from "node:fs"
 import * as path from "node:path"
 import * as vscode from "vscode"
-import { inputFile, openReady, readEnvFile, readFileOr, waitFor } from "./helpers.js"
+import { inputFile, openReady, outDir, readEnvFile, readFileOr, waitFor } from "./helpers.js"
 
 // The right-click menu items are plain commands; running them through the command service
 // exercises exactly what a click on the menu does (activeTerminalPanel → webview message).
@@ -91,5 +91,77 @@ describe("context-menu commands (checklist C-5)", () => {
     // find with the selection as the query only posts to the webview; it must not throw.
     await vscode.commands.executeCommand("cli-code.findSelection", { cliCodeHasSelection: true, cliCodeSelection: "hello\nworld" })
     assert.ok(a.activePanels().includes(panel))
+  })
+})
+
+// Orca: clicking a file link focuses the tab that already shows the file (in whatever group it
+// is) instead of opening another one; only a file that is not open gets a new tab.
+describe("file links focus an already-open tab", () => {
+  const tabsFor = (file: string) =>
+    vscode.window.tabGroups.all.flatMap((g) => g.tabs.filter((t) => t.input instanceof vscode.TabInputText && t.input.uri.fsPath === file).map((t) => ({ t, g })))
+
+  it("an open file goes to front in its own group at the clicked line; a file not open gets a new tab", async () => {
+    const dir = fs.mkdtempSync(path.join(outDir(), "links-"))
+    const open = path.join(dir, "open.ts")
+    const fresh = path.join(dir, "fresh.ts")
+    fs.writeFileSync(open, "a\nb\nc\n")
+    fs.writeFileSync(fresh, "x\n")
+    await vscode.window.showTextDocument(vscode.Uri.file(open), { viewColumn: vscode.ViewColumn.One, preview: false })
+    const { a, panel } = await openReady("links", {}, { viewColumn: vscode.ViewColumn.Two })
+    try {
+      panel.reveal(vscode.ViewColumn.Two)
+      a.openLinkTextInActivePanel(`${open}:3`, false)
+      // Waits for the caret, not just the editor: the open file may count as active from the start.
+      const e = vscode.window
+      await waitFor(() => (e.activeTextEditor?.document.uri.fsPath === open && e.activeTextEditor.selection.active.line === 2) || undefined, 10_000, "open file in front at line 3")
+      assert.equal(tabsFor(open).length, 1, "no second tab for an open file")
+      assert.equal(tabsFor(open)[0].g.viewColumn, vscode.ViewColumn.One)
+
+      panel.reveal(vscode.ViewColumn.Two)
+      a.openLinkTextInActivePanel(fresh, false)
+      await waitFor(() => tabsFor(fresh).length === 1 || undefined, 10_000, "new tab for a file not open")
+
+      // A markdown file opens as its preview: an open preview comes to front, not a second one.
+      const md = path.join(dir, "notes.md")
+      fs.writeFileSync(md, "# hi\n")
+      const previews = () =>
+        vscode.window.tabGroups.all.flatMap((g) => g.tabs.filter((t) => t.input instanceof vscode.TabInputCustom && t.input.uri.fsPath === md))
+      await vscode.commands.executeCommand("vscode.openWith", vscode.Uri.file(md), "vscode.markdown.preview.editor", { viewColumn: vscode.ViewColumn.One })
+      await waitFor(() => previews().length === 1 || undefined, 10_000, "markdown preview open")
+      await vscode.commands.executeCommand("workbench.action.openEditorAtIndex1")
+      panel.reveal(vscode.ViewColumn.Two)
+      a.openLinkTextInActivePanel(md, false)
+      await waitFor(() => previews().find((t) => t.isActive) || undefined, 10_000, "preview in front")
+      assert.equal(previews().length, 1, "no second preview")
+    } finally {
+      panel.dispose()
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors")
+    }
+  })
+})
+
+// VS Code's tab right-click menu passes { groupId, editorIndex } and does not bring the clicked
+// tab to front: Rename Tab must rename that tab, not the one in front.
+describe("Rename Tab from a tab's right-click menu", () => {
+  it("brings the right-clicked tab of the group to front before asking for its name", async () => {
+    const { a, panel: first } = await openReady("rename-a", {}, { title: "Tab A" })
+    const { panel: second } = await openReady("rename-b", {}, { title: "Tab B", viewColumn: first.viewColumn })
+    try {
+      second.reveal()
+      await waitFor(() => second.active || undefined, 5_000, "second tab in front")
+      const index = vscode.window.tabGroups.activeTabGroup.tabs.findIndex((t) => t.label === "Tab A")
+      assert.ok(index >= 0)
+      const renaming = vscode.commands.executeCommand("cli-code.renameTab", undefined, { groupId: 0, editorIndex: index })
+      await waitFor(() => first.active || undefined, 5_000, "right-clicked tab in front")
+      // The name box is up for that tab; dismiss it (cancel: no rename).
+      await new Promise((r) => setTimeout(r, 300))
+      await vscode.commands.executeCommand("workbench.action.closeQuickOpen")
+      await renaming
+      assert.equal(first.title, "Tab A")
+      assert.ok(a.activePanels().includes(first))
+    } finally {
+      first.dispose()
+      second.dispose()
+    }
   })
 })

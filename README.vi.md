@@ -4,7 +4,7 @@
 
 📖 [Hướng dẫn sử dụng](docs/user-guide.vi.md) · [User Guide (English)](docs/user-guide.md) · [Changelog](CHANGELOG.md)
 
-> **Terminal dành cho agent, ngay trong VS Code.** Claude Code, Codex, Copilot, opencode, Pi, Grok, Droid và 21 agent lập trình khác, mỗi agent một tab hiểu nó: hiện agent đang làm gì, mở được thứ nó nhắc tới, giữ phiên qua reload, và khởi động lại về đúng hội thoại.
+> **Terminal dành cho agent, ngay trong VS Code.** Claude Code, Codex, Copilot, opencode, Pi, Grok, Droid và 21 agent lập trình khác, mỗi agent một tab hiểu nó: hiện agent đang làm gì, mở được thứ nó nhắc tới, giữ phiên qua reload và cả khi thoát VS Code, và khởi động lại về đúng hội thoại.
 
 ![Nhiều AI CLI chạy song song trong VS Code](images/screenshots/terminals.png)
 
@@ -16,7 +16,7 @@ Sau khi cài, bấm icon **CLI Code** trên thanh tiêu đề editor, hoặc nú
 
 ## Vì sao
 
-Mọi agent lập trình nghiêm túc đều là một chương trình dòng lệnh. Chạy nó trong tab terminal thường thì tab đó "mù": không biết agent đang chờ bạn duyệt, không biết agent vừa sửa file nào, reload là mất, khởi động lại là quên hội thoại.
+Mọi agent lập trình nghiêm túc đều là một chương trình dòng lệnh. Chạy nó trong tab terminal thường thì tab đó "mù": không biết agent đang chờ bạn duyệt, không biết agent vừa sửa file nào, reload hay thoát VS Code là mất, khởi động lại là quên hội thoại.
 
 CLI Code thay tab đó bằng một giao diện sinh ra cho agent — terminal webview riêng với thanh action, trạng thái sống, output bấm được và các thông báo trong khung — còn bản thân agent chạy nguyên vẹn: cùng CLI, cùng shell, cùng MCP server và plugin.
 
@@ -24,11 +24,11 @@ CLI Code thay tab đó bằng một giao diện sinh ra cho agent — terminal w
 
 **Tab biết trạng thái agent.** Tab tự đổi tên theo việc bạn giao và mang một dấu: `⟳` đang chạy, `?` đang chờ bạn, `●` đã xong khi bạn ở tab khác. Agent cần bạn ở tab đang ẩn sẽ gửi thông báo kèm nút *Open tab*. Thanh action trên terminal hiện model đang dùng.
 
-**Một giao diện bao quanh agent, không phải terminal trần.** Trên terminal là thanh action lặng theo ngôn ngữ hình ảnh của Claude: New Session (kèm bộ chọn agent), Resume, Restart, Find và menu `…` (Rename, Copy Context, Quick Command). Bên trái hiện model đang dùng, dòng trạng thái khi agent chờ bạn, và nhắc *"… changed — restart to apply"* khi agent đang chạy cũ hơn cấu hình. Rê chuột lên link thấy nó sẽ mở gì; tìm kiếm có phân biệt hoa thường và regex; khi agent thoát có lớp phủ với nút Restart, khi tiến trình mất có trang *session ended*. Font và màu theo theme VS Code; có thể bật thêm khung nhập kiểu chat dưới terminal.
+**Một giao diện bao quanh agent, không phải terminal trần.** Trên terminal là thanh action lặng theo ngôn ngữ hình ảnh của Claude: New Session (kèm bộ chọn agent), Resume, Restart, Find và menu `…` (Rename, Copy Context, Quick Command). Bên trái hiện tên tab (double-click để đổi tên ngay tại chỗ), model đang dùng, dòng trạng thái khi agent chờ bạn, và nhắc *"… changed — restart to apply"* khi agent đang chạy cũ hơn cấu hình. Rê chuột lên link thấy nó sẽ mở gì; tìm kiếm có phân biệt hoa thường và regex; khi agent thoát có lớp phủ với nút Restart, khi tiến trình mất có trang *session ended*. Font và màu theo theme VS Code; có thể bật thêm khung nhập kiểu chat dưới terminal.
 
-**Mọi thứ agent in ra đều bấm được.** Đường dẫn file mở trong editor đúng dòng đúng cột, thư mục hiện trong Explorer (hoặc Finder/Explorer nếu ngoài workspace), URL mở trình duyệt, Markdown mở preview. Chỉ đường dẫn thật sự tồn tại mới được gạch chân. Click thường chọn trọn link để `Cmd/Ctrl + C` chép; bôi chọn và chép vẫn hoạt động cả khi Claude Code đang bắt chuột.
+**Mọi thứ agent in ra đều bấm được.** Đường dẫn file mở trong editor đúng dòng đúng cột (file đã mở thì tab đó được đưa lên trước, không mở thêm tab), thư mục hiện trong Explorer (hoặc Finder/Explorer nếu ngoài workspace), URL mở trình duyệt, Markdown mở preview. Chỉ đường dẫn thật sự tồn tại mới được gạch chân. Click thường chọn trọn link để `Cmd/Ctrl + C` chép; bôi chọn và chép vẫn hoạt động cả khi Claude Code đang bắt chuột.
 
-**Phiên không mất.** Agent chạy dưới một daemon nền, nên *Reload Window* nối lại mọi tab với đủ scrollback, tên và trạng thái. Khi thật sự cần tiến trình mới — thêm MCP server, cài plugin, cập nhật — *Restart Session* đưa 19 trong 28 agent về đúng hội thoại, và tab có cấu hình vừa đổi tự khởi động lại khi rảnh.
+**Phiên không mất.** Agent chạy dưới một daemon nền, nên *Reload Window* nối lại mọi tab với đủ scrollback, tên và trạng thái — thoát VS Code rồi mở lại folder sau đó cũng vậy: agent vẫn chạy trong lúc đó. Nếu agent không còn (máy khởi động lại), tab tự chạy lại nó về đúng hội thoại và báo *Session restored*. Tab mà VS Code bị crash chưa kịp lưu cũng được mở lại. Khi thật sự cần tiến trình mới — thêm MCP server, cài plugin, cập nhật — *Restart Session* đưa 19 trong 28 agent về đúng hội thoại, và tab có cấu hình vừa đổi tự khởi động lại khi rảnh.
 
 **Một phím tắt, shell thật của bạn.** `Cmd/Ctrl + Esc` mở bất kỳ agent nào trong 28 cạnh editor, trong thư mục dự án, bên trong shell login tương tác của bạn — `PATH`, nvm, pnpm, MCP server, y hệt terminal. `Cmd/Ctrl + Alt + K` thả file bạn đang xem vào prompt dưới dạng `@src/app.ts#L10-20`.
 
@@ -38,7 +38,7 @@ Nó biết bằng cách nào: CLI Code cài một *hook trạng thái* nhỏ và
 
 ## Nó hoạt động thế nào
 
-CLI Code **không** dùng terminal tích hợp của VS Code. Mỗi agent mở trong một **webview panel của riêng extension** — một tab editor vẽ terminal (xterm.js) và bao quanh nó là thanh action, dấu trạng thái, tooltip link, thanh tìm kiếm và các thông báo. Tiến trình agent chạy trong một **daemon nền** thuộc cửa sổ VS Code, vì thế *Reload Window* nối lại thay vì giết nó.
+CLI Code **không** dùng terminal tích hợp của VS Code. Mỗi agent mở trong một **webview panel của riêng extension** — một tab editor vẽ terminal (xterm.js) và bao quanh nó là thanh action, dấu trạng thái, tooltip link, thanh tìm kiếm và các thông báo. Tiến trình agent chạy trong một **daemon nền** thuộc cửa sổ VS Code, vì thế *Reload Window* hay thoát VS Code đều nối lại thay vì giết nó.
 
 Điều đó có nghĩa gì với bạn:
 
@@ -93,11 +93,11 @@ CLI Code **không** dùng terminal tích hợp của VS Code. Mỗi agent mở t
 
 **Mở và đưa file.** `Cmd/Ctrl + Esc` mở hoặc focus một agent; `Cmd/Ctrl + Shift + Esc` mở thêm tab của nó; nút *New Session* mở tab trong thư mục của tab hiện tại. `Cmd/Ctrl + Alt + K` chèn `@path`, `@path#L10` hoặc `@path#L10-20` theo file và vùng chọn trong editor.
 
-**Đọc tab.** Tên = tên bạn đặt (`F2`) › lệnh nhanh đã mở tab › tiêu đề của chính agent, đã làm sạch › prompt cuối của bạn (40 ký tự, cắt ở ranh giới từ) › tên agent. Dấu: `⟳` đang chạy · `?` chờ bạn · `●` xong khi tab ẩn.
+**Đọc tab.** Tên = tên bạn đặt (double-click vào tên ở góc trên bên trái, click phải vào tab, hoặc `F2`) › lệnh nhanh đã mở tab › tiêu đề của chính agent, đã làm sạch › prompt cuối của bạn (40 ký tự, cắt ở ranh giới từ) › tên agent. Dấu: `⟳` đang chạy · `?` chờ bạn · `●` xong khi tab ẩn.
 
 **Bấm vào thứ agent in ra.** `Cmd/Ctrl + click` mở file (đúng `dòng:cột`), thư mục và URL; `Shift + Cmd/Ctrl + click` mở bằng app mặc định; rê chuột thấy đích. Chuột phải có *Open File / Open Folder / Open Link*, *Open with Default App*, *Insert @path into CLI*, *Copy Link / Path*, *Find Selection*, cùng *Copy / Paste / Select All / Find in Terminal*.
 
-**Giữ hội thoại.** *Reload Window* giữ tất cả. *Restart Session* (↻) chạy lại trong cùng hội thoại — theo session id hook báo, nếu không thì phiên mới nhất trong kho của agent cho thư mục này, nếu không nữa thì `--continue` của agent. *Resume Session* liệt kê phiên cũ (Claude Code, Codex, Grok) và có *Continue latest session* cho các agent còn lại. Khi file MCP/plugin/hook đổi, tab rảnh tự khởi động lại; tab bận hiện *"… changed — restart to apply"* cho tới khi bạn bấm ↻. *Restart All Sessions* làm cho mọi tab.
+**Giữ hội thoại.** *Reload Window* và thoát VS Code đều giữ tất cả; agent nào không còn thì được resume ngay trong tab khi mở lại. *Restart Session* (↻) chạy lại trong cùng hội thoại — theo session id hook báo, nếu không thì phiên mới nhất trong kho của agent cho thư mục này, nếu không nữa thì `--continue` của agent. *Resume Session* liệt kê phiên cũ (Claude Code, Codex, Grok) và có *Continue latest session* cho các agent còn lại. Khi file MCP/plugin/hook đổi, tab rảnh tự khởi động lại; tab bận hiện *"… changed — restart to apply"* cho tới khi bạn bấm ↻. *Restart All Sessions* làm cho mọi tab.
 
 **Lệnh nhanh.** Lưu prompt trong `cliCode.quickCommands` (User hoặc Workspace settings) hoặc bôi chọn rồi chạy *Save as Quick Command*; chạy từ menu `…` trên thanh action. Chúng được dán thành một khối rồi Enter, trừ khi `"submit": false`.
 
@@ -111,7 +111,7 @@ CLI Code **không** dùng terminal tích hợp của VS Code. Mỗi agent mở t
 | Xuống dòng trong prompt | `Shift + Enter` | `Shift + Enter` |
 | Tìm trong terminal | `Cmd + F` | `Ctrl + F` \* |
 | Zoom to / nhỏ / mặc định | `Cmd + =` / `-` / `0` | `Ctrl + =` / `-` / `0` |
-| Đổi tên tab | `F2` | `F2` |
+| Đổi tên tab | `F2` (hoặc double-click vào tên) | `F2` (hoặc double-click vào tên) |
 
 \* Trên Windows/Linux terminal giữ `Ctrl + F` cho agent — dùng palette hoặc menu chuột phải. Phím tắt terminal chỉ có hiệu lực trong tab CLI Code.
 
@@ -132,7 +132,7 @@ Command Palette (`CLI Code:`): New Session · Resume Session · Restart Session 
 
 ## Giới hạn
 
-- Đóng tab là kết thúc agent trong tab (VS Code không cho hỏi trước); thoát VS Code là kết thúc mọi phiên. Reload Window thì không.
+- Đóng tab là kết thúc agent trong tab (VS Code không cho hỏi trước). Thoát VS Code thì không: agent vẫn chạy tới khi bạn mở lại folder.
 - Hook trạng thái và shell tương tác chỉ có trên POSIX (macOS, Linux). Trên Windows tab vẫn chạy nhưng không có dấu trạng thái.
 - Chín agent không có phiên định danh được nên khởi động lại bằng cờ `--continue` (xem bảng).
 

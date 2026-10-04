@@ -156,7 +156,15 @@ export async function startDaemon(args: {
     if (idleTimer) clearTimeout(idleTimer)
     idleTimer = setTimeout(() => {
       idleTimer = undefined
-      if (closed || (clients > 0 && sessions.size > 0)) return
+      if (closed) return
+      // A CLI still running keeps the daemon up even with nobody watching (the editor quit), as
+      // Orca's daemon does: the next window attaches to it again. Looked at again later, since
+      // it may exit meanwhile and nothing else would start the countdown then.
+      if ([...sessions.values()].some((s) => !s.exit)) {
+        if (clients === 0) scheduleIdleExit()
+        return
+      }
+      if (clients > 0 && sessions.size > 0) return
       for (const session of sessions.values()) session.kill()
       sessions.clear()
       owners.clear()
