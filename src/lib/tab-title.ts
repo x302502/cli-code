@@ -96,3 +96,9 @@ export function resolveTabTitle(parts: {
 
   return parts.toolLabel
 }
+
+/** What an inline rename saves: the typed name, trimmed; nothing when it is empty or unchanged. */
+export function renamedTitle(current: string, typed: string): string | undefined {
+  const title = typed.trim()
+  return title && title !== current ? title : undefined
+}

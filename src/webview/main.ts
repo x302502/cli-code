@@ -28,6 +28,7 @@ type HostMessage =
   | { type: "snapshot"; text: string }
   | { type: "exit"; code: number }
   | { type: "restored"; resumed: boolean }
+  | { type: "title"; title: string }
   | { type: "state"; state: unknown }
   | { type: "font"; size: number }
   | { type: "reset" }
@@ -341,6 +342,8 @@ const searchBar = createSearchBar(term, searchAddon)
 const actionBar = createActionBar({
   onCommand: (id) => vscode.postMessage({ type: "command", id }),
   onFind: () => searchBar.show(),
+  onRename: (title) => vscode.postMessage({ type: "rename", title }),
+  onRenameEnd: () => term.focus(),
 })
 // Opt-out via the cliCode.composer setting, which the host reflects on <body data-composer>.
 if (document.body.dataset.composer !== "off") createComposer(term)
@@ -376,6 +379,8 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     overlay.show(message.code)
   } else if (message.type === "restored") {
     restoredBanner.show(message.resumed)
+  } else if (message.type === "title") {
+    actionBar.setTitle(message.title)
   } else if (message.type === "state") {
     vscode.setState(message.state)
   } else if (message.type === "font") {

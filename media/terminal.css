@@ -39,6 +39,27 @@ body {
   gap: 10px;
   min-width: 0;
 }
+#action-title,
+#action-title-input {
+  font: 12px var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  max-width: 40ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#action-title {
+  cursor: text;
+}
+#action-title-input {
+  width: 30ch;
+  padding: 2px 6px;
+  border: 1px solid var(--vscode-focusBorder);
+  border-radius: 2px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  outline: none;
+}
 /* Model pill: tinted with the theme's accent so it reads at a glance. */
 #action-model {
   display: inline-flex;

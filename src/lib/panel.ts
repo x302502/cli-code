@@ -21,7 +21,7 @@ import { restartCommand, resumesConversation, sessionIdFromCommand } from "./res
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
 import { buildEnv, iconFor } from "./terminal.js"
-import { resolveTabTitle } from "./tab-title.js"
+import { renamedTitle, resolveTabTitle } from "./tab-title.js"
 
 export const VIEW_TYPE = "cliCode.terminal"
 const UNRESPONSIVE = "The CLI Code terminal daemon is not responding."
@@ -104,6 +104,8 @@ type TabState = {
   goneListener?: vscode.Disposable
   tabId?: string
   createdAt?: number
+  /** The name last shown in the webview's action bar (see postTitle). */
+  postedTitle?: string
 }
 const tabs = new WeakMap<vscode.WebviewPanel, TabState>()
 /** The panel's record, created on first use; it goes away with the panel. */
@@ -169,6 +171,15 @@ export function baseTitle(panel: vscode.WebviewPanel): string {
 function updateTitle(panel: vscode.WebviewPanel): void {
   if (!tab(panel).tool) return
   panel.title = decorateTitle(baseTitle(panel), tab(panel).status?.state, tab(panel).unread)
+  postTitle(panel)
+}
+
+/** The name the action bar shows (and a double-click edits): the tab's, without its status glyph. */
+function postTitle(panel: vscode.WebviewPanel): void {
+  const title = baseTitle(panel)
+  if (title === tab(panel).postedTitle || !tab(panel).wiring?.ready) return
+  tab(panel).postedTitle = title
+  sendTo(panel, { type: "title", title })
 }
 
 /** A cwd is only usable as a spawn cwd if it exists locally as a directory. OSC 7 drops the
@@ -1026,6 +1037,9 @@ function attachConnection(
       for (const msg of wiring.pending) void panel.webview.postMessage(msg)
       wiring.pending.length = 0
       postState(panel)
+      // A fresh page (first load, or reloaded) shows no name yet.
+      tab(panel).postedTitle = undefined
+      postTitle(panel)
       if (wiring.everReady) {
         // A reloaded webview is blank and the daemon sends a screen only on attach: attach again.
         void redrawFromDaemon(context, panel, tool, connection)
@@ -1055,6 +1069,9 @@ function attachConnection(
       // From an OSC 8 file:// link: the path is exact (may contain spaces), no regex parsing.
       const num = (v: unknown) => (typeof v === "number" ? v : undefined)
       void openLinkTarget(panel, { path: message.path, line: num(message.line), col: num(message.col) }, message.alt === true)
+    } else if (message.type === "rename" && typeof message.title === "string") {
+      const title = renamedTitle(baseTitle(panel), message.title)
+      if (title) setCustomTitle(panel, title)
     } else if (message.type === "command" && typeof message.id === "string" && BAR_COMMANDS.has(message.id)) {
       // The in-frame action bar; only tab-level commands are reachable this way.
       void vscode.commands.executeCommand(`cli-code.${message.id}`)

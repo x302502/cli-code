@@ -117,8 +117,9 @@ năng A, Claude khác cho review). Vài thói quen hữu ích:
 
 - **Thêm tab cùng trợ lý, cùng thư mục:** nút 💬+ **New Session** trên thanh action của tab đang
   mở (hiện bộ chọn CLI, mở trong đúng thư mục của tab đó), hoặc `Cmd/Ctrl + Shift + Esc`.
-- **Đổi tên tab:** `F2` khi tab đang focus, hoặc … → **Rename Tab**. Tên bạn đặt giữ nguyên qua
-  reload và restart.
+- **Đổi tên tab:** double-click vào tên ở góc trên bên trái trong tab (Enter lưu, Esc huỷ), click
+  phải vào tab → **Rename Tab**, `F2` khi tab đang focus, hoặc … → **Rename Tab**. Tên bạn đặt giữ
+  nguyên qua reload và restart.
 - **Kéo tab** sang cột khác, chia đôi, đưa vào nhóm editor… đều là tab VS Code bình thường.
 - **Đóng tab = kết thúc CLI trong tab đó**, không có cảnh báo (VS Code không cho extension chặn
   việc đóng tab). Muốn mở lại hội thoại đó: [Resume Session](#12-mở-lại-hội-thoại-cũ).

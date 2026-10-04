@@ -138,7 +138,16 @@ export function activate(context: vscode.ExtensionContext): TestApi {
       // Outside a CLI tab there is nothing to copy the tool from: fall back to the picker.
       if (!(await openNewSessionLikeActive(context))) await openCli(context, { reuseExisting: false })
     }),
-    vscode.commands.registerCommand("cli-code.renameTab", async () => {
+    vscode.commands.registerCommand("cli-code.renameTab", async (_resource?: unknown, ctx?: { editorIndex?: unknown }) => {
+      // From a tab's right-click menu, which VS Code shows only while a CLI tab is in front: the
+      // clicked tab may be another one of that group, and VS Code does not bring it to front.
+      const clicked = typeof ctx?.editorIndex === "number" ? vscode.window.tabGroups.activeTabGroup.tabs[ctx.editorIndex] : undefined
+      if (clicked && !clicked.isActive) {
+        const before = activeTerminalPanel()
+        await vscode.commands.executeCommand("workbench.action.openEditorAtIndex", ctx!.editorIndex)
+        // The extension host hears that another tab is in front a moment after the command returns.
+        for (let i = 0; i < 40 && activeTerminalPanel() === before; i++) await new Promise((r) => setTimeout(r, 25))
+      }
       const panel = activeTerminalPanel()
       if (!panel) return
       const title = await vscode.window.showInputBox({ prompt: "New tab name", value: baseTitle(panel) })

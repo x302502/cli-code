@@ -189,6 +189,13 @@
       }
     ],
     "menus": {
+      "editor/title/context": [
+        {
+          "command": "cli-code.renameTab",
+          "when": "activeWebviewPanelId == 'cliCode.terminal'",
+          "group": "1_cliCode"
+        }
+      ],
       "editor/title": [
         {
           "command": "cli-code.openNew",

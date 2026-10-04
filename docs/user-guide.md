@@ -118,8 +118,9 @@ Claude for feature A, another for review). Useful habits:
 
 - **Another tab of the same assistant, same folder:** the 💬+ **New Session** button on the
   action bar of an open tab (shows the picker, opens in that tab's folder), or `Cmd/Ctrl + Shift + Esc`.
-- **Rename a tab:** `F2` while it is focused, or … → **Rename Tab**. Your name survives reloads
-  and restarts.
+- **Rename a tab:** double-click its name at the top left of the tab (Enter saves, Esc cancels),
+  right-click the tab → **Rename Tab**, `F2` while it is focused, or … → **Rename Tab**. Your name
+  survives reloads and restarts.
 - **Drag tabs** into another column, split them, group them — they are ordinary VS Code tabs.
 - **Closing a tab ends the CLI inside it**, without a warning (VS Code gives extensions no way to
   veto a close). To get that conversation back: [Resume Session](#12-reopen-an-earlier-conversation).

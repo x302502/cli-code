@@ -139,3 +139,29 @@ describe("file links focus an already-open tab", () => {
     }
   })
 })
+
+// VS Code's tab right-click menu passes { groupId, editorIndex } and does not bring the clicked
+// tab to front: Rename Tab must rename that tab, not the one in front.
+describe("Rename Tab from a tab's right-click menu", () => {
+  it("brings the right-clicked tab of the group to front before asking for its name", async () => {
+    const { a, panel: first } = await openReady("rename-a", {}, { title: "Tab A" })
+    const { panel: second } = await openReady("rename-b", {}, { title: "Tab B", viewColumn: first.viewColumn })
+    try {
+      second.reveal()
+      await waitFor(() => second.active || undefined, 5_000, "second tab in front")
+      const index = vscode.window.tabGroups.activeTabGroup.tabs.findIndex((t) => t.label === "Tab A")
+      assert.ok(index >= 0)
+      const renaming = vscode.commands.executeCommand("cli-code.renameTab", undefined, { groupId: 0, editorIndex: index })
+      await waitFor(() => first.active || undefined, 5_000, "right-clicked tab in front")
+      // The name box is up for that tab; dismiss it (cancel: no rename).
+      await new Promise((r) => setTimeout(r, 300))
+      await vscode.commands.executeCommand("workbench.action.closeQuickOpen")
+      await renaming
+      assert.equal(first.title, "Tab A")
+      assert.ok(a.activePanels().includes(first))
+    } finally {
+      first.dispose()
+      second.dispose()
+    }
+  })
+})
