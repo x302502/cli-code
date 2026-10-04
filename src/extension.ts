@@ -55,6 +55,7 @@ export type TestApi = {
   inspectPanel: typeof inspectPanel
   restartFromGone: typeof restartFromGone
   recoverMissingTabs: typeof recoverMissingTabs
+  openLinkTextInActivePanel: typeof openLinkTextInActivePanel
 }
 
 /** Shape of the `data-vscode-context` object the terminal webview sets before a right-click. */
@@ -218,6 +219,7 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     inspectPanel,
     restartFromGone,
     recoverMissingTabs,
+    openLinkTextInActivePanel,
   }
 }
 

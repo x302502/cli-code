@@ -11,7 +11,7 @@ import { samePath } from "./same-path.js"
 import { codexHomeFromShell } from "./shell-env.js"
 import { classifyOscLink } from "./osc-link.js"
 import { connectSession, connectSessionRetrying, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
-import { type LinkTarget, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
+import { type LinkTarget, type OpenTabRef, findOpenTab, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
 import { locateLatestSession } from "./history/locate.js"
 import { detectModel } from "./history/model.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
@@ -1105,6 +1105,21 @@ function resolveTarget(panel: vscode.WebviewPanel, parsed: { path: string; line?
 /** Opens a path link from the terminal (resolved against the panel's cwd, then each workspace
  * folder, then ~). Directories open in Finder/Explorer; files open in an editor at line/col,
  * markdown in the preview, HTML in the browser; `alt` (shift) opens a file with its default app. */
+// The markdown extension's preview, as a custom editor: the tab records which file it shows.
+const MARKDOWN_PREVIEW = "vscode.markdown.preview.editor"
+
+/** Every editor tab of the window, as findOpenTab sees it. */
+function openTabRefs(): OpenTabRef[] {
+  return vscode.window.tabGroups.all.flatMap((g) =>
+    g.tabs.map((t): OpenTabRef => {
+      const ref = { group: g.viewColumn, active: t.isActive }
+      if (t.input instanceof vscode.TabInputText && t.input.uri.scheme === "file") return { ...ref, kind: "text", path: t.input.uri.fsPath }
+      if (t.input instanceof vscode.TabInputCustom && t.input.viewType === MARKDOWN_PREVIEW) return { ...ref, kind: "markdownPreview", path: t.input.uri.fsPath }
+      return { ...ref, kind: "other" }
+    }),
+  )
+}
+
 async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string; line?: number; col?: number }, alt: boolean): Promise<void> {
   const target = resolveTarget(panel, parsed)
   if (!target) {
@@ -1127,13 +1142,20 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
     }
     const mode = openMode(target.path)
     // Markdown and HTML are meant to be read rendered, not as source.
-    if (mode === "markdown") await vscode.commands.executeCommand("markdown.showPreview", uri)
-    else if (mode === "browser") await vscode.env.openExternal(uri)
-    else {
+    if (mode === "browser") {
+      await vscode.env.openExternal(uri)
+      return
+    }
+    // A file already open goes to front in its own group; only a new one opens a tab here.
+    const open = findOpenTab(openTabRefs(), target.path, mode)
+    if (mode === "markdown") {
+      if (open) await vscode.commands.executeCommand("vscode.openWith", uri, MARKDOWN_PREVIEW, { viewColumn: open.group })
+      else await vscode.commands.executeCommand("markdown.showPreview", uri)
+    } else {
       const line = Math.max(0, (target.line ?? 1) - 1)
       const col = Math.max(0, (target.col ?? 1) - 1)
       const doc = await vscode.workspace.openTextDocument(uri)
-      await vscode.window.showTextDocument(doc, { selection: new vscode.Range(line, col, line, col), preview: true })
+      await vscode.window.showTextDocument(doc, { viewColumn: open?.group, selection: new vscode.Range(line, col, line, col), preview: true })
     }
   } catch {
     void vscode.window.showWarningMessage(`Could not open: ${target.path}`)
