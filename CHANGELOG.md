@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.5](https://github.com/x302502/cli-code/compare/v0.2.4...v0.2.5) (2026-10-06)
+
+
+### Features
+
+* Full prompt box shows pastes and images above the agent's input ([569ac74](https://github.com/x302502/cli-code/commit/569ac74389a581f9e8b2d1cf6c325cb1595a3d88))
+* show the whole prompt above the CLI's input, pastes and images spelled out ([6b504fa](https://github.com/x302502/cli-code/commit/6b504fa8839d58307d29b3be34a24255ad3dbbcd))
+
+
+### Bug fixes
+
+* open new tabs again after an update that left the daemon bundle unchanged ([d71a3de](https://github.com/x302502/cli-code/commit/d71a3dec606e52054c21457cedaffe6f0ee3ad2b))
+
+
+### Documentation
+
+* **readme:** the Full prompt box shows pastes and images above the agent's input ([0f7693f](https://github.com/x302502/cli-code/commit/0f7693f5195a31fd8c2ad74f4b469be22abb9d2d))
+
 ## [0.2.4](https://github.com/x302502/cli-code/compare/v0.2.3...v0.2.4) (2026-10-04)
 
 
