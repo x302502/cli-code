@@ -255,17 +255,21 @@ body {
   word-break: break-all;
 }
 /* xterm's own scrollbar, styled like VS Code's: thin, no track. */
-.xterm .xterm-viewport::-webkit-scrollbar {
+.xterm .xterm-viewport::-webkit-scrollbar,
+#draft-body::-webkit-scrollbar {
   width: 10px;
 }
-.xterm .xterm-viewport::-webkit-scrollbar-track {
+.xterm .xterm-viewport::-webkit-scrollbar-track,
+#draft-body::-webkit-scrollbar-track {
   background: transparent;
 }
-.xterm .xterm-viewport::-webkit-scrollbar-thumb {
+.xterm .xterm-viewport::-webkit-scrollbar-thumb,
+#draft-body::-webkit-scrollbar-thumb {
   background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
   border-radius: 0;
 }
-.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
+.xterm .xterm-viewport::-webkit-scrollbar-thumb:hover,
+#draft-body::-webkit-scrollbar-thumb:hover {
   background: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
 }
 /* Composer under the terminal (Claude-extension style box). */
@@ -341,4 +345,137 @@ body {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+/* Read-only view of the CLI's input with every paste spelled out (draft-preview.ts). */
+#draft-preview {
+  /* Most dark themes leave widget-border unset: fall back until some border shows. */
+  --draft-border: var(--vscode-editorWidget-border, var(--vscode-widget-border, var(--vscode-panel-border, rgba(128, 128, 128, 0.45))));
+  --draft-subtle: color-mix(in srgb, currentColor 16%, transparent);
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  border-radius: 6px;
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-editorWidget-foreground);
+  border: 1px solid var(--draft-border);
+  box-shadow: 0 4px 16px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+  font: 12px var(--vscode-font-family);
+  overflow: hidden;
+  transition: border-color 0.1s;
+}
+#draft-preview:hover {
+  border-color: var(--vscode-focusBorder, var(--draft-border));
+}
+#draft-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 4px;
+}
+#draft-header > div {
+  display: flex;
+  gap: 2px;
+}
+#draft-preview button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+#draft-preview button:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+#draft-preview svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+}
+#draft-toggle svg {
+  transition: transform 0.1s;
+}
+#draft-toggle[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+#draft-toggle span,
+.draft-paste-label {
+  color: var(--vscode-descriptionForeground);
+}
+#draft-preview #draft-copy {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+#draft-preview #draft-copy:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+#draft-close {
+  width: 24px;
+  justify-content: center;
+  padding: 0;
+}
+#draft-note {
+  padding: 4px 12px;
+  border-top: 1px solid var(--draft-border);
+  color: var(--vscode-editorWarning-foreground);
+}
+#draft-body {
+  overflow: auto;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--draft-border);
+  background: var(--vscode-editor-background);
+  font-family: var(--cli-code-font-family, monospace);
+  font-size: calc(var(--cli-code-font-size, 13) * 1px - 1px);
+  line-height: 1.5;
+}
+.draft-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.draft-paste {
+  margin: 2px 0 6px;
+  border: 1px solid var(--draft-subtle);
+  border-radius: 4px;
+  background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.1));
+  overflow: hidden;
+}
+.draft-paste-label {
+  padding: 2px 8px;
+  font: 11px var(--vscode-font-family);
+  border-bottom: 1px solid var(--draft-subtle);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+}
+.draft-paste .draft-text {
+  padding: 4px 8px;
+}
+.draft-caret {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.2em;
+  margin-bottom: -0.25em;
+  background: var(--vscode-terminalCursor-foreground, currentColor);
+  opacity: 0.8;
+}
+.draft-image {
+  display: block;
+  max-width: min(100%, 240px);
+  max-height: 120px;
+  margin: 6px 8px;
+  border: 1px solid var(--draft-subtle);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.draft-image:hover {
+  border-color: var(--vscode-focusBorder, var(--draft-subtle));
 }

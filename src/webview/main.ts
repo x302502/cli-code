@@ -7,6 +7,8 @@ import { ClipboardAddon, type IClipboardProvider, ClipboardSelectionType } from 
 import { buildXtermTheme } from "../lib/webview-theme.js"
 import { createActionBar } from "./action-bar.js"
 import { createComposer } from "./composer.js"
+import { createDraftPreview, type SavedDraft } from "./draft-preview.js"
+import { encodeImage } from "../lib/draft-mirror.js"
 import { createExitOverlay } from "./exit-overlay.js"
 import { createRestoredBanner } from "./restored-banner.js"
 import { createSnapshotLinks, createTerminalLinkProvider, selectRange, type HoveredLink, type ProbeResult } from "./links.js"
@@ -37,6 +39,7 @@ type HostMessage =
   | { type: "pasteApproved" }
   | { type: "pasteRejected" }
   | { type: "pasteText"; text: string; submit?: boolean }
+  | { type: "clipboardImage"; id: number; bytes?: Uint8Array }
   | { type: "copySelection" }
   | { type: "selectAll" }
   | { type: "probeResult"; id: number; results: ProbeResult }
@@ -52,6 +55,7 @@ const PASTE_CONFIRM_BYTES = 100 * 1024
 let heldPaste: string | undefined
 // A quick command held for the size confirmation still owes its Enter once approved.
 let heldSubmit = false
+let lastAgentState: string | undefined
 
 /** Reads the font family/size the panel injected on <body style>, falling back to VS Code's editor font. */
 function readFont(): { fontFamily: string; fontSize: number } {
@@ -331,7 +335,29 @@ new MutationObserver(() => {
 
 fit.fit()
 
-term.onData((data) => vscode.postMessage({ type: "input", data }))
+// The webview state is the host's (tab restore) plus the draft preview's own `draft` key, which
+// survives a reload of VS Code just as the CLI's unsent input does in the daemon.
+const webviewState = (): Record<string, unknown> => {
+  const state = vscode.getState()
+  return state && typeof state === "object" ? (state as Record<string, unknown>) : {}
+}
+let savedDraft = webviewState().draft as SavedDraft | undefined
+const draftPreview = createDraftPreview(term, {
+  collapsesPastes: document.body.dataset.collapsesPastes === "on",
+  saved: savedDraft,
+  onSave: (saved) => {
+    savedDraft = saved
+    vscode.setState({ ...webviewState(), draft: saved })
+  },
+  onCopy: (text) => vscode.postMessage({ type: "clipboard", text }),
+  // Base64: a plain string survives the webview → extension message whatever the transport.
+  onOpenImage: (bytes) => vscode.postMessage({ type: "openImage", base64: encodeImage(bytes) }),
+  onImageKey: (id) => vscode.postMessage({ type: "readClipboardImage", id }),
+})
+term.onData((data) => {
+  vscode.postMessage({ type: "input", data })
+  draftPreview.feed(data)
+})
 // onBinary carries raw bytes (legacy X10 mouse reports past column 95): keep them apart from
 // text input, which is UTF-8 encoded on the way to the PTY.
 term.onBinary((data) => vscode.postMessage({ type: "input", data, binary: true }))
@@ -358,7 +384,11 @@ fit.fit()
 // must return false (swallow) for every event type, and only post the input on keydown.
 term.attachCustomKeyEventHandler((e) => {
   if (e.key === "Enter" && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-    if (e.type === "keydown") vscode.postMessage({ type: "input", data: "\x1b\r" })
+    if (e.type === "keydown") {
+      vscode.postMessage({ type: "input", data: "\x1b\r" })
+      // Sent around term.onData, so the draft preview is told here.
+      draftPreview.feed("\x1b\r")
+    }
     return false
   }
   return true
@@ -382,7 +412,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   } else if (message.type === "title") {
     actionBar.setTitle(message.title)
   } else if (message.type === "state") {
-    vscode.setState(message.state)
+    vscode.setState({ ...(message.state as object), draft: savedDraft })
   } else if (message.type === "font") {
     term.options.fontSize = message.size
     fit.fit()
@@ -393,6 +423,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     actionBar.setNotice("")
     actionBar.setStatus("")
     overlay.hide()
+    draftPreview.reset()
     term.reset()
     fit.fit()
     vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
@@ -409,6 +440,8 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     }
     heldPaste = undefined
     heldSubmit = false
+  } else if (message.type === "clipboardImage") {
+    draftPreview.setImage(message.id, message.bytes)
   } else if (message.type === "pasteRejected") {
     heldPaste = undefined
   } else if (message.type === "pasteText") {
@@ -432,6 +465,9 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
   } else if (message.type === "model") {
     actionBar.setModel(message.model)
   } else if (message.type === "agentStatus") {
+    // Keys typed while the CLI waited on a dialog (y, 1, …) answered it; they are not a draft.
+    if (lastAgentState === "waiting" && message.state !== "waiting") draftPreview.reset()
+    lastAgentState = message.state
     // Only states that need the user get a word; working/done stay quiet.
     actionBar.setStatus(message.state === "waiting" ? "● Waiting for your confirmation" : message.state === "blocked" ? "● Blocked — needs your attention" : "")
   } else if (message.type === "probeResult") {
