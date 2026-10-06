@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import { createHash, randomBytes } from "node:crypto"
+import { randomBytes } from "node:crypto"
 import * as fs from "node:fs"
 import * as net from "node:net"
 import * as os from "node:os"
@@ -10,7 +10,7 @@ import { shellQuote } from "./command-env.js"
 import { samePath } from "./same-path.js"
 import { codexHomeFromShell } from "./shell-env.js"
 import { classifyOscLink } from "./osc-link.js"
-import { connectSession, connectSessionRetrying, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
+import { connectSession, connectSessionRetrying, daemonBuildId, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, type OpenTabRef, findOpenTab, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
 import { locateLatestSession } from "./history/locate.js"
 import { detectModel } from "./history/model.js"
@@ -341,11 +341,10 @@ export function ensureDaemon(context: vscode.ExtensionContext): Promise<string> 
   return ensuring
 }
 
-/** sha256 of dist/daemon.js: the daemon stamps it beside its socket, so a daemon left over
- * from a previous build of the extension can be told apart from the current one. */
+/** The build a daemon of this extension stamps beside its socket (see daemonBuildId). */
 function daemonBuild(context: vscode.ExtensionContext): string {
   // The bundle cannot change under a running extension host (an update restarts it).
-  cachedDaemonBuild ??= createHash("sha256").update(fs.readFileSync(context.asAbsolutePath("dist/daemon.js"))).digest("hex").slice(0, 16)
+  cachedDaemonBuild ??= daemonBuildId(fs.readFileSync(context.asAbsolutePath("dist/daemon.js")), context.extensionPath)
   return cachedDaemonBuild
 }
 let cachedDaemonBuild: string | undefined

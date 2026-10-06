@@ -3,7 +3,7 @@ import * as net from "node:net"
 import * as os from "node:os"
 import * as path from "node:path"
 import { startDaemon } from "../src/daemon/server.js"
-import { connectSession, connectSessionRetrying, daemonBuildStampPath, daemonSocketPath } from "../src/lib/daemon-client.js"
+import { connectSession, connectSessionRetrying, daemonBuildId, daemonBuildStampPath, daemonSocketPath } from "../src/lib/daemon-client.js"
 import type { PtyLike } from "../src/daemon/session.js"
 import { MSG, encodeFrame, encodeJsonFrame } from "../src/lib/protocol.js"
 
@@ -31,6 +31,22 @@ function fakePty() {
 
 const tmpSocket = () => path.join(os.tmpdir(), `cli-code-c-${Math.random().toString(16).slice(2, 10)}.sock`)
 const spawnHello = { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 } as const
+
+describe("daemonBuildId", () => {
+  it("is 16 hex characters, the same for the same bundle in the same folder", () => {
+    const id = daemonBuildId("bundle", "/ext/x302502.cli-code-0.2.4-darwin-arm64")
+    expect(id).toMatch(/^[0-9a-f]{16}$/)
+    expect(daemonBuildId("bundle", "/ext/x302502.cli-code-0.2.4-darwin-arm64")).toBe(id)
+  })
+  it("changes with the extension folder even when the bundle does not", () => {
+    // An update installs into a new folder and the old one is deleted: a daemon still running
+    // from it can no longer start a CLI (node-pty's spawn-helper is gone with it).
+    expect(daemonBuildId("bundle", "/ext/x302502.cli-code-0.2.5-darwin-arm64")).not.toBe(daemonBuildId("bundle", "/ext/x302502.cli-code-0.2.4-darwin-arm64"))
+  })
+  it("changes with the bundle", () => {
+    expect(daemonBuildId("bundle v2", "/ext/a")).not.toBe(daemonBuildId("bundle", "/ext/a"))
+  })
+})
 
 describe("daemonSocketPath", () => {
   it("dùng named pipe trên Windows và file socket ở nơi khác", () => {
