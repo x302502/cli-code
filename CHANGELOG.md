@@ -5,7 +5,6 @@
 
 ### Features
 
-* Full prompt box shows pastes and images above the agent's input ([569ac74](https://github.com/x302502/cli-code/commit/569ac74389a581f9e8b2d1cf6c325cb1595a3d88))
 * show the whole prompt above the CLI's input, pastes and images spelled out ([6b504fa](https://github.com/x302502/cli-code/commit/6b504fa8839d58307d29b3be34a24255ad3dbbcd))
 
 
