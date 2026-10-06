@@ -17,3 +17,6 @@ dist-test/
 # Local tooling output
 .playwright-mcp/
 .superpowers/
+
+# Local working notes (workflow rules, not shipped)
+.docs-local/
