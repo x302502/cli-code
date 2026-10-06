@@ -28,6 +28,8 @@ CLI Code thay tab đó bằng một giao diện sinh ra cho agent — terminal w
 
 **Mọi thứ agent in ra đều bấm được.** Đường dẫn file mở trong editor đúng dòng đúng cột (file đã mở thì tab đó được đưa lên trước, không mở thêm tab), thư mục hiện trong Explorer (hoặc Finder/Explorer nếu ngoài workspace), URL mở trình duyệt, Markdown mở preview. Chỉ đường dẫn thật sự tồn tại mới được gạch chân. Click thường chọn trọn link để `Cmd/Ctrl + C` chép; bôi chọn và chép vẫn hoạt động cả khi Claude Code đang bắt chuột.
 
+**Xem trọn prompt trước khi gửi.** Agent thu gọn những gì bạn dán thành `[Pasted text #1 +8 lines]` hay `[Image #1]`. Khi bản nháp có đoạn dán hoặc ảnh, hoặc dài từ 3 dòng hay 200 ký tự, một khung *Full prompt* nổi ngay trên ô nhập của agent và hiện đủ theo đúng thứ tự — chữ bạn gõ, từng đoạn dán đầy đủ, ảnh thu nhỏ (bấm để mở trong một tab editor) — và đi theo mọi chỉnh sửa khi bạn gõ. *Copy all* chép toàn bộ; `✕` ẩn tới lần dán sau; khung tắt khi bạn gửi, và hiện lại sau khi reload nếu bản nháp vẫn còn trong ô nhập. Agent không bị can thiệp: `Cmd + V` ảnh chụp màn hình hay `Ctrl + V` tới agent y như trong terminal thường (ảnh thu nhỏ cần macOS).
+
 **Phiên không mất.** Agent chạy dưới một daemon nền, nên *Reload Window* nối lại mọi tab với đủ scrollback, tên và trạng thái — thoát VS Code rồi mở lại folder sau đó cũng vậy: agent vẫn chạy trong lúc đó. Nếu agent không còn (máy khởi động lại), tab tự chạy lại nó về đúng hội thoại và báo *Session restored*. Tab mà VS Code bị crash chưa kịp lưu cũng được mở lại. Khi thật sự cần tiến trình mới — thêm MCP server, cài plugin, cập nhật — *Restart Session* đưa 19 trong 28 agent về đúng hội thoại, và tab có cấu hình vừa đổi tự khởi động lại khi rảnh.
 
 **Một phím tắt, shell thật của bạn.** `Cmd/Ctrl + Esc` mở bất kỳ agent nào trong 28 cạnh editor, trong thư mục dự án, bên trong shell login tương tác của bạn — `PATH`, nvm, pnpm, MCP server, y hệt terminal. `Cmd/Ctrl + Alt + K` thả file bạn đang xem vào prompt dưới dạng `@src/app.ts#L10-20`.
@@ -94,6 +96,8 @@ CLI Code **không** dùng terminal tích hợp của VS Code. Mỗi agent mở t
 **Mở và đưa file.** `Cmd/Ctrl + Esc` mở hoặc focus một agent; `Cmd/Ctrl + Shift + Esc` mở thêm tab của nó; nút *New Session* mở tab trong thư mục của tab hiện tại. `Cmd/Ctrl + Alt + K` chèn `@path`, `@path#L10` hoặc `@path#L10-20` theo file và vùng chọn trong editor.
 
 **Đọc tab.** Tên = tên bạn đặt (double-click vào tên ở góc trên bên trái, click phải vào tab, hoặc `F2`) › lệnh nhanh đã mở tab › tiêu đề của chính agent, đã làm sạch › prompt cuối của bạn (40 ký tự, cắt ở ranh giới từ) › tên agent. Dấu: `⟳` đang chạy · `?` chờ bạn · `●` xong khi tab ẩn.
+
+**Soát prompt dài.** Dán log, code hay ảnh chụp màn hình (`Cmd + V` / `Ctrl + V`), gõ xen vào, rồi đọc khung *Full prompt* phía trên ô nhập trước khi nhấn Enter. Bấm mũi tên để thu khung còn một dòng.
 
 **Bấm vào thứ agent in ra.** `Cmd/Ctrl + click` mở file (đúng `dòng:cột`), thư mục và URL; `Shift + Cmd/Ctrl + click` mở bằng app mặc định; rê chuột thấy đích. Chuột phải có *Open File / Open Folder / Open Link*, *Open with Default App*, *Insert @path into CLI*, *Copy Link / Path*, *Find Selection*, cùng *Copy / Paste / Select All / Find in Terminal*.
 

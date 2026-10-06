@@ -28,6 +28,8 @@ CLI Code replaces that tab with an interface built for agents — its own webvie
 
 **Everything the agent prints is clickable.** File paths open in the editor at the exact line and column (a file that is already open comes to front in its own tab instead of opening twice), folders reveal in the Explorer (or Finder/Explorer when outside the workspace), URLs open in the browser, Markdown opens in the preview. Only paths that really exist are underlined. A plain click selects the whole link so `Cmd/Ctrl + C` copies it; selection and copy keep working even while Claude Code is capturing the mouse.
 
+**See the whole prompt before you send it.** Agents fold what you paste into `[Pasted text #1 +8 lines]` or `[Image #1]`. While your draft holds a paste or an image, or runs to 3 lines or 200 characters, a *Full prompt* box floats right above the agent's input and shows all of it in order — typed text, every paste in full, image thumbnails (click one to open it in an editor tab) — and follows your edits as you type. *Copy all* copies it; `✕` hides it until the next paste; it closes when you send, and comes back after a reload with the draft still in the input. The agent itself is untouched: `Cmd + V` of a screenshot or `Ctrl + V` reaches it as in any terminal (thumbnails need macOS).
+
 **Sessions that survive.** Agents run under a background daemon, so *Reload Window* re-attaches every tab with its scrollback, title and state — and so does quitting VS Code and reopening the folder later: the agents keep running meanwhile. If an agent did not survive (the machine restarted), its tab starts it again by itself, back in the same conversation, and says *Session restored*. Tabs a crashed VS Code forgot to save come back too. When you do need a fresh process — a new MCP server, a plugin, an update — *Restart Session* brings 19 of the 28 agents back into the exact conversation, and tabs whose configuration changed restart themselves when idle.
 
 **One shortcut, your real shell.** `Cmd/Ctrl + Esc` opens any of 28 agents beside your editor, in your project folder, inside your interactive login shell — `PATH`, nvm, pnpm, MCP servers, all exactly as in a terminal. `Cmd/Ctrl + Alt + K` drops the file you are looking at into the prompt as `@src/app.ts#L10-20`.
@@ -94,6 +96,8 @@ What that means for you:
 **Open and hand over files.** `Cmd/Ctrl + Esc` opens or focuses an agent; `Cmd/Ctrl + Shift + Esc` opens another tab of it; the *New Session* button opens one in the current tab's folder. `Cmd/Ctrl + Alt + K` inserts `@path`, `@path#L10` or `@path#L10-20` for the editor's file and selection.
 
 **Read the tab.** Title = your name (double-click it at the top left, right-click the tab, or `F2`) › the quick command that opened it › the agent's own title, cleaned › your last prompt (40 chars, cut at a word) › the agent's name. Marks: `⟳` working · `?` waiting for you · `●` done while hidden.
+
+**Check a long prompt.** Paste logs, code or a screenshot (`Cmd + V` / `Ctrl + V`), type around them, and read the *Full prompt* box above the input before pressing Enter. Click the chevron to fold it to one line.
 
 **Click what the agent prints.** `Cmd/Ctrl + click` opens files (at `line:col`), folders and URLs; `Shift + Cmd/Ctrl + click` opens with the default app; hover shows the target. Right-click offers *Open File / Open Folder / Open Link*, *Open with Default App*, *Insert @path into CLI*, *Copy Link / Path*, *Find Selection*, plus *Copy / Paste / Select All / Find in Terminal*.
 

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import * as net from "node:net"
 import * as os from "node:os"
 import * as path from "node:path"
@@ -41,6 +42,16 @@ const DEFAULT_HANDSHAKE_TIMEOUT_MS = 5000
 export function daemonSocketPath(id: string): string {
   if (process.platform === "win32") return `\\\\.\\pipe\\cli-code-${id}`
   return path.join(os.tmpdir(), `cli-code-${id}.sock`)
+}
+
+/**
+ * What the daemon stamps beside its socket so a daemon left over from another build is told
+ * apart: its bundle AND the extension folder it runs from. An update installs into a new folder
+ * and the old one is deleted, often with an unchanged daemon.js — a daemon still running from
+ * the old folder then can no longer start a CLI (node-pty's spawn-helper went with it).
+ */
+export function daemonBuildId(daemonJs: string | Uint8Array, extensionPath: string): string {
+  return createHash("sha256").update(daemonJs).update("\0").update(extensionPath).digest("hex").slice(0, 16)
 }
 
 /** Where the daemon stamps the build it runs: a plain file on every platform, never next to

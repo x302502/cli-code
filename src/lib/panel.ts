@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import { createHash, randomBytes } from "node:crypto"
+import { randomBytes } from "node:crypto"
 import * as fs from "node:fs"
 import * as net from "node:net"
 import * as os from "node:os"
@@ -10,12 +10,13 @@ import { shellQuote } from "./command-env.js"
 import { samePath } from "./same-path.js"
 import { codexHomeFromShell } from "./shell-env.js"
 import { classifyOscLink } from "./osc-link.js"
-import { connectSession, connectSessionRetrying, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
+import { connectSession, connectSessionRetrying, daemonBuildId, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, type OpenTabRef, findOpenTab, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
 import { locateLatestSession } from "./history/locate.js"
 import { detectModel } from "./history/model.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
 import { createPromptTracker } from "./prompt-tracker.js"
+import { imageViewFileName, readClipboardImage } from "./clipboard-image.js"
 import { canAutoRestart, changedPath, configPathsFor, configSnapshot, upgradeSnapshot } from "./config-watch.js"
 import { restartCommand, resumesConversation, sessionIdFromCommand } from "./restart-command.js"
 import type { AgentState } from "./protocol.js"
@@ -341,11 +342,10 @@ export function ensureDaemon(context: vscode.ExtensionContext): Promise<string> 
   return ensuring
 }
 
-/** sha256 of dist/daemon.js: the daemon stamps it beside its socket, so a daemon left over
- * from a previous build of the extension can be told apart from the current one. */
+/** The build a daemon of this extension stamps beside its socket (see daemonBuildId). */
 function daemonBuild(context: vscode.ExtensionContext): string {
   // The bundle cannot change under a running extension host (an update restarts it).
-  cachedDaemonBuild ??= createHash("sha256").update(fs.readFileSync(context.asAbsolutePath("dist/daemon.js"))).digest("hex").slice(0, 16)
+  cachedDaemonBuild ??= daemonBuildId(fs.readFileSync(context.asAbsolutePath("dist/daemon.js")), context.extensionPath)
   return cachedDaemonBuild
 }
 let cachedDaemonBuild: string | undefined
@@ -883,7 +883,7 @@ function wirePanel(
   opts: { reattached?: boolean } = {},
 ): void {
   panel.iconPath = iconFor(context, tool)
-  panel.webview.html = terminalHtml(context, panel.webview)
+  panel.webview.html = terminalHtml(context, panel.webview, tool)
 
   activePanels.add(panel)
   gonePanels.delete(panel)
@@ -1053,6 +1053,19 @@ function attachConnection(
       panel.onDidDispose(() => clearInterval(modelTimer))
       if (tab(panel).initialInput) capTimer = setTimeout(flushInitialInput, 5000)
     } else if (message.type === "restart") void restartPanel(context, panel)
+    else if (message.type === "readClipboardImage" && typeof message.id === "number") {
+      // Ctrl+V or an image-only Cmd+V went to the CLI, which reads the clipboard image itself; this read only feeds the preview.
+      void readClipboardImage().then((bytes) => sendTo(panel, { type: "clipboardImage", id: message.id, bytes }))
+    }
+    else if (message.type === "openImage" && typeof message.base64 === "string" && message.base64.length > 0) {
+      // A preview image opens in VS Code's own image viewer, beside the terminal.
+      const bytes = Buffer.from(message.base64, "base64")
+      const file = path.join(os.tmpdir(), imageViewFileName(bytes))
+      void fs.promises
+        .writeFile(file, bytes)
+        .then(() => vscode.commands.executeCommand("vscode.open", vscode.Uri.file(file), { viewColumn: vscode.ViewColumn.Beside }))
+        .catch((err: unknown) => vscode.window.showErrorMessage(`Could not open the image: ${String(err)}`))
+    }
     else if (message.type === "clipboard" && typeof message.text === "string" && message.text.length <= 1024 * 1024) {
       void vscode.env.clipboard.writeText(message.text)
     }
@@ -1397,12 +1410,12 @@ export async function recoverMissingTabs(context: vscode.ExtensionContext): Prom
   }
 }
 
-function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview): string {
+function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview, tool: CliTool): string {
   const asset = (...p: string[]) => webview.asWebviewUri(vscode.Uri.file(context.asAbsolutePath(p.join("/"))))
   const xtermCss = asset("node_modules", "@xterm", "xterm", "css", "xterm.css")
   const css = asset("media", "terminal.css")
   const main = asset("dist", "webview.js")
-  const csp = `default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource}; font-src ${webview.cspSource};`
+  const csp = `default-src 'none'; img-src blob:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource}; font-src ${webview.cspSource};`
 
   const terminalConfig = vscode.workspace.getConfiguration("terminal.integrated")
   const editorConfig = vscode.workspace.getConfiguration("editor")
@@ -1412,11 +1425,13 @@ function terminalHtml(context: vscode.ExtensionContext, webview: vscode.Webview)
   const escapedFamily = fontFamily.replace(/"/g, "&quot;")
   // Experimental and off by default: the CLI's own TUI input keeps its slash/@ menus and modes.
   const composer = vscode.workspace.getConfiguration("cliCode").get<boolean>("composer", false) ? "on" : "off"
+  // Claude folds a long or multi-line paste into one "[Pasted text #n]" chip the draft preview must edit as a unit.
+  const collapsesPastes = (tool.historyToolId ?? tool.id) === "claude" ? "on" : "off"
 
   return `<!DOCTYPE html><html lang="en"><head>
 <meta http-equiv="Content-Security-Policy" content="${csp}">
 <link rel="stylesheet" href="${xtermCss}"><link rel="stylesheet" href="${css}">
-</head><body data-composer="${composer}" style="--cli-code-font-family:${escapedFamily};--cli-code-font-size:${fontSize}">
+</head><body data-composer="${composer}" data-collapses-pastes="${collapsesPastes}" style="--cli-code-font-family:${escapedFamily};--cli-code-font-size:${fontSize}">
 <div id="term" data-vscode-context='{"preventDefaultContextMenuItems": true}'></div>
 <script src="${main}"></script>
 </body></html>`
