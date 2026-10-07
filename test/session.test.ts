@@ -35,6 +35,26 @@ function makeSession(schedule: (fn: () => void, ms: number) => unknown = (fn) =>
 }
 
 describe("Session", () => {
+  it("clears a live model when a status report names a different conversation", () => {
+    const { session } = makeSession()
+    session.reportStatus("done", undefined, "original", { identityOnly: true, model: "old-model" })
+    session.reportStatus("working", undefined, "selected")
+    expect(session.model).toBeUndefined()
+    session.dispose()
+  })
+  it("a live model change preserves activity and cannot be overwritten by a nested CLI", () => {
+    const { session } = makeSession()
+    const events: unknown[] = []
+    session.onMeta((e) => events.push(e))
+    session.reportStatus("working", "prompt", "selected", { fromHook: true, cliPid: 123 })
+    session.reportStatus("done", undefined, "selected", { fromHook: true, cliPid: 123, identityOnly: true, model: "new-model" })
+    expect(session.status?.state).toBe("working")
+    expect(session.model).toBe("new-model")
+    expect(events.at(-1)).toEqual({ kind: "model", model: "new-model", cliSessionId: "selected" })
+    session.reportStatus("done", undefined, "nested", { fromHook: true, cliPid: 456, identityOnly: true, model: "wrong-model" })
+    expect(session.model).toBe("new-model")
+    session.dispose()
+  })
   it("tracks session switches without changing agent status and rejects a nested CLI identity", () => {
     const { session } = makeSession()
     const events: unknown[] = []

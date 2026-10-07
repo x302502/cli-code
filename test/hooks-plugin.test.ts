@@ -9,6 +9,7 @@ import { isManagedPlugin, pluginSource } from "../src/lib/hooks/plugin-template.
 // fire-and-forget and run concurrently, so tests compare them as a set.
 let dir: string
 let capture: string
+let shutdown: (() => void)[] = []
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-plugin-"))
   capture = path.join(dir, "captured")
@@ -16,6 +17,8 @@ beforeEach(() => {
   process.env.CLI_CODE_HOOK = `cat > "${capture}/$$-$RANDOM.json"`
 })
 afterEach(() => {
+  for (const stop of shutdown) stop()
+  shutdown = []
   delete process.env.CLI_CODE_HOOK
   fs.rmSync(dir, { recursive: true, force: true })
 })
@@ -23,7 +26,15 @@ afterEach(() => {
 async function load(flavour: "opencode" | "pi" | "omp") {
   const file = path.join(dir, `${flavour}-${Date.now()}.ts`)
   fs.writeFileSync(file, pluginSource(flavour))
-  return (await import(file)).default as (...args: unknown[]) => unknown
+  const plugin = (await import(file)).default as (...args: unknown[]) => unknown
+  return (...args: unknown[]) => {
+    if (flavour === "opencode") return plugin(...args)
+    const api = args[0] as { on(name: string, fn: (...args: unknown[]) => unknown): unknown }
+    return plugin({ ...api, on: (name: string, fn: (...args: unknown[]) => unknown) => {
+      if (name === "session_shutdown") shutdown.push(() => { void fn({}, {}) })
+      return api.on(name, fn)
+    } })
+  }
 }
 async function captured(expected: number): Promise<Record<string, unknown>[]> {
   for (let i = 0; i < 100; i++) {
@@ -42,6 +53,53 @@ async function captured(expected: number): Promise<Record<string, unknown>[]> {
 }
 
 describe("generated status plugin", () => {
+  it("Pi keeps rapid model selections in order when the older hook is slow", async () => {
+    const ordered = path.join(dir, "pi-models.jsonl")
+    const slow = path.join(dir, "pi-slow.cjs")
+    fs.writeFileSync(slow, `let input = ""; process.stdin.on("data", c => input += c); process.stdin.on("end", () => {
+      const p = JSON.parse(input); setTimeout(() => require("node:fs").appendFileSync(${JSON.stringify(ordered)}, input + "\\n"), p.model === "old-model" ? 250 : 0)
+    })`)
+    process.env.CLI_CODE_HOOK = `node "${slow}"`
+    const ext = await load("pi")
+    const handlers: Record<string, (e: unknown, c: unknown) => Promise<void>> = {}
+    ext({ on: (name: string, fn: (e: unknown, c: unknown) => Promise<void>) => (handlers[name] = fn) })
+    const ctx = { sessionManager: { getSessionId: () => "selected" } }
+    await handlers.model_select!({ model: { id: "old-model" } }, ctx)
+    await handlers.model_select!({ model: { id: "new-model" } }, ctx)
+    for (let i = 0; i < 100; i++) {
+      if (fs.existsSync(ordered) && fs.readFileSync(ordered, "utf8").trim().split("\n").length === 2) break
+      await new Promise((r) => setTimeout(r, 20))
+    }
+    expect(fs.readFileSync(ordered, "utf8").trim().split("\n").map((line) => JSON.parse(line).model))
+      .toEqual(["old-model", "new-model"])
+  })
+  it("OMP reports a menu model change without a prompt, transcript write or repeated reports", async () => {
+    const ext = await load("omp")
+    const handlers: Record<string, (e: unknown, c: unknown) => Promise<void>> = {}
+    ext({ on: (name: string, fn: (e: unknown, c: unknown) => Promise<void>) => (handlers[name] = fn) })
+    let current = { id: "old-model" }
+    const ctx = { sessionManager: { getSessionId: () => "selected" }, get model() { return current } }
+    await handlers.session_start!({}, ctx)
+    await captured(2)
+    current = { id: "new-model" }
+    const reports = await captured(3)
+    expect(reports.filter((p) => p.hook_event_name === "ModelChange").map((p) => p.model).sort()).toEqual(["new-model", "old-model"])
+    await new Promise((r) => setTimeout(r, 350))
+    expect(fs.readdirSync(capture)).toHaveLength(3)
+    await handlers.session_shutdown!({}, ctx)
+    current = { id: "after-shutdown" }
+    await new Promise((r) => setTimeout(r, 350))
+    expect(fs.readdirSync(capture)).toHaveLength(3)
+  })
+  it("Pi reports model_select immediately, without changing activity", async () => {
+    const ext = await load("pi")
+    const handlers: Record<string, (e: unknown, c: unknown) => Promise<void>> = {}
+    ext({ on: (name: string, fn: (e: unknown, c: unknown) => Promise<void>) => (handlers[name] = fn) })
+    expect(typeof handlers.model_select).toBe("function")
+    await handlers.model_select!({ model: { id: "new-model" } }, { sessionManager: { getSessionId: () => "selected" } })
+    const reports = await captured(1)
+    expect(reports[0]).toMatchObject({ hook_event_name: "ModelChange", model: "new-model", session_id: "selected" })
+  })
   it("omp delivers startup, switch and status in order even when the first hook is slow", async () => {
     const ordered = path.join(dir, "ordered.jsonl")
     const slow = path.join(dir, "slow.cjs")

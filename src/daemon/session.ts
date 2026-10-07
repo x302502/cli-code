@@ -43,6 +43,7 @@ export class Session {
   oscTitle: string | undefined
   cliSessionId: string | undefined
   cliSessionFile: string | undefined
+  model: string | undefined
   status: { state: AgentState; prompt?: string; cliSessionId?: string } | undefined
   private waitingTool: string | undefined
   /** Characters written to the mirror it has not parsed yet (see onData). */
@@ -149,7 +150,7 @@ export class Session {
     state: AgentState,
     prompt?: string,
     cliSessionId?: string,
-    opts: { tool?: string; toolDone?: string; agent?: string; agentDone?: string; cliPid?: number; fromHook?: boolean; identityOnly?: boolean; cliSessionFile?: string } = {},
+    opts: { tool?: string; toolDone?: string; agent?: string; agentDone?: string; cliPid?: number; fromHook?: boolean; identityOnly?: boolean; cliSessionFile?: string; model?: string } = {},
   ): void {
     // The first CLI process to report owns the tab; a same-kind CLI nested inside it (which
     // inherits the tab's env, so reaches the same hook) is another process and is ignored.
@@ -163,11 +164,17 @@ export class Session {
       } else if (opts.cliPid !== undefined && this.reporterPid !== undefined && opts.cliPid !== this.reporterPid) return
     }
     if (opts.identityOnly) {
-      if (!cliSessionId) return
-      this.cliSessionFile = opts.cliSessionFile ?? (cliSessionId === this.cliSessionId ? this.cliSessionFile : undefined)
-      this.cliSessionId = cliSessionId
-      if (this.status) this.status.cliSessionId = cliSessionId
-      this.metaListener?.({ kind: "cliSession", cliSessionId, cliSessionFile: this.cliSessionFile })
+      if (cliSessionId) {
+        if (cliSessionId !== this.cliSessionId) this.model = undefined
+        this.cliSessionFile = opts.cliSessionFile ?? (cliSessionId === this.cliSessionId ? this.cliSessionFile : undefined)
+        this.cliSessionId = cliSessionId
+        if (this.status) this.status.cliSessionId = cliSessionId
+        this.metaListener?.({ kind: "cliSession", cliSessionId, cliSessionFile: this.cliSessionFile })
+      }
+      if (opts.model) {
+        this.model = opts.model
+        this.metaListener?.({ kind: "model", model: opts.model, cliSessionId: this.cliSessionId })
+      }
       return
     }
     if (opts.toolDone !== undefined || opts.agentDone !== undefined) {
@@ -183,6 +190,7 @@ export class Session {
     } else this.waitingTool = this.waitingAgent = undefined
     // The CLI's own session id (from its hook) is kept across later reports that omit it.
     if (cliSessionId) {
+      if (cliSessionId !== this.cliSessionId) this.model = undefined
       this.cliSessionFile = opts.cliSessionFile ?? (cliSessionId === this.cliSessionId ? this.cliSessionFile : undefined)
       this.cliSessionId = cliSessionId
       if (opts.cliSessionFile) this.metaListener?.({ kind: "cliSession", cliSessionId, cliSessionFile: this.cliSessionFile })

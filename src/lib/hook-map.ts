@@ -12,6 +12,7 @@ export type MappedHook = {
   state: AgentState
   /** Lifecycle reports update the conversation identity without changing agent activity. */
   identityOnly?: boolean
+  model?: string
   prompt?: string
   cliSessionId?: string
   cliSessionFile?: string
@@ -31,6 +32,12 @@ export function mapHookEvent(payload: unknown, from?: string): MappedHook | unde
   if (!payload || typeof payload !== "object") return undefined
   const p = payload as Payload
   const file = from === "omp" && str(p.session_file) ? { cliSessionFile: str(p.session_file) } : {}
+  if ((from === "omp" || from === "pi") && eventName(p) === "ModelChange") {
+    const model = str(p.model)
+    if (!model || model.startsWith("<")) return undefined
+    const id = str(p.session_id)
+    return { state: "done", identityOnly: true, model, ...(id ? { cliSessionId: id } : {}), ...file }
+  }
   if (from === "omp" && eventName(p) === "SessionStart") {
     const id = str(p.session_id)
     return id ? { state: "done", identityOnly: true, cliSessionId: id, ...file } : undefined

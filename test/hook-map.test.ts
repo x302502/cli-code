@@ -2,6 +2,11 @@ import { describe, expect, it } from "bun:test"
 import { mapHookEvent } from "../src/lib/hook-map.js"
 
 describe("mapHookEvent", () => {
+  it("maps live model changes independently of agent activity", () => {
+    expect(mapHookEvent({ hook_event_name: "ModelChange", model: "new-model", session_id: "selected" }, "omp"))
+      .toEqual({ state: "done", identityOnly: true, model: "new-model", cliSessionId: "selected" })
+    expect(mapHookEvent({ hook_event_name: "ModelChange", model: "" }, "omp")).toBeUndefined()
+  })
   it("OMP carries the exact transcript path for profiles and custom session directories", () => {
     const payload = { hook_event_name: "SessionStart", session_id: "id", session_file: "/custom/id.jsonl" }
     expect(mapHookEvent(payload, "omp")?.cliSessionFile).toBe("/custom/id.jsonl")

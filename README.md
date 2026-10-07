@@ -89,7 +89,7 @@ What that means for you:
 | [Hermes](https://hermes-agent.nousresearch.com/docs/) | `hermes` | — | `--continue` | — |
 | [Devin](https://devin.ai/cli) | `devin` | — | `--continue` | — |
 
-*State on tab* needs a status hook, which exists for the first 11. *Restart → same conversation* ✓ reopens the exact session; `--continue` uses the agent's own "latest session" flag. *Model shown*: the action bar can read the model from the agent's session files. The picker shows agents found on `PATH` first.
+*State on tab* needs a status hook, which exists for the first 11. *Restart → same conversation* ✓ reopens the exact session; `--continue` uses the agent's own "latest session" flag. *Model shown*: OMP and Pi report the current selection directly, including changes before the next prompt. Other supported agents refresh from their session stores within about a second of recording a change; agents that record models only during a response update after that response. The picker shows agents found on `PATH` first.
 
 ## In daily use
 

@@ -19,6 +19,16 @@ describe("modelFromText — last model the CLI wrote into its transcript", () =>
   })
 })
 
+it("reads the exact OMP transcript in a custom profile and refuses another session's file", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-model-file-"))
+  try {
+    const file = path.join(dir, "selected.jsonl")
+    fs.writeFileSync(file, '{"type":"session","id":"selected"}\n{"type":"model_change","modelId":"new-model"}\n')
+    expect(detectModel("omp", "/w/proj", Date.now(), dir, "selected", file)).toBe("new-model")
+    expect(detectModel("omp", "/w/proj", Date.now(), dir, "other", file)).toBeUndefined()
+  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
+})
+
 describe("detectModel — per-CLI session stores", () => {
   let home: string
   const cwd = "/w/proj"

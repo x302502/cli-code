@@ -225,10 +225,15 @@ export function connectSession(
             const e = decodeJsonPayload<{ code: number; signal?: number }>(frame.payload)
             if (onExit) onExit(e)
             else pendingExit.push(e)
-          } else if (frame.type === MSG.Cwd || frame.type === MSG.Title || frame.type === MSG.Status || frame.type === MSG.CliSession) {
+          } else if (frame.type === MSG.Cwd || frame.type === MSG.Title || frame.type === MSG.Status || frame.type === MSG.CliSession || frame.type === MSG.Model) {
             const body = decodeJsonPayload<Record<string, unknown>>(frame.payload)
             let e: MetaEvent | undefined
-            if (frame.type === MSG.CliSession) {
+            if (frame.type === MSG.Model) {
+              if (typeof body.model === "string") e = {
+                kind: "model", model: body.model,
+                cliSessionId: typeof body.cliSessionId === "string" ? body.cliSessionId : undefined,
+              }
+            } else if (frame.type === MSG.CliSession) {
               if (typeof body.cliSessionId === "string" && body.cliSessionId) e = {
                 kind: "cliSession", cliSessionId: body.cliSessionId,
                 cliSessionFile: typeof body.cliSessionFile === "string" ? body.cliSessionFile : undefined,
