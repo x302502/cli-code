@@ -17,6 +17,7 @@ import {
   daemonPid,
   holdDaemonAlive,
   inspectPanel,
+  updatePanelCli,
   listActivePanels,
   openTerminalPanel,
   pasteToActivePanel,
@@ -53,6 +54,7 @@ export type TestApi = {
   claudeSettingsPath: string
   daemonPid: typeof daemonPid
   inspectPanel: typeof inspectPanel
+  updatePanelCli: typeof updatePanelCli
   restartFromGone: typeof restartFromGone
   recoverMissingTabs: typeof recoverMissingTabs
   openLinkTextInActivePanel: typeof openLinkTextInActivePanel
@@ -226,6 +228,7 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     claudeSettingsPath: claudeSettingsPath(),
     daemonPid,
     inspectPanel,
+    updatePanelCli,
     restartFromGone,
     recoverMissingTabs,
     openLinkTextInActivePanel,

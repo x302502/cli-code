@@ -15,6 +15,7 @@ export function run(): Promise<void> {
     require("./commands.test.js")
     require("./menu.test.js")
     require("./lifecycle.test.js")
+    require("./cli-update.test.js")
   }
   require("./reload.test.js")
 

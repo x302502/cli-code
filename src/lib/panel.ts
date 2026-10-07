@@ -6,6 +6,8 @@ import * as os from "node:os"
 import * as path from "node:path"
 import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
+import { cliUpdates, type UpdateNotice, type UpdateOptions } from "./cli-update.js"
+import { extractBinary } from "./detect.js"
 import { shellQuote } from "./command-env.js"
 import { samePath } from "./same-path.js"
 import { codexHomeFromShell } from "./shell-env.js"
@@ -52,6 +54,8 @@ export type PanelState = {
   cliSessionId?: string
   configSnapshot?: Record<string, string>
   extensionPath?: string
+  /** Version the live process started with, retained across editor reloads. */
+  runningCliVersion?: string
   /** Which tab this is, across restarts of its CLI and of the editor (see OPEN_TABS_KEY). */
   tabId?: string
   createdAt?: number
@@ -69,6 +73,10 @@ type Wiring = { ready: boolean; everReady?: boolean; pending: unknown[]; listene
 
 /** Everything the extension keeps about one CLI tab, in one record (see `tab`). */
 type TabState = {
+  runningCliVersion?: string
+  cliUpdate?: UpdateNotice
+  updateChecking?: boolean
+  updating?: boolean
   tool?: CliTool
   connection?: SessionConnection
   customTitle?: string
@@ -544,8 +552,9 @@ export async function openTerminalPanel(
   // at start, and its config snapshot must already include them (else it runs without, or is
   // flagged stale the moment they land). The daemon comes up meanwhile; the tab's config
   // snapshot must list Codex's real folder too.
-  const [socketPath] = await Promise.all([
+  const [socketPath, runningCliVersion] = await Promise.all([
     ensureDaemon(context).catch((err: unknown) => (err instanceof Error ? err : new Error(String(err)))),
+    cliUpdates.version(tool, updateOptions(tool), true),
     codexHomeFor(tool),
     tabStarting(),
   ])
@@ -571,6 +580,7 @@ export async function openTerminalPanel(
   })
   claimTab(panel)
   tab(panel).command = baseCommand
+  tab(panel).runningCliVersion = runningCliVersion
   tab(panel).spawnedAt = Date.now()
   tab(panel).extensionPath = context.extensionPath
   tab(panel).configSnapshot = configSnapshot(configPathsFor(tool.id, tool.historyToolId, cwd, os.homedir()))
@@ -638,6 +648,7 @@ export async function restoreTerminalPanel(
   if (state.command) tab(panel).command = state.command
   if (state.spawnedAt) tab(panel).spawnedAt = state.spawnedAt
   if (state.cliSessionId) tab(panel).cliSessionId = state.cliSessionId
+  tab(panel).runningCliVersion = state.runningCliVersion
   // The titles too: before wiring, so the first title posted is already right, and before the
   // attach, so a gone tab's Restart still has them.
   if (state.promptTitle) tab(panel).promptTitle = state.promptTitle
@@ -685,6 +696,7 @@ async function resumeInPlace(context: vscode.ExtensionContext, panel: vscode.Web
   const socketPath = await ensureDaemon(context).catch(() => undefined)
   await tabStarting()
   const cwd = usableCwd(tab(panel).cwd) ?? fallbackCwd()
+  const runningCliVersion = await cliUpdates.version(tool, updateOptions(tool), true)
   const { connection, refused } = socketPath ? await spawnSession(context, tool, socketPath, command, cwd) : { connection: undefined, refused: undefined }
   closing.dispose()
   if (closed) {
@@ -698,6 +710,7 @@ async function resumeInPlace(context: vscode.ExtensionContext, panel: vscode.Web
   }
   const resumed = resumesConversation(tool, command)
   tab(panel).command = command
+  tab(panel).runningCliVersion = runningCliVersion
   tab(panel).spawnedAt = Date.now()
   tab(panel).extensionPath = context.extensionPath
   tab(panel).configSnapshot = configSnapshot(configPathsFor(tool.id, tool.historyToolId, cwd, os.homedir()))
@@ -895,12 +908,17 @@ function wirePanel(
   // terminal is open and focused) — otherwise the daemon's Snapshot on attach, which
   // can arrive before the page finishes loading, would be posted into the void.
   tab(panel).wiring = { ready: false, pending: [] }
+  const updateTimer = setInterval(() => void refreshCliUpdate(panel), 60_000)
+  const stopUpdates = () => clearInterval(updateTimer)
+  panel.onDidDispose(stopUpdates)
+  context.subscriptions.push({ dispose: stopUpdates })
 
   panel.onDidChangeViewState((e) => {
     // A "gone" panel keeps this listener but must keep its plain tool.label title.
     if (!activePanels.has(panel)) return
     if (e.webviewPanel.active) lastFocusedPanel = panel
     if (e.webviewPanel.visible) {
+      void refreshCliUpdate(panel)
       tab(panel).unread = false
       updateTitle(panel)
       // Flipping between tabs fires this constantly; the config walk behind it (stat + two
@@ -1040,6 +1058,8 @@ function attachConnection(
       // A fresh page (first load, or reloaded) shows no name yet.
       tab(panel).postedTitle = undefined
       postTitle(panel)
+      if (tab(panel).cliUpdate) sendTo(panel, { type: "cliUpdate", notice: tab(panel).cliUpdate })
+      void refreshCliUpdate(panel)
       if (wiring.everReady) {
         // A reloaded webview is blank and the daemon sends a screen only on attach: attach again.
         void redrawFromDaemon(context, panel, tool, connection)
@@ -1053,6 +1073,7 @@ function attachConnection(
       panel.onDidDispose(() => clearInterval(modelTimer))
       if (tab(panel).initialInput) capTimer = setTimeout(flushInitialInput, 5000)
     } else if (message.type === "restart") void restartPanel(context, panel)
+    else if (message.type === "updateCli") void updatePanelCli(context, panel)
     else if (message.type === "readClipboardImage" && typeof message.id === "number") {
       // Ctrl+V or an image-only Cmd+V went to the CLI, which reads the clipboard image itself; this read only feeds the preview.
       void readClipboardImage().then((bytes) => sendTo(panel, { type: "clipboardImage", id: message.id, bytes }))
@@ -1192,12 +1213,77 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
   }
 }
 
+function updateOptions(tool: CliTool): UpdateOptions {
+  const overrides = vscode.workspace.getConfiguration("cliCode").get<Record<string, UpdateOptions>>("cliUpdates", {})
+  return overrides[tool.id] ?? overrides[tool.historyToolId ?? ""] ?? {}
+}
+
+function postCliUpdate(panel: vscode.WebviewPanel, notice: UpdateNotice): void {
+  tab(panel).cliUpdate = notice
+  sendTo(panel, { type: "cliUpdate", notice })
+}
+
+async function refreshCliUpdate(panel: vscode.WebviewPanel): Promise<void> {
+  const t = tab(panel)
+  if (!activePanels.has(panel) || !t.tool || !t.connection || t.exited || t.updating || t.restarting || t.updateChecking) return
+  if (!vscode.workspace.getConfiguration("cliCode").get<boolean>("checkForUpdates", true)) {
+    postCliUpdate(panel, { kind: "current" })
+    return
+  }
+  const connection = t.connection
+  t.updateChecking = true
+  try {
+    const notice = await cliUpdates.check(t.tool, t.runningCliVersion, updateOptions(t.tool))
+    if (!activePanels.has(panel) || t.connection !== connection || t.updating || t.restarting) return
+    // Keep an update error visible until retry, or until an external update resolves it.
+    if (t.cliUpdate?.kind === "error" && notice.kind === "available") return
+    postCliUpdate(panel, notice)
+  } finally { t.updateChecking = false }
+}
+
+/** Update outside the running PTY: its input may be an agent prompt or a permission dialog. */
+export async function updatePanelCli(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
+  const t = tab(panel)
+  if (!activePanels.has(panel) || !t.tool || !t.connection || t.updating || t.restarting) return
+  const tool = t.tool
+  const options = updateOptions(tool)
+  const peers = [...activePanels].filter((p) => tab(p).tool && extractBinary(tab(p).tool!.command) === extractBinary(tool.command))
+  if (peers.some((p) => tab(p).updating || tab(p).restarting)) return
+  for (const peer of peers) {
+    tab(peer).updating = true
+    postCliUpdate(peer, { kind: "updating" })
+  }
+  try {
+    // Recheck on click: a CLI's own updater may already have installed the advertised version.
+    const notice = await cliUpdates.check(tool, t.runningCliVersion, options, true)
+    if (notice.kind === "current" || !notice.version) return
+    if (notice.kind === "available" && !notice.canUpdate) {
+      await vscode.commands.executeCommand("workbench.action.openSettings", "cliCode.cliUpdates")
+      return
+    }
+    const version = notice.kind === "installed" ? notice.version : await cliUpdates.install(tool, notice.version, options)
+    // A closed tab must never restart, and sibling tabs only get a restart notice.
+    if (activePanels.has(panel) && !t.exited) await restartPanel(context, panel, version)
+  } catch (err) {
+    const error = err instanceof Error ? err.message : String(err)
+    if (activePanels.has(panel)) postCliUpdate(panel, { kind: "error", canUpdate: true, error })
+    void vscode.window.showErrorMessage(`Could not update ${tool.label}: ${error}`)
+  } finally {
+    for (const peer of peers) {
+      tab(peer).updating = false
+      if (tab(peer).cliUpdate?.kind === "updating") postCliUpdate(peer, { kind: "current" })
+      void refreshCliUpdate(peer)
+    }
+  }
+}
+
 /**
  * A tab whose CLI started before its config (MCP servers, plugins, hooks) or this extension
  * changed is stale: MCP/plugins/hooks are read only at CLI start. Idle tabs restart into the
  * same conversation by themselves; busy ones show a notice until the user restarts.
  */
 export async function checkStale(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
+  if (tab(panel).updating) return
   const tool = tab(panel).tool
   if (tool) await codexHomeFor(tool)
   const spawnedAt = tab(panel).spawnedAt
@@ -1241,8 +1327,8 @@ export function checkAllStale(context: vscode.ExtensionContext): void {
 // firing while a "restart" webview message is still in flight) racing the same panel.
 
 /** Spawns a fresh session for the panel's tool and re-attaches it to the same tab. */
-export async function restartPanel(context: vscode.ExtensionContext, panel: vscode.WebviewPanel): Promise<void> {
-  if (tab(panel).restarting) return
+export async function restartPanel(context: vscode.ExtensionContext, panel: vscode.WebviewPanel, updatedVersion?: string): Promise<void> {
+  if (tab(panel).restarting || (tab(panel).updating && !updatedVersion)) return
   tab(panel).restarting = true
   try {
     const tool = tab(panel).tool
@@ -1257,6 +1343,8 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
       return
     }
     const baseCommand = await commandForRestart(panel, tool)
+    const runningCliVersion = updatedVersion ?? await cliUpdates.version(tool, updateOptions(tool), true)
+    if (!activePanels.has(panel)) return
     // A client close only detaches in the daemon; the old session keeps running until it is
     // explicitly killed. Without this it leaks an orphan CLI process on every restart.
     if (old) {
@@ -1287,6 +1375,8 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
       return
     }
     tab(panel).status = undefined
+    tab(panel).runningCliVersion = runningCliVersion
+    tab(panel).cliUpdate = undefined
     tab(panel).oscTitle = undefined
     // A new conversation is not named by the old one's first prompt; a resumed one still is.
     if (!resumesConversation(tool, baseCommand)) tab(panel).promptTitle = undefined
@@ -1301,6 +1391,7 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     sendTo(panel, { type: "reset" })
     attachConnection(context, panel, tool, connection)
     updateTitle(panel)
+    void refreshCliUpdate(panel)
   } finally {
     tab(panel).restarting = false
   }
@@ -1349,6 +1440,7 @@ function postState(panel: vscode.WebviewPanel): void {
     cliSessionId: tab(panel).cliSessionId,
     configSnapshot: tab(panel).configSnapshot,
     extensionPath: tab(panel).extensionPath,
+    runningCliVersion: tab(panel).runningCliVersion,
     tabId: tab(panel).tabId,
     createdAt: tab(panel).createdAt,
   }

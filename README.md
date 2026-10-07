@@ -124,6 +124,8 @@ Command Palette (`CLI Code:`): New Session · Resume Session · Restart Session 
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `cliCode.statusHooks` | `true` | Keep status hooks installed in every supported agent on `PATH`; `false` removes them. |
+| `cliCode.checkForUpdates` | `true` | Show CLI update notices and **Update & Restart** in the terminal header. |
+| `cliCode.cliUpdates` | `{}` | Optional version/check/update commands by CLI id, in User settings, for custom installations or release channels. |
 | `cliCode.notifications` | `true` | Notify when an agent finishes or starts waiting on a tab you are not looking at. |
 | `cliCode.quickCommands` | `[]` | `{ "label", "text", "submit"? }` entries; User settings = global, Workspace settings = project. |
 | `cliCode.composer` | `false` | Experimental chat-style input under the terminal (applies to new tabs). |
