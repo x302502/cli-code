@@ -35,6 +35,19 @@ function makeSession(schedule: (fn: () => void, ms: number) => unknown = (fn) =>
 }
 
 describe("Session", () => {
+  it("tracks session switches without changing agent status and rejects a nested CLI identity", () => {
+    const { session } = makeSession()
+    const events: unknown[] = []
+    session.onMeta((e) => events.push(e))
+    session.reportStatus("working", "prompt", "original", { fromHook: true, cliPid: 123 })
+    session.reportStatus("done", undefined, "selected", { fromHook: true, cliPid: 123, identityOnly: true, cliSessionFile: "/custom/selected.jsonl" })
+    expect(session.status?.state).toBe("working")
+    expect(session.cliSessionId).toBe("selected")
+    expect(events.at(-1)).toEqual({ kind: "cliSession", cliSessionId: "selected", cliSessionFile: "/custom/selected.jsonl" })
+    session.reportStatus("done", undefined, "nested", { fromHook: true, cliPid: 456, identityOnly: true })
+    expect(session.cliSessionId).toBe("selected")
+    session.dispose()
+  })
   it("chuyển output của PTY ra dạng byte", () => {
     const { session, emit } = makeSession()
     const chunks: Uint8Array[] = []

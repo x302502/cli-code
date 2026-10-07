@@ -2,6 +2,16 @@ import { describe, expect, it } from "bun:test"
 import { mapHookEvent } from "../src/lib/hook-map.js"
 
 describe("mapHookEvent", () => {
+  it("OMP carries the exact transcript path for profiles and custom session directories", () => {
+    const payload = { hook_event_name: "SessionStart", session_id: "id", session_file: "/custom/id.jsonl" }
+    expect(mapHookEvent(payload, "omp")?.cliSessionFile).toBe("/custom/id.jsonl")
+    expect(mapHookEvent({ ...payload, hook_event_name: "Stop" }, "omp")?.cliSessionFile).toBe("/custom/id.jsonl")
+  })
+  it("session identity changes do not report that an agent completed a turn", () => {
+    expect(mapHookEvent({ hook_event_name: "SessionStart", session_id: "selected" }, "omp"))
+      .toEqual({ state: "done", identityOnly: true, cliSessionId: "selected" })
+    expect(mapHookEvent({ hook_event_name: "SessionStart" }, "omp")).toBeUndefined()
+  })
   it("ánh xạ các sự kiện Claude", () => {
     expect(mapHookEvent({ hook_event_name: "UserPromptSubmit", prompt: "sửa bug" })).toEqual({ state: "working", prompt: "sửa bug" })
     expect(mapHookEvent({ hook_event_name: "Stop" })).toEqual({ state: "done", prompt: undefined })

@@ -42,6 +42,44 @@ async function captured(expected: number): Promise<Record<string, unknown>[]> {
 }
 
 describe("generated status plugin", () => {
+  it("omp delivers startup, switch and status in order even when the first hook is slow", async () => {
+    const ordered = path.join(dir, "ordered.jsonl")
+    const slow = path.join(dir, "slow.cjs")
+    fs.writeFileSync(slow, `let input = ""; process.stdin.on("data", c => input += c); process.stdin.on("end", () => {
+      const p = JSON.parse(input); setTimeout(() => require("node:fs").appendFileSync(${JSON.stringify(ordered)}, input + "\\n"), p.session_id === "original" ? 250 : 0)
+    })`)
+    process.env.CLI_CODE_HOOK = `node "${slow}"`
+    const ext = await load("omp")
+    const handlers: Record<string, (e: unknown, c: unknown) => Promise<void>> = {}
+    ext({ on: (name: string, fn: (e: unknown, c: unknown) => Promise<void>) => (handlers[name] = fn) })
+    const ctx = (id: string) => ({ sessionManager: { getSessionId: () => id } })
+    await handlers.session_start!({}, ctx("original"))
+    await handlers.session_switch!({}, ctx("selected"))
+    await handlers.before_agent_start!({ prompt: "hello" }, ctx("selected"))
+    for (let i = 0; i < 100; i++) {
+      if (fs.existsSync(ordered) && fs.readFileSync(ordered, "utf8").trim().split("\n").length === 3) break
+      await new Promise((r) => setTimeout(r, 20))
+    }
+    const reports = fs.readFileSync(ordered, "utf8").trim().split("\n").map((line) => JSON.parse(line))
+    expect(reports.map((p) => p.session_id)).toEqual(["original", "selected", "selected"])
+    expect(reports.at(-1).hook_event_name).toBe("UserPromptSubmit")
+  })
+  it("omp reports the current session immediately on start and switch, before any prompt", async () => {
+    const ext = await load("omp")
+    const handlers: Record<string, (e: unknown, c: unknown) => Promise<void>> = {}
+    ext({ on: (name: string, fn: (e: unknown, c: unknown) => Promise<void>) => (handlers[name] = fn) })
+    const ctx = (id: string) => ({ cwd: "/w/proj", sessionManager: { getSessionId: () => id, getSessionFile: () => `/custom/${id}.jsonl` } })
+    expect(typeof handlers.session_start).toBe("function")
+    expect(typeof handlers.session_switch).toBe("function")
+    await handlers.session_start!({}, ctx("original"))
+    await handlers.session_switch!({ reason: "resume" }, ctx("selected"))
+    const ids = (await captured(2)).map((p) => p.session_id).sort()
+    expect(ids).toEqual(["original", "selected"])
+    for (const payload of await captured(2)) {
+      expect(payload.identityOnly).toBe(true)
+      expect(payload.session_file).toBe(`/custom/${payload.session_id}.jsonl`)
+    }
+  })
   it("is marked as managed", () => {
     expect(isManagedPlugin(pluginSource("opencode"))).toBe(true)
     expect(isManagedPlugin("export default {}")).toBe(false)

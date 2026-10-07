@@ -41,6 +41,8 @@ export class Session {
   private readonly coalescer: { push(chunk: Uint8Array): void; flush(): void }
   cwd: string | undefined
   oscTitle: string | undefined
+  cliSessionId: string | undefined
+  cliSessionFile: string | undefined
   status: { state: AgentState; prompt?: string; cliSessionId?: string } | undefined
   private waitingTool: string | undefined
   /** Characters written to the mirror it has not parsed yet (see onData). */
@@ -147,7 +149,7 @@ export class Session {
     state: AgentState,
     prompt?: string,
     cliSessionId?: string,
-    opts: { tool?: string; toolDone?: string; agent?: string; agentDone?: string; cliPid?: number; fromHook?: boolean } = {},
+    opts: { tool?: string; toolDone?: string; agent?: string; agentDone?: string; cliPid?: number; fromHook?: boolean; identityOnly?: boolean; cliSessionFile?: string } = {},
   ): void {
     // The first CLI process to report owns the tab; a same-kind CLI nested inside it (which
     // inherits the tab's env, so reaches the same hook) is another process and is ignored.
@@ -159,6 +161,14 @@ export class Session {
         this.ownerDecided = true
         this.reporterPid = opts.cliPid
       } else if (opts.cliPid !== undefined && this.reporterPid !== undefined && opts.cliPid !== this.reporterPid) return
+    }
+    if (opts.identityOnly) {
+      if (!cliSessionId) return
+      this.cliSessionFile = opts.cliSessionFile ?? (cliSessionId === this.cliSessionId ? this.cliSessionFile : undefined)
+      this.cliSessionId = cliSessionId
+      if (this.status) this.status.cliSessionId = cliSessionId
+      this.metaListener?.({ kind: "cliSession", cliSessionId, cliSessionFile: this.cliSessionFile })
+      return
     }
     if (opts.toolDone !== undefined || opts.agentDone !== undefined) {
       if (this.status?.state !== "waiting") return
@@ -172,7 +182,12 @@ export class Session {
       this.waitingAgent = opts.agent ?? this.waitingAgent
     } else this.waitingTool = this.waitingAgent = undefined
     // The CLI's own session id (from its hook) is kept across later reports that omit it.
-    this.status = { state, prompt, cliSessionId: cliSessionId ?? this.status?.cliSessionId }
+    if (cliSessionId) {
+      this.cliSessionFile = opts.cliSessionFile ?? (cliSessionId === this.cliSessionId ? this.cliSessionFile : undefined)
+      this.cliSessionId = cliSessionId
+      if (opts.cliSessionFile) this.metaListener?.({ kind: "cliSession", cliSessionId, cliSessionFile: this.cliSessionFile })
+    }
+    this.status = { state, prompt, cliSessionId: this.cliSessionId }
     this.metaListener?.({ kind: "status", ...this.status })
   }
 

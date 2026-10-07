@@ -4,6 +4,13 @@ import type { SessionSummary } from "./history/types.js"
 /** What a session id may look like: it is spliced into a shell command line. */
 export const SAFE_ID = /^[\w.-]+$/
 
+/** For an update restart, an unknown conversation must stay running rather than be guessed. */
+export function exactRestartCommand(tool: CliTool, baseCommand: string, reportedSessionId?: string): string | undefined {
+  if (!tool.resumeCommand) return undefined
+  const id = reportedSessionId ?? sessionIdFromCommand(baseCommand, tool.resumeCommand)
+  return id && SAFE_ID.test(id) ? tool.resumeCommand.replace("{sessionId}", id) : undefined
+}
+
 /**
  * The command a restarted tab should run so it lands back in the same conversation:
  * the CLI's resume command with the session id (reported by its hook, located in its own

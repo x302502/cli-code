@@ -2,12 +2,19 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { locateLatestSession } from "../src/lib/history/locate.js"
+import { locateLatestSession, sessionFileHasId } from "../src/lib/history/locate.js"
 
 let home: string
 const cwd = "/w/proj"
 beforeEach(() => (home = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-locate-"))))
 afterEach(() => fs.rmSync(home, { recursive: true, force: true }))
+
+it("validates a custom OMP transcript by its header ID, including title metadata before the header", () => {
+  const file = write("custom/id.jsonl", '{"type":"title","title":"test"}\n{"type":"session","id":"selected"}\n', Date.now())
+  expect(sessionFileHasId(file, "selected")).toBe(true)
+  expect(sessionFileHasId(file, "other")).toBe(false)
+  expect(sessionFileHasId(path.join(home, "missing.jsonl"), "selected")).toBe(false)
+})
 
 function write(rel: string, text: string, mtimeMs: number) {
   const p = path.join(home, rel)

@@ -16,12 +16,14 @@ export const MSG = {
   Cwd: 21,
   Title: 22,
   Status: 23,
+  CliSession: 24,
 } as const
 
 export type AgentState = "working" | "waiting" | "blocked" | "done"
 export const AGENT_STATES: readonly AgentState[] = ["working", "waiting", "blocked", "done"]
 
 export type MetaEvent =
+  | { kind: "cliSession"; cliSessionId: string; cliSessionFile?: string }
   | { kind: "cwd"; cwd: string }
   | { kind: "title"; title: string }
   | { kind: "status"; state: AgentState; prompt?: string; cliSessionId?: string }
