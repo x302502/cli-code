@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.8](https://github.com/x302502/cli-code/compare/v0.2.7...v0.2.8) (2026-10-07)
+
+
+### Bug fixes
+
+* refresh the header promptly when CLI models change ([#20](https://github.com/x302502/cli-code/issues/20)) ([56354ff](https://github.com/x302502/cli-code/commit/56354ff9e5832b245a3fa40260351c62d2658a8d))
+
 ## [0.2.7](https://github.com/x302502/cli-code/compare/v0.2.6...v0.2.7) (2026-10-07)
 
 
