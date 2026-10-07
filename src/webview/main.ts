@@ -426,6 +426,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     actionBar.setNotice("")
     actionBar.setUpdate({ kind: "current" })
     actionBar.setStatus("")
+    actionBar.setModel("")
     overlay.hide()
     draftPreview.reset()
     term.reset()

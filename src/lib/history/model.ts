@@ -1,7 +1,7 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
 import { encodeClaudeProjectDir } from "./claude.js"
-import { locateLatestSession, locateLatestSessionFile, openDb } from "./locate.js"
+import { locateLatestSession, locateLatestSessionFile, openDb, sessionFileHasId } from "./locate.js"
 import { head, newestFiles, tail } from "./files.js"
 import { codexRolloutById, codexSessions, grokSessions } from "./scan.js"
 
@@ -42,8 +42,11 @@ function modelFromFile(file: string): string | undefined {
  * tab's directory (the session started at/after `sinceMs`, or `sessionId` when known).
  * Best effort and read-only: unknown CLI, missing store or schema surprise → undefined.
  */
-export function detectModel(toolId: string, cwd: string, sinceMs: number, home: string, sessionId?: string): string | undefined {
+export function detectModel(toolId: string, cwd: string, sinceMs: number, home: string, sessionId?: string, sessionFile?: string): string | undefined {
   try {
+    if (sessionFile && sessionId && (toolId === "omp" || toolId === "pi")) {
+      return sessionFileHasId(sessionFile, sessionId) ? modelFromFile(sessionFile) : undefined
+    }
     switch (toolId) {
       case "claude":
       case "claude-agent-teams": {

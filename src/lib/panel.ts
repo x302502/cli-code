@@ -98,6 +98,9 @@ type TabState = {
   lastOutputAt?: number
   /** Last model id shown in the tab's action bar, so unchanged detections post nothing. */
   model?: string
+  /** A CLI's live selection takes precedence over its last completed transcript turn. */
+  modelLive?: boolean
+  modelRefreshTimer?: ReturnType<typeof setTimeout>
   modelCheckedAt?: number
   wiring?: Wiring
   cwd?: string
@@ -126,20 +129,28 @@ function tab(panel: vscode.WebviewPanel): TabState {
   return t
 }
 
-const MODEL_REFRESH_MS = 30_000
+const MODEL_REFRESH_MS = 1_000
 // Every hook event asks for the model too, and the lookup walks the CLI's session store on the
 // extension host's thread; one scan per this many ms is enough to notice a /model change.
-const MODEL_THROTTLE_MS = 5_000
+const MODEL_THROTTLE_MS = 500
 
 /** Reads the CLI's current model from its session store and tells the webview when it changed. */
 function refreshModel(panel: vscode.WebviewPanel): void {
   const tool = tab(panel).tool
   const cwd = usableCwd(tab(panel).cwd) ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
-  if (!tool || !cwd || !activePanels.has(panel)) return
+  if (!tool || !cwd || !activePanels.has(panel) || tab(panel).modelLive) return
   const now = Date.now()
-  if (now - (tab(panel).modelCheckedAt ?? 0) < MODEL_THROTTLE_MS) return
+  const remaining = MODEL_THROTTLE_MS - (now - (tab(panel).modelCheckedAt ?? 0))
+  if (remaining > 0) {
+    // Keep a trailing read: discarding the final event in a burst leaves the old model visible.
+    if (!tab(panel).modelRefreshTimer) tab(panel).modelRefreshTimer = setTimeout(() => {
+      tab(panel).modelRefreshTimer = undefined
+      refreshModel(panel)
+    }, remaining + 10)
+    return
+  }
   tab(panel).modelCheckedAt = now
-  const model = detectModel(tool.historyToolId ?? tool.id, cwd, tab(panel).spawnedAt ?? 0, os.homedir(), tab(panel).cliSessionId)
+  const model = detectModel(tool.historyToolId ?? tool.id, cwd, tab(panel).spawnedAt ?? 0, os.homedir(), tab(panel).cliSessionId, tab(panel).cliSessionFile)
   if (model === tab(panel).model) return
   tab(panel).model = model || undefined
   sendTo(panel, { type: "model", model: model ?? "" })
@@ -275,6 +286,7 @@ export function listActivePanels(): vscode.WebviewPanel[] {
 export function inspectPanel(panel: vscode.WebviewPanel): {
   sessionId?: string
   cliSessionId?: string
+  model?: string
   cwd?: string
   status?: { state: AgentState; prompt?: string }
   ready: boolean
@@ -283,6 +295,7 @@ export function inspectPanel(panel: vscode.WebviewPanel): {
   return {
     sessionId: tab(panel).connection?.sessionId,
     cliSessionId: tab(panel).cliSessionId,
+    model: tab(panel).model,
     cwd: tab(panel).cwd,
     status: tab(panel).status,
     ready: tab(panel).wiring?.ready ?? false,
@@ -914,7 +927,10 @@ function wirePanel(
   // can arrive before the page finishes loading, would be posted into the void.
   tab(panel).wiring = { ready: false, pending: [] }
   const updateTimer = setInterval(() => void refreshCliUpdate(panel), 60_000)
-  const stopUpdates = () => clearInterval(updateTimer)
+  const stopUpdates = () => {
+    clearInterval(updateTimer)
+    clearTimeout(tab(panel).modelRefreshTimer)
+  }
   panel.onDidDispose(stopUpdates)
   context.subscriptions.push({ dispose: stopUpdates })
 
@@ -924,6 +940,7 @@ function wirePanel(
     if (e.webviewPanel.active) lastFocusedPanel = panel
     if (e.webviewPanel.visible) {
       void refreshCliUpdate(panel)
+      refreshModel(panel)
       tab(panel).unread = false
       updateTitle(panel)
       // Flipping between tabs fires this constantly; the config walk behind it (stat + two
@@ -990,6 +1007,7 @@ function attachConnection(
   connection.onData((bytes) => {
     tab(panel).lastOutputAt = Date.now()
     sendTo(panel, { type: "data", bytes })
+    if (panel.visible) refreshModel(panel)
     if (tab(panel).initialInput) {
       clearTimeout(quietTimer)
       quietTimer = setTimeout(flushInitialInput, 400)
@@ -1006,11 +1024,22 @@ function attachConnection(
   })
   connection.onMeta((e) => {
     // cwd and the CLI's session id are part of the serialized state; re-post when they arrive.
-    if (e.kind === "cliSession") {
+    if (e.kind === "model") {
+      if (e.cliSessionId && e.cliSessionId !== tab(panel).cliSessionId) return
+      tab(panel).modelLive = true
+      tab(panel).model = e.model || undefined
+      sendTo(panel, { type: "model", model: e.model })
+    } else if (e.kind === "cliSession") {
+      if (e.cliSessionId !== tab(panel).cliSessionId) {
+        tab(panel).modelLive = false
+        tab(panel).model = undefined
+        sendTo(panel, { type: "model", model: "" })
+      }
       tab(panel).cliSessionId = e.cliSessionId
       tab(panel).cliSessionFile = e.cliSessionFile
       tab(panel).modelCheckedAt = undefined
       postState(panel)
+      refreshModel(panel)
     } else if (e.kind === "cwd") {
       tab(panel).cwd = e.cwd
       postState(panel)
@@ -1028,6 +1057,9 @@ function attachConnection(
       else if (previous !== undefined && previous !== "working" && e.state === "working") tracker.promptStarted()
       if (e.cliSessionId && e.cliSessionId !== tab(panel).cliSessionId) {
         tab(panel).cliSessionFile = undefined
+        tab(panel).modelLive = false
+        tab(panel).model = undefined
+        sendTo(panel, { type: "model", model: "" })
         tab(panel).cliSessionId = e.cliSessionId
         // A newly known session id makes the model readable from one file: re-read now
         // rather than waiting out the throttle.
@@ -1070,6 +1102,7 @@ function attachConnection(
       tab(panel).postedTitle = undefined
       postTitle(panel)
       if (tab(panel).cliUpdate) sendTo(panel, { type: "cliUpdate", notice: tab(panel).cliUpdate })
+      if (tab(panel).model) sendTo(panel, { type: "model", model: tab(panel).model! })
       void refreshCliUpdate(panel)
       if (wiring.everReady) {
         // A reloaded webview is blank and the daemon sends a screen only on attach: attach again.
@@ -1077,10 +1110,9 @@ function attachConnection(
         return
       }
       wiring.everReady = true
-      // The model pill: a first read once the CLI has had a moment to write its session,
-      // then a slow poll (CLIs log /model changes into the same store). Once per tab.
-      setTimeout(() => refreshModel(panel), 3_000)
-      const modelTimer = setInterval(() => refreshModel(panel), MODEL_REFRESH_MS)
+      // Live plugin reports arrive directly; stores are a fallback for the remaining CLIs.
+      setTimeout(() => refreshModel(panel), 250)
+      const modelTimer = setInterval(() => { if (panel.visible) refreshModel(panel) }, MODEL_REFRESH_MS)
       panel.onDidDispose(() => clearInterval(modelTimer))
       if (tab(panel).initialInput) capTimer = setTimeout(flushInitialInput, 5000)
     } else if (message.type === "restart") void restartPanel(context, panel)
@@ -1408,6 +1440,11 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     }
     tab(panel).status = undefined
     tab(panel).runningCliVersion = runningCliVersion
+    tab(panel).model = undefined
+    tab(panel).modelLive = false
+    tab(panel).modelCheckedAt = undefined
+    clearTimeout(tab(panel).modelRefreshTimer)
+    tab(panel).modelRefreshTimer = undefined
     tab(panel).cliUpdate = undefined
     tab(panel).oscTitle = undefined
     // A new conversation is not named by the old one's first prompt; a resumed one still is.

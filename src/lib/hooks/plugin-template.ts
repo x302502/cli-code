@@ -80,11 +80,38 @@ export default function CliCodeStatus(api: any) {
   if (!HOOK) return
   const sid = (ctx: any) => { try { return ctx?.sessionManager?.getSessionId?.() } catch { return undefined } }
   const identity = (ctx: any) => ({ session_id: sid(ctx)${trackSession ? ", session_file: (() => { try { return ctx?.sessionManager?.getSessionFile?.() } catch { return undefined } })()" : ""} })
-  ${trackSession ? `for (const name of ["session_start", "session_switch"]) {
+  let lastModel: string | undefined
+  let activeContext: any
+  let modelTimer: ReturnType<typeof setInterval> | undefined
+  function syncModel(ctx: any, selected?: any): void {
+    try {
+      const model = selected ?? ctx?.models?.current?.() ?? ctx?.model
+      if (typeof model?.id !== "string" || !model.id) return
+      const key = String(sid(ctx)) + ":" + model.id
+      if (key === lastModel) return
+      lastModel = key
+      report({ hook_event_name: "ModelChange", ...identity(ctx), model: model.id })
+    } catch {}
+  }
+  for (const name of ["session_start", "session_switch"]) {
     api.on(name, async (_event: any, ctx: any) => {
-      report({ hook_event_name: "SessionStart", ...identity(ctx), identityOnly: true })
+      activeContext = ctx
+      ${trackSession ? 'report({ hook_event_name: "SessionStart", ...identity(ctx), identityOnly: true })' : ""}
+      syncModel(ctx)
+      ${trackSession ? `// OMP has no extension-facing model_changed hook. Its context exposes a live getter;
+      // sampling it is cheap and sees menu/cycling/fallback changes before a transcript exists.
+      if (!modelTimer) {
+        modelTimer = setInterval(() => syncModel(activeContext), 250)
+        modelTimer.unref()
+      }` : ""}
     })
-  }` : ""}
+  }
+  api.on("session_shutdown", async () => {
+    clearInterval(modelTimer)
+    modelTimer = undefined
+    activeContext = undefined
+  })
+  ${trackSession ? "" : 'api.on("model_select", async (event: any, ctx: any) => syncModel(ctx, event?.model))'}
   api.on("before_agent_start", async (event: any, ctx: any) => {
     report({ hook_event_name: "UserPromptSubmit", ...identity(ctx), cwd: ctx?.cwd, prompt: typeof event?.prompt === "string" ? event.prompt : undefined })
   })
@@ -104,7 +131,7 @@ export default function CliCodeStatus(api: any) {
 
 export function pluginSource(flavour: PluginFlavour, from: string): string {
   const body = flavour === "opencode" ? OPENCODE : flavour === "pi" ? PI_OMP("agent_settled", "ui_prompt_start") : PI_OMP("agent_end", "tool_approval_requested", true)
-  return `${MANAGED_HEADER}\n${common(from, flavour === "omp")}${body}`
+  return `${MANAGED_HEADER}\n${common(from, flavour === "omp" || flavour === "pi")}${body}`
 }
 
 export function isManagedPlugin(text: string | undefined): boolean {
