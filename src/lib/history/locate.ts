@@ -8,6 +8,18 @@ import { head, mtimeMs, newestFiles, tail } from "./files.js"
 // Session headers sit in the first lines; no need for the 64 KB the history list reads.
 const HEAD_BYTES = 16 * 1024
 
+/** An OMP path may be allocated before it exists; only a matching on-disk header is resumable. */
+export function sessionFileHasId(file: string, sessionId: string): boolean {
+  try {
+    for (const line of head(file, HEAD_BYTES).split("\n").slice(0, 5)) {
+      let rec: { type?: unknown; id?: unknown }
+      try { rec = JSON.parse(line) } catch { continue }
+      if (rec.type === "session") return rec.id === sessionId
+    }
+  } catch { /* Not yet persisted, or unreadable: keep the live process. */ }
+  return false
+}
+
 /**
  * Finds the id of the session a CLI tab most likely owns: the newest session record that
  * CLI wrote for `cwd` at or after `sinceMs` (the tab's spawn time). Each CLI keeps its own

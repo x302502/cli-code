@@ -10,8 +10,11 @@ type Payload = Record<string, unknown>
  */
 export type MappedHook = {
   state: AgentState
+  /** Lifecycle reports update the conversation identity without changing agent activity. */
+  identityOnly?: boolean
   prompt?: string
   cliSessionId?: string
+  cliSessionFile?: string
   /** The tool a permission dialog waits on (PermissionRequest). */
   tool?: string
   /** A tool that finished (PostToolUse): ends "waiting" only when it is the tool waited on. */
@@ -27,11 +30,16 @@ export type MappedHook = {
 export function mapHookEvent(payload: unknown, from?: string): MappedHook | undefined {
   if (!payload || typeof payload !== "object") return undefined
   const p = payload as Payload
+  const file = from === "omp" && str(p.session_file) ? { cliSessionFile: str(p.session_file) } : {}
+  if (from === "omp" && eventName(p) === "SessionStart") {
+    const id = str(p.session_id)
+    return id ? { state: "done", identityOnly: true, cliSessionId: id, ...file } : undefined
+  }
   const mapped = mapState(p, from)
   if (!mapped) return undefined
   // The CLI's own session id lets a restarted tab resume the same conversation.
   const id = str(p.session_id) ?? str(p.sessionId)
-  return id ? { ...mapped, cliSessionId: id } : mapped
+  return id ? { ...mapped, cliSessionId: id, ...file } : mapped
 }
 
 function str(v: unknown): string | undefined {

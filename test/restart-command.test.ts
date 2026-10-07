@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { continueLatestCommand, restartCommand, resumesConversation, sessionIdFromCommand } from "../src/lib/restart-command.js"
+import { continueLatestCommand, restartCommand, resumesConversation, sessionIdFromCommand, exactRestartCommand } from "../src/lib/restart-command.js"
 import type { CliTool } from "../src/lib/config.js"
 import type { SessionSummary } from "../src/lib/history/types.js"
 
@@ -7,6 +7,16 @@ const claude: CliTool = { id: "claude", label: "Claude", icon: "", command: "cla
 const copilot: CliTool = { id: "copilot", label: "Copilot", icon: "", command: "copilot", continueCommand: "copilot --continue" }
 const plain: CliTool = { id: "pi", label: "Pi", icon: "", command: "pi" }
 const s = (toolId: string, sessionId: string, updatedAt: number): SessionSummary => ({ toolId, sessionId, title: "", updatedAt, source: "" })
+
+describe("exactRestartCommand", () => {
+  it("uses only the tab's reported or pinned identity, never continue/latest", () => {
+    expect(exactRestartCommand(claude, "claude --x", "selected")).toBe("claude --resume selected --x")
+    expect(exactRestartCommand(claude, "claude --resume original --x", "selected")).toBe("claude --resume selected --x")
+    expect(exactRestartCommand(claude, "claude --resume original --x")).toBe("claude --resume original --x")
+    expect(exactRestartCommand(claude, "claude --x")).toBeUndefined()
+    expect(exactRestartCommand(claude, "claude --x", "unsafe;id")).toBeUndefined()
+  })
+})
 
 describe("restartCommand", () => {
   it("prefers the session id the CLI's hook reported, even over a pinned --resume (the user may have switched conversations)", () => {

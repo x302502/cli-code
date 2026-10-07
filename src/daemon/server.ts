@@ -75,7 +75,7 @@ export async function startDaemon(args: {
             }
             // Sent by a CLI hook over its own short-lived connection: it names the
             // session explicitly because it never did a Hello.
-            const report = decodeJsonPayload<{ sessionId: string; state: AgentState; prompt?: string; cliSessionId?: unknown; tool?: unknown; toolDone?: unknown; agent?: unknown; agentDone?: unknown; cliPid?: unknown }>(frame.payload)
+            const report = decodeJsonPayload<{ sessionId: string; state: AgentState; prompt?: string; cliSessionId?: unknown; cliSessionFile?: unknown; identityOnly?: unknown; tool?: unknown; toolDone?: unknown; agent?: unknown; agentDone?: unknown; cliPid?: unknown }>(frame.payload)
             if ((AGENT_STATES as readonly string[]).includes(report.state)) {
               const text = (v: unknown) => (typeof v === "string" ? v : undefined)
               sessions.get(report.sessionId)?.reportStatus(report.state, report.prompt, text(report.cliSessionId), {
@@ -84,6 +84,8 @@ export async function startDaemon(args: {
                 agent: text(report.agent),
                 agentDone: text(report.agentDone),
                 fromHook: true,
+                identityOnly: report.identityOnly === true,
+                cliSessionFile: text(report.cliSessionFile),
                 cliPid: typeof report.cliPid === "number" ? report.cliPid : undefined,
               })
             }
@@ -258,6 +260,7 @@ function wire(session: Session, socket: net.Socket): void {
 }
 
 function metaFrame(e: MetaEvent): Uint8Array {
+  if (e.kind === "cliSession") return encodeJsonFrame(MSG.CliSession, { cliSessionId: e.cliSessionId, cliSessionFile: e.cliSessionFile })
   if (e.kind === "cwd") return encodeJsonFrame(MSG.Cwd, { cwd: e.cwd })
   if (e.kind === "title") return encodeJsonFrame(MSG.Title, { title: e.title })
   return encodeJsonFrame(MSG.Status, { state: e.state, prompt: e.prompt, cliSessionId: e.cliSessionId })
@@ -269,5 +272,6 @@ function currentMeta(session: Session): Uint8Array[] {
   if (session.cwd) frames.push(encodeJsonFrame(MSG.Cwd, { cwd: session.cwd }))
   if (session.oscTitle) frames.push(encodeJsonFrame(MSG.Title, { title: session.oscTitle }))
   if (session.status) frames.push(encodeJsonFrame(MSG.Status, session.status))
+  if (session.cliSessionId) frames.push(encodeJsonFrame(MSG.CliSession, { cliSessionId: session.cliSessionId, cliSessionFile: session.cliSessionFile }))
   return frames
 }

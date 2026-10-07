@@ -14,13 +14,13 @@ import { codexHomeFromShell } from "./shell-env.js"
 import { classifyOscLink } from "./osc-link.js"
 import { connectSession, connectSessionRetrying, daemonBuildId, daemonBuildStampPath, daemonSocketPath, type SessionConnection } from "./daemon-client.js"
 import { type LinkTarget, type OpenTabRef, findOpenTab, insideFolders, openMode, parsePathLink, resolveLinkTarget } from "./path-resolve.js"
-import { locateLatestSession } from "./history/locate.js"
+import { locateLatestSession, locateLatestSessionFile, sessionFileHasId } from "./history/locate.js"
 import { detectModel } from "./history/model.js"
 import { listSessionsForWorkspace } from "./history/scan.js"
 import { createPromptTracker } from "./prompt-tracker.js"
 import { imageViewFileName, readClipboardImage } from "./clipboard-image.js"
 import { canAutoRestart, changedPath, configPathsFor, configSnapshot, upgradeSnapshot } from "./config-watch.js"
-import { restartCommand, resumesConversation, sessionIdFromCommand } from "./restart-command.js"
+import { exactRestartCommand, restartCommand, resumesConversation, sessionIdFromCommand } from "./restart-command.js"
 import type { AgentState } from "./protocol.js"
 import { decorateTitle } from "./status-glyph.js"
 import { buildEnv, iconFor } from "./terminal.js"
@@ -52,6 +52,7 @@ export type PanelState = {
   command?: string
   spawnedAt?: number
   cliSessionId?: string
+  cliSessionFile?: string
   configSnapshot?: Record<string, string>
   extensionPath?: string
   /** Version the live process started with, retained across editor reloads. */
@@ -88,6 +89,7 @@ type TabState = {
    * hook) — together they let a restart resume the same conversation instead of starting over. */
   spawnedAt?: number
   cliSessionId?: string
+  cliSessionFile?: string
   /** Signatures of the CLI's config files as they were when its process started. */
   configSnapshot?: Record<string, string>
   /** The extension folder (i.e. build) whose hook the tab's CLI was started with. */
@@ -272,6 +274,7 @@ export function listActivePanels(): vscode.WebviewPanel[] {
 /** For integration tests: what the panel registries currently hold for a panel. */
 export function inspectPanel(panel: vscode.WebviewPanel): {
   sessionId?: string
+  cliSessionId?: string
   cwd?: string
   status?: { state: AgentState; prompt?: string }
   ready: boolean
@@ -279,6 +282,7 @@ export function inspectPanel(panel: vscode.WebviewPanel): {
 } {
   return {
     sessionId: tab(panel).connection?.sessionId,
+    cliSessionId: tab(panel).cliSessionId,
     cwd: tab(panel).cwd,
     status: tab(panel).status,
     ready: tab(panel).wiring?.ready ?? false,
@@ -648,6 +652,7 @@ export async function restoreTerminalPanel(
   if (state.command) tab(panel).command = state.command
   if (state.spawnedAt) tab(panel).spawnedAt = state.spawnedAt
   if (state.cliSessionId) tab(panel).cliSessionId = state.cliSessionId
+  if (state.cliSessionFile) tab(panel).cliSessionFile = state.cliSessionFile
   tab(panel).runningCliVersion = state.runningCliVersion
   // The titles too: before wiring, so the first title posted is already right, and before the
   // attach, so a gone tab's Restart still has them.
@@ -1001,7 +1006,12 @@ function attachConnection(
   })
   connection.onMeta((e) => {
     // cwd and the CLI's session id are part of the serialized state; re-post when they arrive.
-    if (e.kind === "cwd") {
+    if (e.kind === "cliSession") {
+      tab(panel).cliSessionId = e.cliSessionId
+      tab(panel).cliSessionFile = e.cliSessionFile
+      tab(panel).modelCheckedAt = undefined
+      postState(panel)
+    } else if (e.kind === "cwd") {
       tab(panel).cwd = e.cwd
       postState(panel)
     } else if (e.kind === "title") {
@@ -1017,6 +1027,7 @@ function attachConnection(
       if (previous === "waiting" && e.state !== "waiting") tracker.reset()
       else if (previous !== undefined && previous !== "working" && e.state === "working") tracker.promptStarted()
       if (e.cliSessionId && e.cliSessionId !== tab(panel).cliSessionId) {
+        tab(panel).cliSessionFile = undefined
         tab(panel).cliSessionId = e.cliSessionId
         // A newly known session id makes the model readable from one file: re-read now
         // rather than waiting out the throttle.
@@ -1342,7 +1353,28 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
       void vscode.window.showErrorMessage("Could not restart: the daemon is not responding.")
       return
     }
-    const baseCommand = await commandForRestart(panel, tool)
+    const exact = updatedVersion && (tool.historyToolId ?? tool.id) === "omp"
+    let baseCommand = exact
+      ? exactRestartCommand(tool, tab(panel).command ?? tool.command, tab(panel).cliSessionId)
+      : await commandForRestart(panel, tool)
+    if (!baseCommand) throw new Error("OMP was updated, but this tab's session ID is not known. The running session was kept. Send a prompt in this tab, then retry Update & Restart.")
+    if ((tool.historyToolId ?? tool.id) === "omp" && (exact || tab(panel).cliSessionFile)) {
+      // OMP allocates an ID at startup, but writes the transcript lazily. An ID alone is
+      // not proof that --resume can open it; check before ending the live conversation.
+      const id = sessionIdFromCommand(baseCommand, tool.resumeCommand!)
+      const cwd = usableCwd(tab(panel).cwd) ?? fallbackCwd()
+      const file = tab(panel).cliSessionFile ?? (id ? locateLatestSessionFile("omp", cwd, 0, os.homedir(), id) : undefined)
+      if (!id || !file || !sessionFileHasId(file, id)) {
+        const error = new Error("This OMP conversation has not been saved yet. The running session was kept. Finish a turn, then retry Restart.")
+        if (updatedVersion) throw error
+        void vscode.window.showWarningMessage(error.message)
+        return
+      }
+      // Resume the verified file itself, including profiles/custom directories and paths with spaces.
+      const quotedFile = process.platform === "win32" ? `'${file.replace(/'/g, "''")}'` : shellQuote(file)
+      baseCommand = tool.resumeCommand!.replace("{sessionId}", quotedFile)
+      tab(panel).cliSessionFile = file
+    }
     const runningCliVersion = updatedVersion ?? await cliUpdates.version(tool, updateOptions(tool), true)
     if (!activePanels.has(panel)) return
     // A client close only detaches in the daemon; the old session keeps running until it is
@@ -1438,6 +1470,7 @@ function postState(panel: vscode.WebviewPanel): void {
     command: tab(panel).command,
     spawnedAt: tab(panel).spawnedAt,
     cliSessionId: tab(panel).cliSessionId,
+    cliSessionFile: tab(panel).cliSessionFile,
     configSnapshot: tab(panel).configSnapshot,
     extensionPath: tab(panel).extensionPath,
     runningCliVersion: tab(panel).runningCliVersion,
