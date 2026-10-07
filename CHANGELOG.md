@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.6](https://github.com/x302502/cli-code/compare/v0.2.5...v0.2.6) (2026-10-07)
+
+
+### Features
+
+* add CLI update notices and update-and-restart actions ([#16](https://github.com/x302502/cli-code/issues/16)) ([9ec812d](https://github.com/x302502/cli-code/commit/9ec812d857e972dbc1f11a32f9d1c49ec166fa7d))
+
 ## [0.2.5](https://github.com/x302502/cli-code/compare/v0.2.4...v0.2.5) (2026-10-06)
 
 
