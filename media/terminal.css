@@ -30,11 +30,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 36px;
+  min-height: 36px;
+  flex-wrap: wrap;
   padding: 0 4px 0 14px;
 }
 #action-left {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 10px;
   min-width: 0;
@@ -95,11 +97,56 @@ body {
 #action-notice {
   color: var(--vscode-descriptionForeground);
 }
+#action-update {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-basis: 100%;
+  order: 2;
+  margin-bottom: 6px;
+  color: var(--vscode-editorWarning-foreground, #cca700);
+  font: 12px var(--vscode-font-family, sans-serif);
+}
+#action-update span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#action-update[data-state="installed"] {
+  color: var(--vscode-testing-iconPassed, #3fb950);
+}
+#action-update[data-state="error"] {
+  color: var(--vscode-errorForeground, #f48771);
+}
+#action-update button {
+  flex: none;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  padding: 3px 7px;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+#action-update button:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+}
+#action-update button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+#action-update button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
 #action-icons {
   display: flex;
   align-items: center;
   gap: 2px;
   margin-left: auto;
+  flex: none;
 }
 #action-icons button {
   width: 30px;

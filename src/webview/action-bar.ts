@@ -3,6 +3,8 @@
  * the terminal, no border, nothing on the left unless the agent needs the user, and a few
  * thin-outline icons flush right. Rare actions live behind "…".
  */
+import type { UpdateNotice } from "../lib/cli-update.js"
+
 type Action = { id: string; label: string; svg: string }
 
 // 20×20 outline glyphs, stroke 1.25 — drawn to match Claude's header icons.
@@ -21,7 +23,8 @@ export function createActionBar(handlers: {
   onRename(title: string): void
   /** Where focus goes when an inline rename ends. */
   onRenameEnd(): void
-}): { setStatus(text: string): void; setModel(model: string): void; setNotice(text: string): void; setTitle(text: string): void } {
+  onUpdate(): void
+}): { setStatus(text: string): void; setModel(model: string): void; setNotice(text: string): void; setTitle(text: string): void; setUpdate(notice: UpdateNotice): void } {
   const bar = document.createElement("div")
   bar.id = "action-bar"
   const left = document.createElement("div")
@@ -39,9 +42,22 @@ export function createActionBar(handlers: {
   notice.id = "action-notice"
   notice.hidden = true
   left.append(title, model, status, notice)
+  const update = document.createElement("div")
+  update.id = "action-update"
+  update.hidden = true
+  const updateText = document.createElement("span")
+  updateText.setAttribute("role", "status")
+  const updateButton = document.createElement("button")
+  updateButton.addEventListener("click", () => {
+    if (updateButton.disabled) return
+    // Lock immediately: a second click must not beat the host's Updating response.
+    updateButton.disabled = true
+    handlers.onUpdate()
+  })
+  update.append(updateText, updateButton)
   const right = document.createElement("div")
   right.id = "action-icons"
-  bar.append(left, right)
+  bar.append(left, right, update)
 
   const icon = (a: Action, onClick: (e: MouseEvent) => void) => {
     const b = document.createElement("button")
@@ -130,6 +146,20 @@ export function createActionBar(handlers: {
   }
 
   return {
+    setUpdate(state) {
+      update.hidden = state.kind === "current"
+      update.dataset.state = state.kind
+      const version = state.version ? ` · v${state.version}` : ""
+      updateText.textContent = state.kind === "installed" ? `✓ Update installed${version}`
+        : state.kind === "updating" ? "Updating CLI…"
+          : state.kind === "error" ? "Update failed" : `Update available${version}`
+      update.title = state.error ?? updateText.textContent
+      updateButton.textContent = state.kind === "installed" ? "Restart to update"
+        : state.kind === "error" ? "Retry update"
+          : state.canUpdate === false ? "Configure update" : "Update & Restart"
+      updateButton.hidden = state.kind === "updating"
+      updateButton.disabled = state.kind === "updating" || state.kind === "current"
+    },
     setStatus(text) {
       status.textContent = text
       status.hidden = !text

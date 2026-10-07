@@ -17,6 +17,7 @@ import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
 import { clickReachesProgram } from "../lib/mouse-gesture.js"
 import { classifyOscLink } from "../lib/osc-link.js"
+import type { UpdateNotice } from "../lib/cli-update.js"
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void
@@ -46,6 +47,7 @@ type HostMessage =
   | { type: "agentStatus"; state: "working" | "waiting" | "blocked" | "done" | "none" }
   | { type: "model"; model: string }
   | { type: "configStale"; reason: string }
+  | { type: "cliUpdate"; notice: UpdateNotice }
 
 const vscode = acquireVsCodeApi()
 
@@ -370,6 +372,7 @@ const actionBar = createActionBar({
   onFind: () => searchBar.show(),
   onRename: (title) => vscode.postMessage({ type: "rename", title }),
   onRenameEnd: () => term.focus(),
+  onUpdate: () => vscode.postMessage({ type: "updateCli" }),
 })
 // Opt-out via the cliCode.composer setting, which the host reflects on <body data-composer>.
 if (document.body.dataset.composer !== "off") createComposer(term)
@@ -421,6 +424,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     // A restarted CLI: whatever the old one left in the bar (a stale-config notice, a
     // waiting banner) no longer holds.
     actionBar.setNotice("")
+    actionBar.setUpdate({ kind: "current" })
     actionBar.setStatus("")
     overlay.hide()
     draftPreview.reset()
@@ -462,6 +466,10 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     term.selectAll()
   } else if (message.type === "configStale") {
     actionBar.setNotice(message.reason ? `● ${message.reason} — restart to apply` : "")
+  } else if (message.type === "cliUpdate") {
+    actionBar.setUpdate(message.notice)
+    fit.fit()
+    vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
   } else if (message.type === "model") {
     actionBar.setModel(message.model)
   } else if (message.type === "agentStatus") {

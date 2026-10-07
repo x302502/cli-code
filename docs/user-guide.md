@@ -245,6 +245,36 @@ Nineteen assistants come back to the **exact** session; nine use `--continue` (A
 opened from Resume Session keeps resuming that session on every restart. To restart everything at
 once (after changing shared configuration, say): Command Palette → **CLI Code: Restart All Sessions**.
 
+**CLI updates in the header.** When a newer release is available, the header shows its version
+and **Update & Restart**. The update runs in your login shell outside the agent's terminal.
+Only after the installed version is verified does the clicked tab restart, using the conversation
+rules above. An update failure keeps the current session running and offers **Retry update**;
+hover the notice to read the error. Other tabs of the same CLI remain running and show
+**✓ Update installed · Restart to update**. That same green notice appears when a CLI updates
+itself or you update it from another terminal. The running version is saved across Reload Window.
+
+Installed versions are checked about once a minute; release lookups are shared between tabs and
+cached for 30 minutes. Checks use the actual installation's npm, pnpm, Yarn, Bun, Homebrew, uv or
+pipx package, plus native Claude Code, opencode and Cursor update paths. Checks never install anything.
+For a custom launcher or an installation that cannot be identified, supply commands in **User**
+settings (keyed by CLI id, for example `claude`, `codex` or `cursor`). `versionCommand` prints the installed version;
+`latestVersionCommand` is a read-only check that prints the available version; `updateCommand`
+runs only after a button click. Commands should print a `major.minor.patch` version (date versions
+such as Cursor's `2026.10.01-build` also work). For example, to keep a pnpm-managed Codex on its
+own release channel:
+
+```json
+"cliCode.cliUpdates": {
+  "codex": {
+    "versionCommand": "codex --version",
+    "latestVersionCommand": "pnpm view @openai/codex version",
+    "updateCommand": "pnpm add -g @openai/codex@latest"
+  }
+}
+```
+
+Turn off `cliCode.checkForUpdates` to hide the notices and stop background release checks.
+
 ### 12. Reopen an earlier conversation
 
 Command Palette → **CLI Code: Resume Session** (or 🕘 on the action bar):
@@ -357,6 +387,8 @@ their tabs still get names, links and restart, just no state marks.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | `cliCode.statusHooks` | `true` | Keep status hooks installed in every assistant on `PATH`; `false` removes them. |
+| `cliCode.checkForUpdates` | `true` | Check CLI versions in the background; show **Update & Restart** in the header. |
+| `cliCode.cliUpdates` | `{}` | Custom version/check/update commands keyed by CLI id; User settings only. |
 | `cliCode.notifications` | `true` | Notify when an agent finishes / starts waiting on a tab you are not looking at. |
 | `cliCode.quickCommands` | `[]` | Quick commands `{ label, text, submit? }`. |
 | `cliCode.composer` | `false` | Experimental chat-style input under the terminal: `Enter` sends as one block, `Shift+Enter` newline. Off so the CLI's `/` and `@` menus keep working. Applies to tabs opened after the change. |

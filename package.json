@@ -364,6 +364,35 @@
     "configuration": {
       "title": "CLI Code",
       "properties": {
+        "cliCode.checkForUpdates": {
+          "type": "boolean",
+          "default": true,
+          "description": "Check for CLI updates in the background and show Update & Restart in the terminal header. Installs only when you click the button."
+        },
+        "cliCode.cliUpdates": {
+          "type": "object",
+          "default": {},
+          "scope": "machine",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "versionCommand": {
+                "type": "string",
+                "description": "Command that prints the installed CLI version (defaults to <binary> --version)."
+              },
+              "latestVersionCommand": {
+                "type": "string",
+                "description": "Read-only command that prints the latest available version, for custom release channels or installations."
+              },
+              "updateCommand": {
+                "type": "string",
+                "description": "Command that updates this CLI. Runs in your login shell outside the agent's terminal, only when you click Update & Restart."
+              }
+            }
+          },
+          "description": "Optional update commands keyed by CLI id (for example codex, claude, cursor). Use for custom installations or release channels. Configure in User settings; commands are never taken from workspace settings."
+        },
         "cliCode.statusHooks": {
           "type": "boolean",
           "default": true,
