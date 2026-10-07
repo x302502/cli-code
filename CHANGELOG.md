@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.7](https://github.com/x302502/cli-code/compare/v0.2.6...v0.2.7) (2026-10-07)
+
+
+### Bug fixes
+
+* preserve the selected OMP conversation when updating ([#18](https://github.com/x302502/cli-code/issues/18)) ([bd0882f](https://github.com/x302502/cli-code/commit/bd0882f68beced3539e7436629818685cad97cef))
+
 ## [0.2.6](https://github.com/x302502/cli-code/compare/v0.2.5...v0.2.6) (2026-10-07)
 
 
