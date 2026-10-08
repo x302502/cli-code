@@ -41,7 +41,8 @@ Your files are backed up before they are touched.
 1. Open a project folder in VS Code.
 2. Press **`Cmd + Esc`** (macOS) or **`Ctrl + Esc`** (Windows/Linux).
 3. The picker appears: assistants found on your machine under **Installed**, the others under
-   **Not installed**. Pick one.
+   **Not installed**. Pick one. Click the star beside an installed assistant to make it your
+   default: it moves to the top of the list, so Enter opens it. Click the star again to unset.
 
    ![The assistant picker](../images/screenshots/picker-highlighted.png)
 
@@ -142,7 +143,8 @@ On the left the bar shows:
 
 - **The model in use**, e.g. `claude-opus-5` or `gpt-5.6-luna`. CLI Code reads it from the CLI's
   own session file (3 s after the tab opens, then every 30 s), so switching with `/model` shows
-  up. Hidden for assistants that do not record a model.
+  up. OMP, Pi and Cline show it with its provider, e.g. `github-copilot/claude-opus-5.5`. Hidden
+  for assistants that do not record a model.
 - A status line, `● Waiting for your confirmation`, while the agent waits on you.
 - A reminder, `● <file> changed — restart to apply`, when the running CLI is older than its
   configuration ([section 13](#13-when-you-change-mcp--plugins--hooks-the-tab-restarts-itself)).
@@ -256,6 +258,10 @@ itself or you update it from another terminal. The running version is saved acro
 Installed versions are checked about once a minute; release lookups are shared between tabs and
 cached for 30 minutes. Checks use the actual installation's npm, pnpm, Yarn, Bun, Homebrew, uv or
 pipx package, plus native Claude Code, opencode and Cursor update paths. Checks never install anything.
+The update itself runs the CLI's own command (`claude update`, `omp update`, `opencode upgrade`,
+`pi update --self`, …) for Claude Code, Codex, Grok, Copilot, opencode, MiMo, Kilo, OMP, Antigravity,
+Amp, Cline, Command Code, Droid, Cursor and Pi, because the CLI knows how it was installed. Any other
+CLI is updated with the package manager that owns its installation.
 For a custom launcher or an installation that cannot be identified, supply commands in **User**
 settings (keyed by CLI id, for example `claude`, `codex` or `cursor`). `versionCommand` prints the installed version;
 `latestVersionCommand` is a read-only check that prints the available version; `updateCommand`
@@ -388,6 +394,7 @@ their tabs still get names, links and restart, just no state marks.
 | --- | --- | --- |
 | `cliCode.statusHooks` | `true` | Keep status hooks installed in every assistant on `PATH`; `false` removes them. |
 | `cliCode.checkForUpdates` | `true` | Check CLI versions in the background; show **Update & Restart** in the header. |
+| `cliCode.defaultCli` | `""` | CLI id listed first in the picker; set it with the star in the picker. |
 | `cliCode.cliUpdates` | `{}` | Custom version/check/update commands keyed by CLI id; User settings only. |
 | `cliCode.notifications` | `true` | Notify when an agent finishes / starts waiting on a tab you are not looking at. |
 | `cliCode.quickCommands` | `[]` | Quick commands `{ label, text, submit? }`. |
