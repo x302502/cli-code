@@ -418,6 +418,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     vscode.setState({ ...(message.state as object), draft: savedDraft })
   } else if (message.type === "font") {
     term.options.fontSize = message.size
+    document.body.style.setProperty("--cli-code-font-size", String(message.size))
     fit.fit()
     vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
   } else if (message.type === "reset") {

@@ -150,11 +150,87 @@ const runCommand: Dependencies["run"] = (command, tool, timeoutMs) =>
       args,
       { env, cwd: os.homedir(), timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024, windowsHide: true },
       (err, stdout, stderr) => {
-        if (err) reject(new Error(stderr.trim().slice(-1000) || err.message))
+        if (err) reject(new Error((stderr.trim() || stdout.trim()).slice(-1000) || err.message))
         else resolve(stdout || stderr)
       },
     )
   })
+
+/**
+ * Each CLI's own update command, read from its `update --help`. It knows how it was installed
+ * (npm, Homebrew, a native binary, …), which a guess from the executable's path cannot. Only
+ * the package-manager command inferred from the installation is left for CLIs not listed here.
+ */
+const SELF_UPDATE: Record<string, string> = {
+  claude: "claude update",
+  codex: "codex update",
+  grok: "grok update",
+  copilot: "copilot update",
+  opencode: "opencode upgrade",
+  mimo: "mimo upgrade",
+  kilo: "kilo upgrade",
+  omp: "omp update",
+  agy: "agy update",
+  amp: "amp update",
+  cline: "cline update",
+  "command-code": "command-code update",
+  droid: "droid update",
+  "cursor-agent": "cursor-agent update",
+  // Bare `pi update` also refreshes extensions and model catalogs.
+  pi: "pi update --self",
+}
+
+/** The CLI's own update command replaces the one inferred from its installation. */
+export function withSelfUpdate(binary: string, profile: Profile | undefined): Profile | undefined {
+  const updateCommand = SELF_UPDATE[binary]
+  return updateCommand ? { ...profile, updateCommand } : profile
+}
+
+async function detectProfile(tool: CliTool): Promise<Profile | undefined> {
+  const binary = extractBinary(tool.command)
+  if (!/^[\w.-]+$/.test(binary)) return undefined
+  try {
+    const resolved = (
+      await runCommand(
+        process.platform === "win32"
+          ? `(Get-Command ${quote(binary)} -ErrorAction Stop).Source`
+          : `command -v ${quote(binary)}`,
+        tool,
+        8_000,
+      )
+    )
+      .trim()
+      .split("\n")
+      .pop()!
+    const executable = fs.realpathSync(resolved)
+    const installation = installationProfile(binary, executable)
+    if (installation) return installation
+    // Native updaters own their installation method and do not install a second copy.
+    if (binary === "claude") {
+      let channel = "latest"
+      try {
+        const settings = JSON.parse(fs.readFileSync(path.join(os.homedir(), ".claude/settings.json"), "utf8"))
+        if (settings.autoUpdatesChannel === "stable") channel = "stable"
+      } catch {
+        /* Default release channel. */
+      }
+      return {
+        latestUrl: `https://registry.npmjs.org/%40anthropic-ai%2Fclaude-code/${channel}`,
+        updateCommand: "claude update",
+      }
+    }
+    if (binary === "opencode")
+      return {
+        latestUrl: "https://api.github.com/repos/anomalyco/opencode/releases/latest",
+        updateCommand: "opencode upgrade",
+      }
+    if (binary === "cursor-agent")
+      return { latestUrl: "https://cursor.com/install", updateCommand: "cursor-agent update" }
+  } catch {
+    /* Missing executable or custom launcher: still allow version checks. */
+  }
+  return undefined
+}
 
 const defaults: Dependencies = {
   run: runCommand,
@@ -167,49 +243,7 @@ const defaults: Dependencies = {
     return response.headers.get("content-type")?.includes("json") ? response.json() : response.text()
   },
   async profile(tool) {
-    const binary = extractBinary(tool.command)
-    if (!/^[\w.-]+$/.test(binary)) return undefined
-    try {
-      const resolved = (
-        await runCommand(
-          process.platform === "win32"
-            ? `(Get-Command ${quote(binary)} -ErrorAction Stop).Source`
-            : `command -v ${quote(binary)}`,
-          tool,
-          8_000,
-        )
-      )
-        .trim()
-        .split("\n")
-        .pop()!
-      const executable = fs.realpathSync(resolved)
-      const installation = installationProfile(binary, executable)
-      if (installation) return installation
-      // Native updaters own their installation method and do not install a second copy.
-      if (binary === "claude") {
-        let channel = "latest"
-        try {
-          const settings = JSON.parse(fs.readFileSync(path.join(os.homedir(), ".claude/settings.json"), "utf8"))
-          if (settings.autoUpdatesChannel === "stable") channel = "stable"
-        } catch {
-          /* Default release channel. */
-        }
-        return {
-          latestUrl: `https://registry.npmjs.org/%40anthropic-ai%2Fclaude-code/${channel}`,
-          updateCommand: "claude update",
-        }
-      }
-      if (binary === "opencode")
-        return {
-          latestUrl: "https://api.github.com/repos/anomalyco/opencode/releases/latest",
-          updateCommand: "opencode upgrade",
-        }
-      if (binary === "cursor-agent")
-        return { latestUrl: "https://cursor.com/install", updateCommand: "cursor-agent update" }
-    } catch {
-      /* Missing executable or custom launcher: still allow version checks. */
-    }
-    return undefined
+    return withSelfUpdate(extractBinary(tool.command), await detectProfile(tool))
   },
 }
 
@@ -226,7 +260,12 @@ export class CliUpdates {
     const old = this.cache.get(key)
     if (old && Date.now() - old.at < ttl) return old.value as Promise<T>
     const value = read()
-    this.cache.set(key, { at: Date.now(), value })
+    const entry = { at: Date.now(), value }
+    this.cache.set(key, entry)
+    // A failed read must not hide the result for the whole TTL.
+    value.catch(() => {
+      if (this.cache.get(key) === entry) this.cache.delete(key)
+    })
     return value
   }
   async version(tool: CliTool, options: UpdateOptions = {}, fresh = false): Promise<string | undefined> {
@@ -260,22 +299,18 @@ export class CliUpdates {
     // A replaced build needs a restart even if its date is unchanged or the user rolled back.
     if (running && installed !== running) return { kind: "installed", version: installed, canUpdate: true }
     const latest = await this.cached(`${this.key(tool, options)}:latest`, 30 * 60_000, async () => {
-      try {
-        if (options.latestVersionCommand)
-          return parseVersion(await this.deps.run(options.latestVersionCommand, tool, 8_000))
-        if (!profile.latestUrl) return undefined
-        const data = (await this.deps.json(profile.latestUrl)) as
-          | string
-          | { version?: string; tag_name?: string; info?: { version?: string }; versions?: { stable?: string } }
-        // Cursor publishes its current release in the install script's download URL.
-        // Read the version only; never execute remotely fetched code during a check.
-        if (typeof data === "string")
-          return parseVersion(/downloads\.cursor\.com\/lab\/([^/]+)\//.exec(data)?.[1] ?? data)
-        return parseVersion(data.version ?? data.tag_name ?? data.info?.version ?? data.versions?.stable ?? "")
-      } catch {
-        return undefined
-      }
-    })
+      if (options.latestVersionCommand)
+        return parseVersion(await this.deps.run(options.latestVersionCommand, tool, 8_000))
+      if (!profile.latestUrl) return undefined
+      const data = (await this.deps.json(profile.latestUrl)) as
+        | string
+        | { version?: string; tag_name?: string; info?: { version?: string }; versions?: { stable?: string } }
+      // Cursor publishes its current release in the install script's download URL.
+      // Read the version only; never execute remotely fetched code during a check.
+      if (typeof data === "string")
+        return parseVersion(/downloads\.cursor\.com\/lab\/([^/]+)\//.exec(data)?.[1] ?? data)
+      return parseVersion(data.version ?? data.tag_name ?? data.info?.version ?? data.versions?.stable ?? "")
+    }).catch(() => undefined)
     return latest && (differentBuildOnSameDate(latest, installed) || isNewerVersion(latest, installed))
       ? { kind: "available", version: latest, canUpdate: !!profile.updateCommand }
       : { kind: "current" }

@@ -23,6 +23,11 @@ body {
   padding: 4px;
   box-sizing: border-box;
 }
+/* About one text line of breathing room under the last row. FitAddon subtracts the padding of
+   the .xterm element itself (not of #term), so only this one reduces the row count. */
+#term .xterm {
+  padding-bottom: calc(var(--cli-code-font-size, 13) * 1.15px);
+}
 /* Quiet action bar: same ground as the terminal, no border; icons flush right. */
 #action-bar {
   position: relative;

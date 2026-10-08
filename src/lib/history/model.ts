@@ -7,18 +7,20 @@ import { codexRolloutById, codexSessions, grokSessions } from "./scan.js"
 
 // The model id shows up under a handful of spellings across CLIs' transcripts; the latest
 // occurrence in the file is the model in play (Pi/OMP log a model_change on /model).
-const MODEL_RE = /"(?:model|modelId|model_id|modelID)"\s*:\s*"([^"]*)"/g
+const MODEL_RE = /(?:"provider"\s*:\s*"([^"]*)"\s*,\s*)?"(?:model|modelId|model_id|modelID)"\s*:\s*"([^"]*)"/g
 
-/** Last non-placeholder model id in a chunk of transcript text. */
-export function modelFromText(text: string): string | undefined {
+/** Last non-placeholder model id in a chunk of transcript text. With `withProvider`, a model written
+ * right after its provider reads "provider/model" (Pi/OMP/Cline name models that way). */
+export function modelFromText(text: string, withProvider = false): string | undefined {
   let last: string | undefined
   for (const m of text.matchAll(MODEL_RE)) {
-    const v = m[1]!.trim()
-    if (v && !v.startsWith("<")) last = v
+    const v = m[2]!.trim()
+    if (v && !v.startsWith("<")) last = withProvider && m[1] && !v.startsWith(`${m[1]}/`) ? `${m[1]}/${v}` : v
   }
   return last
 }
 
+const PROVIDER_PREFIXED = new Set(["omp", "pi", "cline"])
 const CHUNK = 64 * 1024
 // Codex rollout file per (cwd, tab spawn time); see the codex case below. Bounded because a
 // restart adds an entry that is never asked for again and the window may live for days.
@@ -28,10 +30,10 @@ const codexRollouts = new Map<string, string>()
 
 /** Head and tail of a transcript — model records sit at the start (session setup) and in
  * every assistant turn, so both ends together cover long sessions cheaply. */
-function modelFromFile(file: string): string | undefined {
+function modelFromFile(file: string, withProvider = false): string | undefined {
   try {
     const start = head(file, CHUNK)
-    return modelFromText(fs.statSync(file).size > CHUNK ? `${start}\n${tail(file, CHUNK)}` : start)
+    return modelFromText(fs.statSync(file).size > CHUNK ? `${start}\n${tail(file, CHUNK)}` : start, withProvider)
   } catch {
     return undefined
   }
@@ -45,7 +47,7 @@ function modelFromFile(file: string): string | undefined {
 export function detectModel(toolId: string, cwd: string, sinceMs: number, home: string, sessionId?: string, sessionFile?: string): string | undefined {
   try {
     if (sessionFile && sessionId && (toolId === "omp" || toolId === "pi")) {
-      return sessionFileHasId(sessionFile, sessionId) ? modelFromFile(sessionFile) : undefined
+      return sessionFileHasId(sessionFile, sessionId) ? modelFromFile(sessionFile, true) : undefined
     }
     switch (toolId) {
       case "claude":
@@ -99,7 +101,7 @@ export function detectModel(toolId: string, cwd: string, sinceMs: number, home: 
       }
       default: {
         const file = locateLatestSessionFile(toolId, cwd, sinceMs, home, sessionId)
-        return file ? modelFromFile(file) : undefined
+        return file ? modelFromFile(file, PROVIDER_PREFIXED.has(toolId)) : undefined
       }
     }
   } catch {

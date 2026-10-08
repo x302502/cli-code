@@ -12,6 +12,13 @@ describe("modelFromText — last model the CLI wrote into its transcript", () =>
     expect(modelFromText('{"modelID":"mimo-v2.5-free","providerID":"opencode"}')).toBe("mimo-v2.5-free")
     expect(modelFromText('{"type":"model_change","model":"github-copilot/gpt-5.6-luna"}')).toBe("github-copilot/gpt-5.6-luna")
   })
+  it("prefixes the provider only when asked", () => {
+    const line = '{"message":{"provider":"github-copilot","model":"claude-opus-5.5"}}'
+    expect(modelFromText(line)).toBe("claude-opus-5.5")
+    expect(modelFromText(line, true)).toBe("github-copilot/claude-opus-5.5")
+    expect(modelFromText('{"provider":"a","model":"a/c"}', true)).toBe("a/c")
+    expect(modelFromText('{"provider":"cline-pass","model":"z-ai/glm-5.3-flash"}', true)).toBe("cline-pass/z-ai/glm-5.3-flash")
+  })
   it("ignores placeholders and returns undefined when nothing is there", () => {
     expect(modelFromText('{"model":"<synthetic>"}')).toBeUndefined()
     expect(modelFromText('{"model":""}\n{"role":"user"}')).toBeUndefined()
@@ -61,6 +68,10 @@ describe("detectModel — per-CLI session stores", () => {
   it("cline: session json", () => {
     write(".cline/data/sessions/c1/c1.json", '{"session_id":"c1","cwd":"/w/proj","provider":"cline-pass","model":"cline-pass/deepseek-v4-pro"}')
     expect(detectModel("cline", cwd, T0, home)).toBe("cline-pass/deepseek-v4-pro")
+  })
+  it("cline: keeps the provider when the model is the upstream vendor's id", () => {
+    write(".cline/data/sessions/c2/c2.json", '{\n  "session_id": "c2",\n  "provider": "cline-pass",\n  "model": "z-ai/glm-5.3-flash",\n  "cwd": "/w/proj"\n}')
+    expect(detectModel("cline", cwd, T0, home)).toBe("cline-pass/z-ai/glm-5.3-flash")
   })
   it("opencode family: latest assistant message of the session", () => {
     const { Database } = require("bun:sqlite") as { Database: new (p: string) => { exec(s: string): void; close(): void } }
@@ -134,4 +145,13 @@ describe("detectModel — a known session id is never swapped for another sessio
     expect(detectModel("pi", cwd, T0, home, "sA")).toBe("model-a")
     expect(detectModel("pi", cwd, T0, home, "sGone")).toBeUndefined()
   })
+})
+
+it("OMP transcripts keep the provider that a later assistant message writes separately", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cli-code-model-provider-"))
+  try {
+    const file = path.join(dir, "selected.jsonl")
+    fs.writeFileSync(file, '{"type":"session","id":"selected"}\n{"type":"model_change","model":"github-copilot/claude-sonnet-5.5"}\n{"type":"message","message":{"provider":"github-copilot","model":"claude-sonnet-5.5"}}\n')
+    expect(detectModel("omp", "/w/proj", Date.now(), dir, "selected", file)).toBe("github-copilot/claude-sonnet-5.5")
+  } finally { fs.rmSync(dir, { recursive: true, force: true }) }
 })

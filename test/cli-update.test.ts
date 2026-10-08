@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { CliUpdates, installationProfile, parseVersion, isNewerVersion } from "../src/lib/cli-update.js"
+import { CliUpdates, installationProfile, parseVersion, isNewerVersion, withSelfUpdate } from "../src/lib/cli-update.js"
 import type { CliTool } from "../src/lib/config.js"
 
 const tool: CliTool = { id: "test", label: "Test", icon: "test.svg", command: "TEST_MODE=1 test-cli --yolo" }
@@ -238,5 +238,38 @@ describe("installation detection", () => {
       "pipx upgrade 'aider-chat'",
     )
     expect(installationProfile("aider", "/project/.venv/bin/aider")).toBeUndefined()
+  })
+})
+
+describe("latest version lookup failures", () => {
+  it("retries after a failed lookup instead of caching it", async () => {
+    let calls = 0
+    const updates = new CliUpdates({
+      run: async () => "1.0.0",
+      profile: async () => profile,
+      json: async () => {
+        if (++calls === 1) throw new Error("offline")
+        return { version: "2.0.0" }
+      },
+    })
+    expect((await updates.check(tool, "1.0.0")).kind).toBe("current")
+    expect((await updates.check(tool, "1.0.0")).kind).toBe("available")
+    expect(calls).toBe(2)
+  })
+})
+
+describe("CLIs update themselves", () => {
+  it("prefers the CLI's own command over the one inferred from its installation", () => {
+    expect(withSelfUpdate("omp", { latestUrl: "u", updateCommand: "bun add -g x@latest" })).toEqual({
+      latestUrl: "u",
+      updateCommand: "omp update",
+    })
+    expect(withSelfUpdate("claude", undefined)).toEqual({ updateCommand: "claude update" })
+    expect(withSelfUpdate("pi", {})?.updateCommand).toBe("pi update --self")
+  })
+  it("leaves a CLI without an update command of its own as detected", () => {
+    const detected = { latestUrl: "u", updateCommand: "pipx upgrade aider" }
+    expect(withSelfUpdate("aider", detected)).toBe(detected)
+    expect(withSelfUpdate("aider", undefined)).toBeUndefined()
   })
 })

@@ -41,7 +41,8 @@ của bạn được sao lưu trước khi sửa.
 1. Mở thư mục dự án trong VS Code.
 2. Bấm **`Cmd + Esc`** (macOS) hoặc **`Ctrl + Esc`** (Windows/Linux).
 3. Bộ chọn hiện ra: trợ lý đã cài nằm dưới **Installed**, chưa cài dưới **Not installed**. Chọn một
-   trợ lý.
+   trợ lý. Bấm ngôi sao (☆) bên cạnh một trợ lý đã cài để đặt làm mặc định: nó nhảy lên đầu danh
+   sách (★ vàng, nhãn `default`), nên chỉ cần Enter là mở. Bấm lại để bỏ.
 
    ![Bộ chọn trợ lý](../images/screenshots/picker-highlighted.png)
 
@@ -141,7 +142,8 @@ Bên trái thanh có:
 
 - **Model đang dùng**, ví dụ `claude-opus-5` hay `gpt-5.6-luna`. CLI Code đọc từ file phiên của
   chính CLI (3 giây sau khi mở tab và mỗi 30 giây), nên đổi model bằng `/model` sẽ được cập nhật.
-  Trợ lý không ghi model thì ẩn.
+  OMP, Pi và Cline hiện kèm provider, ví dụ `github-copilot/claude-opus-5.5`. Trợ lý không ghi
+  model thì ẩn.
 - Dòng trạng thái `● Waiting for your confirmation` khi agent chờ bạn.
 - Nhắc nhở `● <file> changed — restart to apply` khi CLI đang chạy cũ hơn cấu hình của nó
   ([mục 13](#13-khi-bạn-đổi-mcp-plugin-hook-tab-tự-khởi-động-lại)).
@@ -238,6 +240,25 @@ tiến trình cũ và chạy lại **trong cùng hội thoại**, theo thứ t�
 Tổng cộng 19 trợ lý quay về **đúng phiên**; 9 trợ lý dùng `--continue` (Phụ lục A). Tab mở từ
 Resume Session sẽ luôn resume đúng phiên đó ở mọi lần restart. Cần restart hết một lượt (ví dụ
 sau khi đổi cấu hình dùng chung): Command Palette → **CLI Code: Restart All Sessions**.
+
+**Cập nhật CLI ngay trên header.** Khi có bản mới, header hiện số phiên bản và nút **Update &
+Restart**. Việc cập nhật chạy trong login shell của bạn, bên ngoài terminal của agent. Chỉ sau khi
+xác minh đúng phiên bản đã cài thì tab vừa bấm mới restart, theo các quy tắc hội thoại ở trên.
+Cập nhật lỗi thì phiên hiện tại vẫn chạy và có nút **Retry update**; rê chuột lên thông báo để
+đọc lỗi. Các tab khác của cùng CLI vẫn chạy và hiện **✓ Update installed · Restart to update**
+(thông báo xanh này cũng hiện khi CLI tự cập nhật hoặc bạn cập nhật từ terminal khác). Phiên bản
+đang chạy được lưu qua Reload Window.
+
+Phiên bản đã cài được kiểm tra khoảng mỗi phút; tra cứu bản mới được dùng chung giữa các tab và
+cache 30 phút (tra cứu lỗi thì lần sau thử lại, không cache). Việc kiểm tra không bao giờ cài gì.
+Lệnh cập nhật là lệnh riêng của CLI (`claude update`, `omp update`, `opencode upgrade`,
+`pi update --self`, …) với Claude Code, Codex, Grok, Copilot, opencode, MiMo, Kilo, OMP,
+Antigravity, Amp, Cline, Command Code, Droid, Cursor và Pi, vì CLI biết mình được cài bằng cách
+nào. CLI khác được cập nhật bằng package manager đã cài nó (npm, pnpm, Yarn, Bun, Homebrew, uv,
+pipx). Với launcher tùy biến hoặc bản cài không nhận diện được, đặt lệnh trong **User** settings
+`cliCode.cliUpdates` (khóa là id CLI, ví dụ `claude`, `codex`, `cursor`) với `versionCommand`,
+`latestVersionCommand` (chỉ đọc) và `updateCommand` (chỉ chạy sau khi bấm nút). Tắt
+`cliCode.checkForUpdates` để ẩn thông báo và dừng tra cứu nền.
 
 ### 12. Mở lại hội thoại cũ
 
@@ -350,6 +371,9 @@ tên, link, restart, nhưng không có glyph trạng thái.
 | Setting | Mặc định | Ý nghĩa |
 | --- | --- | --- |
 | `cliCode.statusHooks` | `true` | Giữ hook trạng thái trong mọi trợ lý có trên `PATH`; `false` gỡ hết. |
+| `cliCode.checkForUpdates` | `true` | Kiểm tra phiên bản CLI ở nền; hiện **Update & Restart** trên header. |
+| `cliCode.cliUpdates` | `{}` | Lệnh version/kiểm tra/cập nhật tùy biến theo id CLI; chỉ ở User settings. |
+| `cliCode.defaultCli` | `""` | Id CLI mặc định, luôn nằm đầu danh sách chọn; đặt bằng ngôi sao trong menu chọn. |
 | `cliCode.notifications` | `true` | Thông báo khi agent xong / bắt đầu chờ ở tab bạn không nhìn. |
 | `cliCode.quickCommands` | `[]` | Lệnh nhanh `{ label, text, submit? }`. |
 | `cliCode.composer` | `false` | Khung nhập kiểu chat dưới terminal (thử nghiệm): `Enter` gửi nguyên khối, `Shift+Enter` xuống dòng. Tắt để giữ menu `/` và `@` của CLI. Áp dụng cho tab mở sau khi đổi. |

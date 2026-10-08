@@ -1,3 +1,5 @@
+import { controlStringEnd, isControlStringIntroducer, isCsiReply } from "./control-string.js"
+
 const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" })
 
 const PASTE_START = "\x1b[200~"
@@ -147,6 +149,10 @@ export function createDraftMirror(opts: { collapsesPastes?: boolean; restore?: D
         if (next === undefined) {
           // A lone Esc: nothing the input shows changes.
           i++
+        } else if (isControlStringIntroducer(next)) {
+          // The terminal's own reply (OSC colour query, DCS), not typing: skip it whole.
+          const end = controlStringEnd(data, i)
+          i = end === -1 ? data.length : end
         } else if (next === "\r") {
           insert([{ text: "\n" }])
           i += 2
@@ -161,8 +167,8 @@ export function createDraftMirror(opts: { collapsesPastes?: boolean; restore?: D
           while (j < data.length && !(data.charCodeAt(j) >= 0x40 && data.charCodeAt(j) <= 0x7e)) j++
           const params = data.slice(i + 2, j)
           const final = data[j] ?? ""
-          // Mouse reports (SGR "<…") and focus reports (ESC [ I / O) are not edits.
-          const ignored = params.startsWith("<") || (params === "" && (final === "I" || final === "O"))
+          // Mouse reports (SGR "<…"), focus reports (ESC [ I / O) and the terminal's own replies are not edits.
+          const ignored = params.startsWith("<") || (params === "" && (final === "I" || final === "O")) || isCsiReply(params, final)
           if (!ignored && !key(params, final)) uncertain = true
           i = j + 1
         } else if (next === "O" && i + 2 < data.length) {

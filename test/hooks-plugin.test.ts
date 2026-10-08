@@ -91,6 +91,16 @@ describe("generated status plugin", () => {
     await new Promise((r) => setTimeout(r, 350))
     expect(fs.readdirSync(capture)).toHaveLength(3)
   })
+  it("OMP names the model with its provider", async () => {
+    const ext = await load("omp")
+    const handlers: Record<string, (e: unknown, c: unknown) => Promise<void>> = {}
+    ext({ on: (name: string, fn: (e: unknown, c: unknown) => Promise<void>) => (handlers[name] = fn) })
+    const ctx = { sessionManager: { getSessionId: () => "selected" }, model: { provider: "github-copilot", id: "claude-opus-5.5" } }
+    await handlers.session_start!({}, ctx)
+    const reports = await captured(2)
+    expect(reports.find((p) => p.hook_event_name === "ModelChange")?.model).toBe("github-copilot/claude-opus-5.5")
+    await handlers.session_shutdown!({}, ctx)
+  })
   it("Pi reports model_select immediately, without changing activity", async () => {
     const ext = await load("pi")
     const handlers: Record<string, (e: unknown, c: unknown) => Promise<void>> = {}

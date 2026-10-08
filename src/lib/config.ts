@@ -265,3 +265,9 @@ export const CLI_TOOLS: CliTool[] = [
     continueCommand: "devin --permission-mode bypass --continue",
   },
 ]
+
+/** The tools with `defaultId` (when present) moved to the front; the rest keep their order. */
+export function defaultFirst<T extends { id: string }>(tools: T[], defaultId: string | undefined): T[] {
+  const index = tools.findIndex((t) => t.id === defaultId)
+  return index <= 0 ? tools : [tools[index]!, ...tools.slice(0, index), ...tools.slice(index + 1)]
+}
