@@ -87,10 +87,11 @@ export default function CliCodeStatus(api: any) {
     try {
       const model = selected ?? ctx?.models?.current?.() ?? ctx?.model
       if (typeof model?.id !== "string" || !model.id) return
-      const key = String(sid(ctx)) + ":" + model.id
+      const name = typeof model.provider === "string" && model.provider && !model.id.startsWith(model.provider + "/") ? model.provider + "/" + model.id : model.id
+      const key = String(sid(ctx)) + ":" + name
       if (key === lastModel) return
       lastModel = key
-      report({ hook_event_name: "ModelChange", ...identity(ctx), model: model.id })
+      report({ hook_event_name: "ModelChange", ...identity(ctx), model: name })
     } catch {}
   }
   for (const name of ["session_start", "session_switch"]) {
