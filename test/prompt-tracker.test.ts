@@ -1,6 +1,25 @@
 import { describe, expect, it } from "bun:test"
 import { createPromptTracker } from "../src/lib/prompt-tracker.js"
 
+describe("createPromptTracker terminal replies", () => {
+  it("does not read an OSC colour reply as a draft, even split across chunks", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b]10;rgb:abab/b2b2/bfbf\x07\x1b]11;rgb:28")
+    t.feed("28/2c2c/3434\x1b\\\x1bP1+r\x1b\\")
+    expect(t.hasDraft()).toBe(false)
+    t.feed("ab\x1b]4;1;rgb:1/2/3\x07c")
+    expect(t.feed("\r")).toBe("abc")
+  })
+})
+
+describe("createPromptTracker CSI replies", () => {
+  it("does not read cursor-position, device-attribute or mode replies as a draft", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b[24;80R\x1b[?62;4c\x1b[>0;276;0c\x1b[?2004;2$y\x1b[8;40;120t\x1b[?0u\x1b[0n")
+    expect(t.hasDraft()).toBe(false)
+  })
+})
+
 describe("createPromptTracker", () => {
   it("emits a title on Enter, then resets", () => {
     const { feed } = createPromptTracker()

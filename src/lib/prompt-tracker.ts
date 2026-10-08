@@ -1,3 +1,4 @@
+import { controlStringEnd, isControlStringIntroducer, isCsiReply } from "./control-string.js"
 import { formatPromptTitle } from "./tab-title.js"
 
 const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" })
@@ -77,6 +78,16 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
           carry = input.slice(i)
           return submitted
         }
+        // The terminal's own replies (OSC colour queries, DCS) are not typing: skip them whole.
+        if (isControlStringIntroducer(input[i + 1])) {
+          const end = controlStringEnd(input, i)
+          if (end === -1) {
+            carry = input.slice(i)
+            return submitted
+          }
+          i = end
+          continue
+        }
         // ESC CR is Shift+Enter (soft newline) — keep the first line, drop the rest.
         if (input[i + 1] === "\r") {
           line += "\n"
@@ -95,7 +106,8 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
             carry = input.slice(i)
             return submitted
           }
-          if (!(j === i + 2 && (input[j] === "I" || input[j] === "O"))) unknown = typedSinceSubmit = true
+          if (!(j === i + 2 && (input[j] === "I" || input[j] === "O")) && !isCsiReply(input.slice(i + 2, j), input[j]!))
+            unknown = typedSinceSubmit = true
           i = j + 1
         } else if (input[i + 1] === "O" && i + 2 === input.length) {
           // ESC O cut off before its final byte: the next chunk completes it.

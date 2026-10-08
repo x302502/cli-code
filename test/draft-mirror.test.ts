@@ -5,6 +5,29 @@ const PASTE = (text: string) => `\x1b[200~${text}\x1b[201~`
 const LEFT = "\x1b[D"
 const RIGHT = "\x1b[C"
 
+describe("terminal replies are not typing", () => {
+  const OSC = "\x1b]10;rgb:abab/b2b2/bfbf\x07\x1b]11;rgb:2828/2c2c/3434\x1b\\"
+  const DCS = "\x1bP1+r\x1b\\"
+  it("ignores OSC and DCS replies the terminal sends on its own", () => {
+    const d = createDraftMirror()
+    d.feed(OSC + DCS)
+    expect(d.view().segments).toEqual([])
+    expect(showsDraft(d.view())).toBe(false)
+    d.feed("hi" + OSC + "!")
+    expect(d.view().segments).toEqual([{ kind: "typed", text: "hi!" }])
+  })
+})
+
+describe("CSI replies are not typing either", () => {
+  const REPLIES = ["\x1b[24;80R", "\x1b[?62;4c", "\x1b[>0;276;0c", "\x1b[?2004;2$y", "\x1b[8;40;120t", "\x1b[?0u", "\x1b[0n"]
+  it("does not mark the draft uncertain", () => {
+    const d = createDraftMirror()
+    d.feed("hi" + REPLIES.join("") + "!")
+    expect(d.view().segments).toEqual([{ kind: "typed", text: "hi!" }])
+    expect(d.view().uncertain).toBe(false)
+  })
+})
+
 describe("createDraftMirror", () => {
   it("keeps typed text and pastes apart, in order", () => {
     const d = createDraftMirror()
