@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { CLI_TOOLS, type CliTool } from "./config.js"
+import { CLI_TOOLS, defaultFirst, type CliTool } from "./config.js"
 import { detectInstalled, extractBinary } from "./detect.js"
 
 /** A CLI's icon, in its light and dark variants (images/agents-light, images/agents-dark). */
@@ -39,30 +39,43 @@ export async function pickTool(context: vscode.ExtensionContext): Promise<CliToo
   const installedMap = await detectInstalled(binaries)
   if (hidden) return undefined
 
-  const installedItems: ToolPickItem[] = []
-  const notInstalledItems: ToolPickItem[] = []
-
-  for (const tool of CLI_TOOLS) {
-    const binary = extractBinary(tool.command)
-    const isInstalled = installedMap.get(binary) ?? false
-    const item: ToolPickItem = {
-      label: tool.label,
-      description: isInstalled ? tool.description : "not installed",
-      id: tool.id,
-      iconPath: iconFor(context, tool),
-    }
-    if (isInstalled) installedItems.push(item)
-    else notInstalledItems.push(item)
-  }
-
+  const defaultId = () => vscode.workspace.getConfiguration("cliCode").get<string>("defaultCli")
   const separator = (label: string): vscode.QuickPickItem => ({ label, kind: vscode.QuickPickItemKind.Separator })
-  const items: vscode.QuickPickItem[] = []
-  if (installedItems.length > 0) items.push(separator("Installed"), ...installedItems)
-  if (notInstalledItems.length > 0) items.push(separator("Not installed"), ...notInstalledItems)
+  const render = () => {
+    const installedItems: ToolPickItem[] = []
+    const notInstalledItems: ToolPickItem[] = []
+    for (const tool of defaultFirst(CLI_TOOLS, defaultId())) {
+      const binary = extractBinary(tool.command)
+      const isInstalled = installedMap.get(binary) ?? false
+      const isDefault = isInstalled && tool.id === defaultId()
+      const item: ToolPickItem = {
+        label: tool.label,
+        description: isInstalled ? (isDefault ? `$(star-full) default · ${tool.description ?? ""}` : tool.description) : "not installed",
+        id: tool.id,
+        iconPath: iconFor(context, tool),
+        buttons: isInstalled
+          ? [{ iconPath: isDefault ? new vscode.ThemeIcon("star-full", new vscode.ThemeColor("charts.yellow")) : new vscode.ThemeIcon("star-empty"), tooltip: isDefault ? "Default CLI (click to unset)" : "Set as default CLI" }]
+          : [],
+      }
+      if (isInstalled) installedItems.push(item)
+      else notInstalledItems.push(item)
+    }
+    const items: vscode.QuickPickItem[] = []
+    if (installedItems.length > 0) items.push(separator("Installed"), ...installedItems)
+    if (notInstalledItems.length > 0) items.push(separator("Not installed"), ...notInstalledItems)
+    quickPick.items = items
+  }
 
   quickPick.placeholder = "Select a CLI to open"
   quickPick.busy = false
-  quickPick.items = items
+  render()
+  quickPick.onDidTriggerItemButton(async ({ item }) => {
+    const id = (item as ToolPickItem).id
+    await vscode.workspace
+      .getConfiguration("cliCode")
+      .update("defaultCli", id === defaultId() ? undefined : id, vscode.ConfigurationTarget.Global)
+    render()
+  })
 
   quickPick.onDidAccept(() => {
     const selected = quickPick.selectedItems[0]

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { CLI_TOOLS } from "../src/lib/config.js"
+import { CLI_TOOLS, defaultFirst } from "../src/lib/config.js"
 
 describe("CLI_TOOLS", () => {
   it("has unique ids", () => {
@@ -39,5 +39,17 @@ describe("resume commands", () => {
       expect(t.continueCommand).toBeTruthy()
       expect(t.resumeCommand).toBeUndefined()
     }
+  })
+})
+
+describe("defaultFirst", () => {
+  const tools = [{ id: "a" }, { id: "b" }, { id: "c" }]
+  it("moves the default to the front and keeps the rest in order", () => {
+    expect(defaultFirst(tools, "c").map((t) => t.id)).toEqual(["c", "a", "b"])
+  })
+  it("leaves the list alone for no default or an unknown one", () => {
+    expect(defaultFirst(tools, undefined)).toBe(tools)
+    expect(defaultFirst(tools, "")).toBe(tools)
+    expect(defaultFirst(tools, "zzz")).toBe(tools)
   })
 })
