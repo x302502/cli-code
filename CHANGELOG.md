@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.9](https://github.com/x302502/cli-code/compare/v0.2.8...v0.2.9) (2026-10-08)
+
+
+### Features
+
+* default CLI star, own-command CLI updates and provider in model names ([#22](https://github.com/x302502/cli-code/issues/22)) ([33e6b25](https://github.com/x302502/cli-code/commit/33e6b259e25cb09dbfb76af8979ccaec19a450b2))
+
 ## [0.2.8](https://github.com/x302502/cli-code/compare/v0.2.7...v0.2.8) (2026-10-07)
 
 
