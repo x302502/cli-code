@@ -10,6 +10,32 @@ describe("createPromptTracker terminal replies", () => {
     t.feed("ab\x1b]4;1;rgb:1/2/3\x07c")
     expect(t.feed("\r")).toBe("abc")
   })
+
+  it("does not join a lone ESC with the next chunk into a control string", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b")
+    t.feed("P")
+    t.feed("lease fix it")
+    expect(t.hasDraft()).toBe(true)
+    expect(t.feed("\r")).toBe("Please fix it")
+  })
+
+  it("reads Alt+] as a key, not the start of an OSC", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b")
+    t.feed("]x")
+    t.feed("yz")
+    expect(t.hasDraft()).toBe(true)
+    expect(t.feed("\r")).toBe("]xyz")
+  })
+
+  it("gives up on a control string that never ends instead of swallowing input", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b]" + "a".repeat(5000))
+    t.feed("hello")
+    expect(t.hasDraft()).toBe(true)
+    expect(t.feed("\r")).toStartWith("]aaa")
+  })
 })
 
 describe("createPromptTracker CSI replies", () => {
