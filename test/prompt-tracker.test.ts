@@ -20,6 +20,15 @@ describe("createPromptTracker terminal replies", () => {
     expect(t.feed("\r")).toBe("Please fix it")
   })
 
+  it("skips a terminal reply split right after its ESC", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b")
+    t.feed("]11;rgb:0000/0000/0000\x07")
+    expect(t.hasDraft()).toBe(false)
+    t.feed("hello")
+    expect(t.feed("\r")).toBe("hello")
+  })
+
   it("reads Alt+] as a key, not the start of an OSC", () => {
     const t = createPromptTracker()
     t.feed("\x1b")

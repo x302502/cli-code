@@ -46,7 +46,8 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
 
   const feed = (chunk: string): string | undefined => {
     // The terminal emits its replies whole, so a lone ESC held over from the last chunk is a
-    // typed Esc / Alt key: what follows it is never the introducer of a control string.
+    // typed Esc / Alt key — unless what follows is a control string that ends within that chunk
+    // (a reply split right after its ESC).
     const loneEsc = carry === "\x1b"
     const input = carry + chunk
     carry = ""
@@ -85,7 +86,7 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
           return submitted
         }
         // The terminal's own replies (OSC colour queries, DCS) are not typing: skip them whole.
-        if (!(loneEsc && i === 0) && isControlStringIntroducer(input[i + 1])) {
+        if (!(loneEsc && i === 0 && controlStringEnd(input, 0) === -1) && isControlStringIntroducer(input[i + 1])) {
           const end = controlStringEnd(input, i)
           if (end === -1) {
             if (input.length - i <= MAX_CONTROL_CARRY) {
