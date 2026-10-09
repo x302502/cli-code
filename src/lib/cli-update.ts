@@ -129,7 +129,7 @@ export function installationProfile(binary: string, executable: string): Profile
   return undefined
 }
 
-const runCommand: Dependencies["run"] = (command, tool, timeoutMs) =>
+export const runCommand: Dependencies["run"] = (command, tool, timeoutMs) =>
   new Promise((resolve, reject) => {
     const windows = process.platform === "win32"
     const shell = windows

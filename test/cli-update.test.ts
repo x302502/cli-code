@@ -2,7 +2,7 @@ import { describe, expect, it, spyOn } from "bun:test"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { CliUpdates, installationProfile, parseVersion, isNewerVersion, withSelfUpdate } from "../src/lib/cli-update.js"
+import { CliUpdates, installationProfile, runCommand, parseVersion, isNewerVersion, withSelfUpdate } from "../src/lib/cli-update.js"
 import type { CliTool } from "../src/lib/config.js"
 
 const tool: CliTool = { id: "test", label: "Test", icon: "test.svg", command: "TEST_MODE=1 test-cli --yolo" }
@@ -397,5 +397,17 @@ describe("a timeout caused by a broken IPv6 route", () => {
     await expect(updates.install(tool, "2.0.0")).rejects.toThrow("permission denied")
     expect(calls.map((c) => c.ipv4Only)).toEqual([false, false])
     expect(calls.map((c) => c.command)).toEqual(["test-cli update", "npm install -g test-cli@latest"])
+  })
+})
+
+describe("runCommand", () => {
+  it.skipIf(process.platform === "win32")("rejects a command killed on its time limit with a plain timeout message", async () => {
+    const error = await runCommand("exec sleep 5", tool, 1000).catch((e: Error) => e)
+    expect((error as Error).message).toStartWith("Timed out after 1s")
+  })
+  it("reports an ordinary failure as itself, not as a timeout", async () => {
+    const error = await runCommand("exit 3", tool, 10_000).catch((e: Error) => e)
+    expect(error).toBeInstanceOf(Error)
+    expect((error as Error).message).not.toMatch(/timed out/i)
   })
 })
