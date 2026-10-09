@@ -263,13 +263,62 @@ describe("CLIs update themselves", () => {
     expect(withSelfUpdate("omp", { latestUrl: "u", updateCommand: "bun add -g x@latest" })).toEqual({
       latestUrl: "u",
       updateCommand: "omp update",
+      fallbackCommand: "bun add -g x@latest",
     })
-    expect(withSelfUpdate("claude", undefined)).toEqual({ updateCommand: "claude update" })
+    expect(withSelfUpdate("claude", undefined)).toEqual({ updateCommand: "claude update", fallbackCommand: undefined })
     expect(withSelfUpdate("pi", {})?.updateCommand).toBe("pi update --self")
   })
   it("leaves a CLI without an update command of its own as detected", () => {
     const detected = { latestUrl: "u", updateCommand: "pipx upgrade aider" }
     expect(withSelfUpdate("aider", detected)).toBe(detected)
     expect(withSelfUpdate("aider", undefined)).toBeUndefined()
+  })
+})
+
+describe("when the CLI's own update command fails", () => {
+  const withFallback = { ...profile, updateCommand: "test-cli update", fallbackCommand: "npm install -g test-cli@latest" }
+  function setup(failing: string[], profileOverride = withFallback) {
+    let version = "1.0.0"
+    const ran: string[] = []
+    const updates = new CliUpdates({
+      run: async (command) => {
+        if (command === "test-cli --version") return version
+        ran.push(command)
+        if (failing.includes(command)) throw new Error(`${command} failed`)
+        version = "2.0.0"
+        return ""
+      },
+      profile: async () => profileOverride,
+      json: async () => ({ version: "2.0.0" }),
+    })
+    return { updates, ran }
+  }
+  it("falls back to the package-manager command and verifies the result", async () => {
+    const { updates, ran } = setup(["test-cli update"])
+    expect(await updates.install(tool, "2.0.0")).toBe("2.0.0")
+    expect(ran).toEqual(["test-cli update", "npm install -g test-cli@latest"])
+  })
+  it("reports both failures", async () => {
+    const { updates } = setup(["test-cli update", "npm install -g test-cli@latest"])
+    const error = await updates.install(tool, "2.0.0").catch((e: Error) => e)
+    expect((error as Error).message).toContain("test-cli update failed")
+    expect((error as Error).message).toContain("npm install -g test-cli@latest failed")
+  })
+  it("does not run the fallback when the own command works", async () => {
+    const { updates, ran } = setup([])
+    await updates.install(tool, "2.0.0")
+    expect(ran).toEqual(["test-cli update"])
+  })
+  it("does not second-guess a command the user configured", async () => {
+    const { updates, ran } = setup(["custom"])
+    await expect(updates.install(tool, "2.0.0", { updateCommand: "custom" })).rejects.toThrow("custom failed")
+    expect(ran).toEqual(["custom"])
+  })
+  it("keeps the inferred command as the fallback of a self-update", () => {
+    expect(withSelfUpdate("droid", { latestUrl: "u", updateCommand: "npm install -g @factory/cli@latest" })).toEqual({
+      latestUrl: "u",
+      updateCommand: "droid update",
+      fallbackCommand: "npm install -g @factory/cli@latest",
+    })
   })
 })

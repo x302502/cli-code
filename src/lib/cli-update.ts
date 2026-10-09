@@ -13,7 +13,8 @@ export type UpdateNotice = {
   canUpdate?: boolean
   error?: string
 }
-type Profile = { latestUrl?: string; updateCommand?: string }
+/** `fallbackCommand`: what to try when a CLI's own `updateCommand` fails (e.g. droid refuses npm installs). */
+type Profile = { latestUrl?: string; updateCommand?: string; fallbackCommand?: string }
 type Dependencies = {
   run(command: string, tool: CliTool, timeoutMs: number): Promise<string>
   profile(tool: CliTool): Promise<Profile | undefined>
@@ -180,10 +181,12 @@ const SELF_UPDATE: Record<string, string> = {
   pi: "pi update --self",
 }
 
-/** The CLI's own update command replaces the one inferred from its installation. */
+/** The CLI's own update command replaces the one inferred from its installation, which stays
+ * as the fallback: some CLIs refuse to update an installation type, or cannot reach the network. */
 export function withSelfUpdate(binary: string, profile: Profile | undefined): Profile | undefined {
   const updateCommand = SELF_UPDATE[binary]
-  return updateCommand ? { ...profile, updateCommand } : profile
+  if (!updateCommand) return profile
+  return { ...profile, updateCommand, fallbackCommand: profile?.updateCommand }
 }
 
 async function detectProfile(tool: CliTool): Promise<Profile | undefined> {
@@ -285,7 +288,9 @@ export class CliUpdates {
     const detected = await this.cached(`${this.key(tool, options)}:profile`, 30_000, () =>
       this.deps.profile(tool).catch(() => undefined),
     )
-    return { ...detected, updateCommand: options.updateCommand ?? detected?.updateCommand }
+    // A command the user configured is theirs alone: no second guess.
+    if (options.updateCommand) return { ...detected, updateCommand: options.updateCommand, fallbackCommand: undefined }
+    return detected ?? {}
   }
   async check(
     tool: CliTool,
@@ -323,7 +328,16 @@ export class CliUpdates {
       const profile = await this.profile(tool, options)
       if (!profile.updateCommand)
         throw new Error("Configure cliCode.cliUpdates for this installation's update command.")
-      await this.deps.run(profile.updateCommand, tool, 5 * 60_000)
+      try {
+        await this.deps.run(profile.updateCommand, tool, 5 * 60_000)
+      } catch (err) {
+        if (!profile.fallbackCommand || profile.fallbackCommand === profile.updateCommand) throw err
+        try {
+          await this.deps.run(profile.fallbackCommand, tool, 2 * 60_000)
+        } catch (fallbackErr) {
+          throw new Error(`${(err as Error).message}\nThen ${profile.fallbackCommand} failed: ${(fallbackErr as Error).message}`)
+        }
+      }
       const installed = await this.version(tool, options, true)
       // Hashes do not order Cursor builds: on the same date only the exact target verifies it.
       const sameRelease = installed?.split("+")[0] === target.split("+")[0]

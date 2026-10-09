@@ -255,7 +255,9 @@ Lệnh cập nhật là lệnh riêng của CLI (`claude update`, `omp update`, 
 `pi update --self`, …) với Claude Code, Codex, Grok, Copilot, opencode, MiMo, Kilo, OMP,
 Antigravity, Amp, Cline, Command Code, Droid, Cursor và Pi, vì CLI biết mình được cài bằng cách
 nào. CLI khác được cập nhật bằng package manager đã cài nó (npm, pnpm, Yarn, Bun, Homebrew, uv,
-pipx). Với launcher tùy biến hoặc bản cài không nhận diện được, đặt lệnh trong **User** settings
+pipx). Nếu lệnh riêng của CLI lỗi (Droid từ chối bản cài npm, hoặc CLI không ra được mạng), CLI Code
+thử tiếp bằng lệnh package manager và hiện cả hai lỗi nếu cả hai đều hỏng. Lệnh bạn tự đặt trong
+`cliCode.cliUpdates` thì không bao giờ bị thử lại. Với launcher tùy biến hoặc bản cài không nhận diện được, đặt lệnh trong **User** settings
 `cliCode.cliUpdates` (khóa là id CLI, ví dụ `claude`, `codex`, `cursor`) với `versionCommand`,
 `latestVersionCommand` (chỉ đọc) và `updateCommand` (chỉ chạy sau khi bấm nút). Tắt
 `cliCode.checkForUpdates` để ẩn thông báo và dừng tra cứu nền.
