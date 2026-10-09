@@ -1,4 +1,4 @@
-import { describe, expect, it, spyOn } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
@@ -401,6 +401,17 @@ describe("a timeout caused by a broken IPv6 route", () => {
 })
 
 describe("runCommand", () => {
+  // An interactive zsh ignores the kill while it is still loading the user's profile, so the time
+  // limit would not fire reliably; bash starts fast and dies on SIGTERM.
+  let userShell: string | undefined
+  beforeEach(() => {
+    userShell = process.env.SHELL
+    process.env.SHELL = "/bin/bash"
+  })
+  afterEach(() => {
+    if (userShell === undefined) delete process.env.SHELL
+    else process.env.SHELL = userShell
+  })
   it.skipIf(process.platform === "win32")("rejects a command killed on its time limit with a plain timeout message", async () => {
     const error = await runCommand("exec sleep 5", tool, 1000).catch((e: Error) => e)
     expect((error as Error).message).toStartWith("Timed out after 1s")
