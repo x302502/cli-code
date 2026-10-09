@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { describe, expect, it, spyOn } from "bun:test"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
@@ -242,7 +242,7 @@ describe("installation detection", () => {
 })
 
 describe("latest version lookup failures", () => {
-  it("retries after a failed lookup instead of caching it", async () => {
+  it("does not look up again every minute after a failure, but does after five", async () => {
     let calls = 0
     const updates = new CliUpdates({
       run: async () => "1.0.0",
@@ -252,9 +252,17 @@ describe("latest version lookup failures", () => {
         return { version: "2.0.0" }
       },
     })
+    const now = spyOn(Date, "now")
+    const start = 1_000_000
+    now.mockReturnValue(start)
     expect((await updates.check(tool, "1.0.0")).kind).toBe("current")
+    now.mockReturnValue(start + 60_000)
+    expect((await updates.check(tool, "1.0.0")).kind).toBe("current")
+    expect(calls).toBe(1)
+    now.mockReturnValue(start + 5 * 60_000 + 1)
     expect((await updates.check(tool, "1.0.0")).kind).toBe("available")
     expect(calls).toBe(2)
+    now.mockRestore()
   })
 })
 
@@ -309,6 +317,35 @@ describe("when the CLI's own update command fails", () => {
     await updates.install(tool, "2.0.0")
     expect(ran).toEqual(["test-cli update"])
   })
+  it("falls back when the own command exits 0 but the version did not change", async () => {
+    let version = "1.0.0"
+    const ran: string[] = []
+    const limits: number[] = []
+    const updates = new CliUpdates({
+      run: async (command, _tool, timeoutMs) => {
+        if (command === "test-cli --version") return version
+        ran.push(command)
+        limits.push(timeoutMs)
+        if (command === "npm install -g test-cli@latest") version = "2.0.0"
+        return ""
+      },
+      profile: async () => withFallback,
+      json: async () => ({ version: "2.0.0" }),
+    })
+    expect(await updates.install(tool, "2.0.0")).toBe("2.0.0")
+    expect(ran).toEqual(["test-cli update", "npm install -g test-cli@latest"])
+    expect(limits).toEqual([5 * 60_000, 5 * 60_000])
+  })
+  it("reports an unchanged version when neither command installs it", async () => {
+    const updates = new CliUpdates({
+      run: async (command) => (command === "test-cli --version" ? "1.0.0" : ""),
+      profile: async () => withFallback,
+      json: async () => ({ version: "2.0.0" }),
+    })
+    const error = (await updates.install(tool, "2.0.0").catch((e: Error) => e)) as Error
+    expect(error.message).toContain("The CLI still reports 1.0.0; expected 2.0.0")
+    expect(error.message).toContain("Then npm install -g test-cli@latest failed")
+  })
   it("does not second-guess a command the user configured", async () => {
     const { updates, ran } = setup(["custom"])
     await expect(updates.install(tool, "2.0.0", { updateCommand: "custom" })).rejects.toThrow("custom failed")
@@ -349,6 +386,11 @@ describe("a timeout caused by a broken IPv6 route", () => {
       { command: "test-cli update", ipv4Only: false },
       { command: "test-cli update", ipv4Only: true },
     ])
+  })
+  it("retries when the command was killed on its time limit", async () => {
+    const { updates, calls } = setup("Timed out after 300s")
+    expect(await updates.install(tool, "2.0.0")).toBe("2.0.0")
+    expect(calls.map((c) => c.ipv4Only)).toEqual([false, true])
   })
   it("does not retry other failures that way", async () => {
     const { updates, calls } = setup("permission denied")
