@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.10](https://github.com/x302502/cli-code/compare/v0.2.9...v0.2.10) (2026-10-09)
+
+
+### Bug fixes
+
+* update fallback to the package manager, retry bun on IPv4, and keep Esc from swallowing input ([#24](https://github.com/x302502/cli-code/issues/24)) ([65becf2](https://github.com/x302502/cli-code/commit/65becf2073ef9df3b5b668f3abbcff06f31d7732))
+
 ## [0.2.9](https://github.com/x302502/cli-code/compare/v0.2.8...v0.2.9) (2026-10-08)
 
 
