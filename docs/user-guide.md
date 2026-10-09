@@ -261,7 +261,12 @@ pipx package, plus native Claude Code, opencode and Cursor update paths. Checks 
 The update itself runs the CLI's own command (`claude update`, `omp update`, `opencode upgrade`,
 `pi update --self`, …) for Claude Code, Codex, Grok, Copilot, opencode, MiMo, Kilo, OMP, Antigravity,
 Amp, Cline, Command Code, Droid, Cursor and Pi, because the CLI knows how it was installed. Any other
-CLI is updated with the package manager that owns its installation.
+CLI is updated with the package manager that owns its installation. If a CLI's own command fails
+(Droid refuses npm installs, or the CLI cannot reach the network), CLI Code then tries the package-manager
+command and shows both errors when both fail. A command you set in `cliCode.cliUpdates` is never retried.
+An update that times out is first run once more with bun limited to IPv4 (`BUN_FEATURE_FLAG_DISABLE_IPV6`, for
+that process only): bun, which OMP and several native CLIs are built on, waits out a broken IPv6 route instead of
+using IPv4.
 For a custom launcher or an installation that cannot be identified, supply commands in **User**
 settings (keyed by CLI id, for example `claude`, `codex` or `cursor`). `versionCommand` prints the installed version;
 `latestVersionCommand` is a read-only check that prints the available version; `updateCommand`

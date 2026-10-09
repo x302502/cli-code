@@ -13,7 +13,8 @@ export type UpdateNotice = {
   canUpdate?: boolean
   error?: string
 }
-type Profile = { latestUrl?: string; updateCommand?: string }
+/** `fallbackCommand`: what to try when a CLI's own `updateCommand` fails (e.g. droid refuses npm installs). */
+type Profile = { latestUrl?: string; updateCommand?: string; fallbackCommand?: string }
 type Dependencies = {
   run(command: string, tool: CliTool, timeoutMs: number): Promise<string>
   profile(tool: CliTool): Promise<Profile | undefined>
@@ -128,7 +129,7 @@ export function installationProfile(binary: string, executable: string): Profile
   return undefined
 }
 
-const runCommand: Dependencies["run"] = (command, tool, timeoutMs) =>
+export const runCommand: Dependencies["run"] = (command, tool, timeoutMs) =>
   new Promise((resolve, reject) => {
     const windows = process.platform === "win32"
     const shell = windows
@@ -150,8 +151,12 @@ const runCommand: Dependencies["run"] = (command, tool, timeoutMs) =>
       args,
       { env, cwd: os.homedir(), timeout: timeoutMs, maxBuffer: 2 * 1024 * 1024, windowsHide: true },
       (err, stdout, stderr) => {
-        if (err) reject(new Error((stderr.trim() || stdout.trim()).slice(-1000) || err.message))
-        else resolve(stdout || stderr)
+        if (err) {
+          const detail = stderr.trim().slice(-1000)
+          if ((err as { killed?: boolean }).killed)
+            reject(new Error(`Timed out after ${Math.round(timeoutMs / 1000)}s${detail ? `: ${detail}` : ""}`))
+          else reject(new Error(detail || stdout.trim().slice(-1000) || err.message))
+        } else resolve(stdout || stderr)
       },
     )
   })
@@ -180,10 +185,12 @@ const SELF_UPDATE: Record<string, string> = {
   pi: "pi update --self",
 }
 
-/** The CLI's own update command replaces the one inferred from its installation. */
+/** The CLI's own update command replaces the one inferred from its installation, which stays
+ * as the fallback: some CLIs refuse to update an installation type, or cannot reach the network. */
 export function withSelfUpdate(binary: string, profile: Profile | undefined): Profile | undefined {
   const updateCommand = SELF_UPDATE[binary]
-  return updateCommand ? { ...profile, updateCommand } : profile
+  if (!updateCommand) return profile
+  return { ...profile, updateCommand, fallbackCommand: profile?.updateCommand }
 }
 
 async function detectProfile(tool: CliTool): Promise<Profile | undefined> {
@@ -256,7 +263,8 @@ export class CliUpdates {
   private key(tool: CliTool, options: UpdateOptions): string {
     return JSON.stringify([extractBinary(tool.command), tool.extraEnv, options])
   }
-  private cached<T>(key: string, ttl: number, read: () => Promise<T>): Promise<T> {
+  /** `failedTtl`: how long a failed read is kept; without it a failure is dropped at once. */
+  private cached<T>(key: string, ttl: number, read: () => Promise<T>, failedTtl?: number): Promise<T> {
     const old = this.cache.get(key)
     if (old && Date.now() - old.at < ttl) return old.value as Promise<T>
     const value = read()
@@ -264,7 +272,9 @@ export class CliUpdates {
     this.cache.set(key, entry)
     // A failed read must not hide the result for the whole TTL.
     value.catch(() => {
-      if (this.cache.get(key) === entry) this.cache.delete(key)
+      if (this.cache.get(key) !== entry) return
+      if (failedTtl === undefined) this.cache.delete(key)
+      else entry.at = Date.now() - ttl + failedTtl
     })
     return value
   }
@@ -285,7 +295,9 @@ export class CliUpdates {
     const detected = await this.cached(`${this.key(tool, options)}:profile`, 30_000, () =>
       this.deps.profile(tool).catch(() => undefined),
     )
-    return { ...detected, updateCommand: options.updateCommand ?? detected?.updateCommand }
+    // A command the user configured is theirs alone: no second guess.
+    if (options.updateCommand) return { ...detected, updateCommand: options.updateCommand, fallbackCommand: undefined }
+    return detected ?? {}
   }
   async check(
     tool: CliTool,
@@ -310,10 +322,24 @@ export class CliUpdates {
       if (typeof data === "string")
         return parseVersion(/downloads\.cursor\.com\/lab\/([^/]+)\//.exec(data)?.[1] ?? data)
       return parseVersion(data.version ?? data.tag_name ?? data.info?.version ?? data.versions?.stable ?? "")
-    }).catch(() => undefined)
+    }, 5 * 60_000).catch(() => undefined)
     return latest && (differentBuildOnSameDate(latest, installed) || isNewerVersion(latest, installed))
       ? { kind: "available", version: latest, canUpdate: !!profile.updateCommand }
       : { kind: "current" }
+  }
+  /**
+   * Bun (omp, and the bun-built CLIs) tries only the IPv6 addresses of a host and waits out the
+   * timeout when that route is broken, though IPv4 works. After a timeout ("Timed out after Ns",
+   * or the CLI's own "timed out" message), the same command is
+   * run once more with bun limited to IPv4 — only for this process, nothing else changes.
+   */
+  private async runUpdate(command: string, tool: CliTool, timeoutMs: number): Promise<string> {
+    try {
+      return await this.deps.run(command, tool, timeoutMs)
+    } catch (err) {
+      if (!/timed out/i.test((err as Error).message)) throw err
+      return this.deps.run(command, { ...tool, extraEnv: { ...tool.extraEnv, BUN_FEATURE_FLAG_DISABLE_IPV6: "1" } }, timeoutMs)
+    }
   }
   async install(tool: CliTool, target: string, options: UpdateOptions = {}): Promise<string> {
     const key = this.key(tool, options)
@@ -323,17 +349,34 @@ export class CliUpdates {
       const profile = await this.profile(tool, options)
       if (!profile.updateCommand)
         throw new Error("Configure cliCode.cliUpdates for this installation's update command.")
-      await this.deps.run(profile.updateCommand, tool, 5 * 60_000)
-      const installed = await this.version(tool, options, true)
-      // Hashes do not order Cursor builds: on the same date only the exact target verifies it.
-      const sameRelease = installed?.split("+")[0] === target.split("+")[0]
-      if (
-        !installed ||
-        (!sameRelease && (differentBuildOnSameDate(installed, target) || !isNewerVersion(installed, target)))
-      )
-        throw new Error(
-          `The CLI still reports ${installed ?? "an unknown version"}; expected ${target}. The session was kept running.`,
-        )
+      const commands = [profile.updateCommand]
+      if (profile.fallbackCommand && profile.fallbackCommand !== profile.updateCommand)
+        commands.push(profile.fallbackCommand)
+      const failures: string[] = []
+      let installed: string | undefined
+      for (const command of commands) {
+        try {
+          await this.runUpdate(command, tool, 5 * 60_000)
+          installed = await this.version(tool, options, true)
+          // Hashes do not order Cursor builds: on the same date only the exact target verifies it.
+          const sameRelease = installed?.split("+")[0] === target.split("+")[0]
+          if (
+            installed &&
+            (sameRelease || (!differentBuildOnSameDate(installed, target) && isNewerVersion(installed, target)))
+          )
+            break
+          failures.push(
+            `The CLI still reports ${installed ?? "an unknown version"}; expected ${target}. The session was kept running.`,
+          )
+        } catch (err) {
+          failures.push((err as Error).message)
+        }
+        installed = undefined
+      }
+      if (!installed) {
+        const [first, second] = failures
+        throw new Error(second === undefined ? first! : `${first}\nThen ${commands[1]} failed: ${second}`)
+      }
       this.cache.delete(`${key}:latest`)
       return installed
     })()

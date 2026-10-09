@@ -1,8 +1,8 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { CliUpdates, installationProfile, parseVersion, isNewerVersion, withSelfUpdate } from "../src/lib/cli-update.js"
+import { CliUpdates, installationProfile, runCommand, parseVersion, isNewerVersion, withSelfUpdate } from "../src/lib/cli-update.js"
 import type { CliTool } from "../src/lib/config.js"
 
 const tool: CliTool = { id: "test", label: "Test", icon: "test.svg", command: "TEST_MODE=1 test-cli --yolo" }
@@ -242,7 +242,7 @@ describe("installation detection", () => {
 })
 
 describe("latest version lookup failures", () => {
-  it("retries after a failed lookup instead of caching it", async () => {
+  it("does not look up again every minute after a failure, but does after five", async () => {
     let calls = 0
     const updates = new CliUpdates({
       run: async () => "1.0.0",
@@ -252,9 +252,17 @@ describe("latest version lookup failures", () => {
         return { version: "2.0.0" }
       },
     })
+    const now = spyOn(Date, "now")
+    const start = 1_000_000
+    now.mockReturnValue(start)
     expect((await updates.check(tool, "1.0.0")).kind).toBe("current")
+    now.mockReturnValue(start + 60_000)
+    expect((await updates.check(tool, "1.0.0")).kind).toBe("current")
+    expect(calls).toBe(1)
+    now.mockReturnValue(start + 5 * 60_000 + 1)
     expect((await updates.check(tool, "1.0.0")).kind).toBe("available")
     expect(calls).toBe(2)
+    now.mockRestore()
   })
 })
 
@@ -263,13 +271,154 @@ describe("CLIs update themselves", () => {
     expect(withSelfUpdate("omp", { latestUrl: "u", updateCommand: "bun add -g x@latest" })).toEqual({
       latestUrl: "u",
       updateCommand: "omp update",
+      fallbackCommand: "bun add -g x@latest",
     })
-    expect(withSelfUpdate("claude", undefined)).toEqual({ updateCommand: "claude update" })
+    expect(withSelfUpdate("claude", undefined)).toEqual({ updateCommand: "claude update", fallbackCommand: undefined })
     expect(withSelfUpdate("pi", {})?.updateCommand).toBe("pi update --self")
   })
   it("leaves a CLI without an update command of its own as detected", () => {
     const detected = { latestUrl: "u", updateCommand: "pipx upgrade aider" }
     expect(withSelfUpdate("aider", detected)).toBe(detected)
     expect(withSelfUpdate("aider", undefined)).toBeUndefined()
+  })
+})
+
+describe("when the CLI's own update command fails", () => {
+  const withFallback = { ...profile, updateCommand: "test-cli update", fallbackCommand: "npm install -g test-cli@latest" }
+  function setup(failing: string[], profileOverride = withFallback) {
+    let version = "1.0.0"
+    const ran: string[] = []
+    const updates = new CliUpdates({
+      run: async (command) => {
+        if (command === "test-cli --version") return version
+        ran.push(command)
+        if (failing.includes(command)) throw new Error(`${command} failed`)
+        version = "2.0.0"
+        return ""
+      },
+      profile: async () => profileOverride,
+      json: async () => ({ version: "2.0.0" }),
+    })
+    return { updates, ran }
+  }
+  it("falls back to the package-manager command and verifies the result", async () => {
+    const { updates, ran } = setup(["test-cli update"])
+    expect(await updates.install(tool, "2.0.0")).toBe("2.0.0")
+    expect(ran).toEqual(["test-cli update", "npm install -g test-cli@latest"])
+  })
+  it("reports both failures", async () => {
+    const { updates } = setup(["test-cli update", "npm install -g test-cli@latest"])
+    const error = await updates.install(tool, "2.0.0").catch((e: Error) => e)
+    expect((error as Error).message).toContain("test-cli update failed")
+    expect((error as Error).message).toContain("npm install -g test-cli@latest failed")
+  })
+  it("does not run the fallback when the own command works", async () => {
+    const { updates, ran } = setup([])
+    await updates.install(tool, "2.0.0")
+    expect(ran).toEqual(["test-cli update"])
+  })
+  it("falls back when the own command exits 0 but the version did not change", async () => {
+    let version = "1.0.0"
+    const ran: string[] = []
+    const limits: number[] = []
+    const updates = new CliUpdates({
+      run: async (command, _tool, timeoutMs) => {
+        if (command === "test-cli --version") return version
+        ran.push(command)
+        limits.push(timeoutMs)
+        if (command === "npm install -g test-cli@latest") version = "2.0.0"
+        return ""
+      },
+      profile: async () => withFallback,
+      json: async () => ({ version: "2.0.0" }),
+    })
+    expect(await updates.install(tool, "2.0.0")).toBe("2.0.0")
+    expect(ran).toEqual(["test-cli update", "npm install -g test-cli@latest"])
+    expect(limits).toEqual([5 * 60_000, 5 * 60_000])
+  })
+  it("reports an unchanged version when neither command installs it", async () => {
+    const updates = new CliUpdates({
+      run: async (command) => (command === "test-cli --version" ? "1.0.0" : ""),
+      profile: async () => withFallback,
+      json: async () => ({ version: "2.0.0" }),
+    })
+    const error = (await updates.install(tool, "2.0.0").catch((e: Error) => e)) as Error
+    expect(error.message).toContain("The CLI still reports 1.0.0; expected 2.0.0")
+    expect(error.message).toContain("Then npm install -g test-cli@latest failed")
+  })
+  it("does not second-guess a command the user configured", async () => {
+    const { updates, ran } = setup(["custom"])
+    await expect(updates.install(tool, "2.0.0", { updateCommand: "custom" })).rejects.toThrow("custom failed")
+    expect(ran).toEqual(["custom"])
+  })
+  it("keeps the inferred command as the fallback of a self-update", () => {
+    expect(withSelfUpdate("droid", { latestUrl: "u", updateCommand: "npm install -g @factory/cli@latest" })).toEqual({
+      latestUrl: "u",
+      updateCommand: "droid update",
+      fallbackCommand: "npm install -g @factory/cli@latest",
+    })
+  })
+})
+
+describe("a timeout caused by a broken IPv6 route", () => {
+  const IPV4 = "BUN_FEATURE_FLAG_DISABLE_IPV6"
+  function setup(firstError: string) {
+    let version = "1.0.0"
+    const calls: { command: string; ipv4Only: boolean }[] = []
+    const updates = new CliUpdates({
+      run: async (command, t) => {
+        if (command === "test-cli --version") return version
+        const ipv4Only = t.extraEnv?.[IPV4] === "1"
+        calls.push({ command, ipv4Only })
+        if (!ipv4Only) throw new Error(firstError)
+        version = "2.0.0"
+        return ""
+      },
+      profile: async () => ({ ...profile, updateCommand: "test-cli update", fallbackCommand: "npm install -g test-cli@latest" }),
+      json: async () => ({ version: "2.0.0" }),
+    })
+    return { updates, calls }
+  }
+  it("retries the same command once with bun limited to IPv4", async () => {
+    const { updates, calls } = setup("Failed to check for updates: Error: Timed out fetching release info after 30s")
+    expect(await updates.install(tool, "2.0.0")).toBe("2.0.0")
+    expect(calls).toEqual([
+      { command: "test-cli update", ipv4Only: false },
+      { command: "test-cli update", ipv4Only: true },
+    ])
+  })
+  it("retries when the command was killed on its time limit", async () => {
+    const { updates, calls } = setup("Timed out after 300s")
+    expect(await updates.install(tool, "2.0.0")).toBe("2.0.0")
+    expect(calls.map((c) => c.ipv4Only)).toEqual([false, true])
+  })
+  it("does not retry other failures that way", async () => {
+    const { updates, calls } = setup("permission denied")
+    await expect(updates.install(tool, "2.0.0")).rejects.toThrow("permission denied")
+    expect(calls.map((c) => c.ipv4Only)).toEqual([false, false])
+    expect(calls.map((c) => c.command)).toEqual(["test-cli update", "npm install -g test-cli@latest"])
+  })
+})
+
+describe("runCommand", () => {
+  // An interactive zsh ignores the kill while it is still loading the user's profile, so the time
+  // limit would not fire reliably; bash starts fast and dies on SIGTERM.
+  let userShell: string | undefined
+  beforeEach(() => {
+    userShell = process.env.SHELL
+    process.env.SHELL = "/bin/bash"
+  })
+  afterEach(() => {
+    if (userShell === undefined) delete process.env.SHELL
+    else process.env.SHELL = userShell
+  })
+  it.skipIf(process.platform === "win32")("rejects a command killed on its time limit with a plain timeout message", async () => {
+    const error = await runCommand("exec sleep 5", tool, 1000).catch((e: Error) => e)
+    expect((error as Error).message).toStartWith("Timed out after 1s")
+  })
+  it("reports an ordinary failure as itself, not as a timeout", async () => {
+    const error = await runCommand("exit 3", tool, 10_000).catch((e: Error) => e)
+    expect(error).toBeInstanceOf(Error)
+    expect((error as Error).message).not.toMatch(/timed out/i)
   })
 })

@@ -79,13 +79,16 @@ export function createPromptTracker(opts: { draftUnknown?: boolean } = {}): {
           return submitted
         }
         // The terminal's own replies (OSC colour queries, DCS) are not typing: skip them whole.
+        // xterm.js emits each one in a single chunk, terminator included, so a control string
+        // that does not end in this input is a key (Alt+]) followed by typing.
         if (isControlStringIntroducer(input[i + 1])) {
           const end = controlStringEnd(input, i)
-          if (end === -1) {
-            carry = input.slice(i)
-            return submitted
+          if (end !== -1) {
+            i = end
+            continue
           }
-          i = end
+          unknown = typedSinceSubmit = true
+          i += 1
           continue
         }
         // ESC CR is Shift+Enter (soft newline) — keep the first line, drop the rest.
