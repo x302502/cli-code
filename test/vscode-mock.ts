@@ -51,14 +51,22 @@ function createQuickPick<T extends { id?: string }>(): {
 }
 
 class ThemeIcon {
+  constructor(public id: string, public color?: unknown) {}
+}
+
+class ThemeColor {
   constructor(public id: string) {}
 }
+
+const ConfigurationTarget = { Global: 1 }
 
 const vscode = {
   ViewColumn,
   QuickPickItemKind,
   StatusBarAlignment,
   ThemeIcon,
+  ThemeColor,
+  ConfigurationTarget,
   Uri: {
     file: (p: string) => ({ fsPath: p, toString: () => p }),
   },
@@ -69,10 +77,12 @@ const vscode = {
     showQuickPick: mock(async () => state.quickPickResult),
     createQuickPick: mock(() => createQuickPick()),
     showWarningMessage: mock(async () => undefined),
+    showErrorMessage: mock(async () => undefined),
   },
   workspace: {
     getWorkspaceFolder: mock(() => state.workspaceFolder),
     asRelativePath: mock(() => state.relativePath),
+    getConfiguration: mock((): unknown => ({ get: () => undefined, update: async () => {} })),
   },
 }
 

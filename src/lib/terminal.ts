@@ -44,7 +44,10 @@ export async function pickTool(context: vscode.ExtensionContext): Promise<CliToo
   const render = () => {
     const installedItems: ToolPickItem[] = []
     const notInstalledItems: ToolPickItem[] = []
-    for (const tool of defaultFirst(CLI_TOOLS, defaultId())) {
+    // Only an installed default is moved up: an absent one would just top "Not installed".
+    const defaultTool = CLI_TOOLS.find((t) => t.id === defaultId())
+    const installedDefault = defaultTool && installedMap.get(extractBinary(defaultTool.command)) ? defaultTool.id : undefined
+    for (const tool of defaultFirst(CLI_TOOLS, installedDefault)) {
       const binary = extractBinary(tool.command)
       const isInstalled = installedMap.get(binary) ?? false
       const isDefault = isInstalled && tool.id === defaultId()
@@ -71,9 +74,13 @@ export async function pickTool(context: vscode.ExtensionContext): Promise<CliToo
   render()
   quickPick.onDidTriggerItemButton(async ({ item }) => {
     const id = (item as ToolPickItem).id
-    await vscode.workspace
-      .getConfiguration("cliCode")
-      .update("defaultCli", id === defaultId() ? undefined : id, vscode.ConfigurationTarget.Global)
+    try {
+      await vscode.workspace
+        .getConfiguration("cliCode")
+        .update("defaultCli", id === defaultId() ? undefined : id, vscode.ConfigurationTarget.Global)
+    } catch (err) {
+      vscode.window.showErrorMessage(`Could not save the default CLI: ${(err as Error).message}`)
+    }
     render()
   })
 
