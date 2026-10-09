@@ -2,13 +2,21 @@ import { describe, expect, it } from "bun:test"
 import { createPromptTracker } from "../src/lib/prompt-tracker.js"
 
 describe("createPromptTracker terminal replies", () => {
-  it("does not read an OSC colour reply as a draft, even split across chunks", () => {
+  it("does not read OSC and DCS replies as a draft", () => {
     const t = createPromptTracker()
-    t.feed("\x1b]10;rgb:abab/b2b2/bfbf\x07\x1b]11;rgb:28")
-    t.feed("28/2c2c/3434\x1b\\\x1bP1+r\x1b\\")
+    t.feed("\x1b]10;rgb:abab/b2b2/bfbf\x07\x1b]11;rgb:2828/2c2c/3434\x1b\\\x1bP1+r\x1b\\")
     expect(t.hasDraft()).toBe(false)
     t.feed("ab\x1b]4;1;rgb:1/2/3\x07c")
     expect(t.feed("\r")).toBe("abc")
+  })
+
+  // xterm.js emits each reply in one onData call, terminator included: a control string that
+  // does not end inside its chunk is not a reply, it is typing.
+  it("reads a control string cut off before its terminator as typing", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b]11;rgb:28")
+    expect(t.hasDraft()).toBe(true)
+    expect(t.feed("\r")).toStartWith("]11;rgb:28")
   })
 
   it("does not join a lone ESC with the next chunk into a control string", () => {
@@ -38,7 +46,15 @@ describe("createPromptTracker terminal replies", () => {
     expect(t.feed("\r")).toBe("]xyz")
   })
 
-  it("gives up on a control string that never ends instead of swallowing input", () => {
+  it("reads Alt+] in a single chunk as a key, not the start of an OSC", () => {
+    const t = createPromptTracker()
+    t.feed("\x1b]")
+    expect(t.hasDraft()).toBe(true)
+    t.feed("hello")
+    expect(t.feed("\r")).toBe("]hello")
+  })
+
+  it("does not let a control string that never ends swallow input", () => {
     const t = createPromptTracker()
     t.feed("\x1b]" + "a".repeat(5000))
     t.feed("hello")
