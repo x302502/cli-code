@@ -320,6 +320,19 @@ export class CliUpdates {
       ? { kind: "available", version: latest, canUpdate: !!profile.updateCommand }
       : { kind: "current" }
   }
+  /**
+   * Bun (omp, and the bun-built CLIs) tries only the IPv6 addresses of a host and waits out the
+   * timeout when that route is broken, though IPv4 works. After a timeout, the same command is
+   * run once more with bun limited to IPv4 — only for this process, nothing else changes.
+   */
+  private async runUpdate(command: string, tool: CliTool, timeoutMs: number): Promise<string> {
+    try {
+      return await this.deps.run(command, tool, timeoutMs)
+    } catch (err) {
+      if (!/timed? ?out|ETIMEDOUT/i.test((err as Error).message)) throw err
+      return this.deps.run(command, { ...tool, extraEnv: { ...tool.extraEnv, BUN_FEATURE_FLAG_DISABLE_IPV6: "1" } }, timeoutMs)
+    }
+  }
   async install(tool: CliTool, target: string, options: UpdateOptions = {}): Promise<string> {
     const key = this.key(tool, options)
     const existing = this.installs.get(key)
@@ -329,11 +342,11 @@ export class CliUpdates {
       if (!profile.updateCommand)
         throw new Error("Configure cliCode.cliUpdates for this installation's update command.")
       try {
-        await this.deps.run(profile.updateCommand, tool, 5 * 60_000)
+        await this.runUpdate(profile.updateCommand, tool, 5 * 60_000)
       } catch (err) {
         if (!profile.fallbackCommand || profile.fallbackCommand === profile.updateCommand) throw err
         try {
-          await this.deps.run(profile.fallbackCommand, tool, 2 * 60_000)
+          await this.runUpdate(profile.fallbackCommand, tool, 2 * 60_000)
         } catch (fallbackErr) {
           throw new Error(`${(err as Error).message}\nThen ${profile.fallbackCommand} failed: ${(fallbackErr as Error).message}`)
         }

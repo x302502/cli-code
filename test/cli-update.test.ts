@@ -322,3 +322,38 @@ describe("when the CLI's own update command fails", () => {
     })
   })
 })
+
+describe("a timeout caused by a broken IPv6 route", () => {
+  const IPV4 = "BUN_FEATURE_FLAG_DISABLE_IPV6"
+  function setup(firstError: string) {
+    let version = "1.0.0"
+    const calls: { command: string; ipv4Only: boolean }[] = []
+    const updates = new CliUpdates({
+      run: async (command, t) => {
+        if (command === "test-cli --version") return version
+        const ipv4Only = t.extraEnv?.[IPV4] === "1"
+        calls.push({ command, ipv4Only })
+        if (!ipv4Only) throw new Error(firstError)
+        version = "2.0.0"
+        return ""
+      },
+      profile: async () => ({ ...profile, updateCommand: "test-cli update", fallbackCommand: "npm install -g test-cli@latest" }),
+      json: async () => ({ version: "2.0.0" }),
+    })
+    return { updates, calls }
+  }
+  it("retries the same command once with bun limited to IPv4", async () => {
+    const { updates, calls } = setup("Failed to check for updates: Error: Timed out fetching release info after 30s")
+    expect(await updates.install(tool, "2.0.0")).toBe("2.0.0")
+    expect(calls).toEqual([
+      { command: "test-cli update", ipv4Only: false },
+      { command: "test-cli update", ipv4Only: true },
+    ])
+  })
+  it("does not retry other failures that way", async () => {
+    const { updates, calls } = setup("permission denied")
+    await expect(updates.install(tool, "2.0.0")).rejects.toThrow("permission denied")
+    expect(calls.map((c) => c.ipv4Only)).toEqual([false, false])
+    expect(calls.map((c) => c.command)).toEqual(["test-cli update", "npm install -g test-cli@latest"])
+  })
+})

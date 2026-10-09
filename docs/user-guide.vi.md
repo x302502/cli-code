@@ -257,7 +257,9 @@ Antigravity, Amp, Cline, Command Code, Droid, Cursor và Pi, vì CLI biết mìn
 nào. CLI khác được cập nhật bằng package manager đã cài nó (npm, pnpm, Yarn, Bun, Homebrew, uv,
 pipx). Nếu lệnh riêng của CLI lỗi (Droid từ chối bản cài npm, hoặc CLI không ra được mạng), CLI Code
 thử tiếp bằng lệnh package manager và hiện cả hai lỗi nếu cả hai đều hỏng. Lệnh bạn tự đặt trong
-`cliCode.cliUpdates` thì không bao giờ bị thử lại. Với launcher tùy biến hoặc bản cài không nhận diện được, đặt lệnh trong **User** settings
+`cliCode.cliUpdates` thì không bao giờ bị thử lại. Cập nhật bị timeout sẽ được chạy lại một lần với bun
+giới hạn IPv4 (`BUN_FEATURE_FLAG_DISABLE_IPV6`, chỉ cho tiến trình đó): bun, nền của OMP và nhiều CLI
+native, cứ chờ hết giờ khi đường IPv6 hỏng thay vì dùng IPv4. Với launcher tùy biến hoặc bản cài không nhận diện được, đặt lệnh trong **User** settings
 `cliCode.cliUpdates` (khóa là id CLI, ví dụ `claude`, `codex`, `cursor`) với `versionCommand`,
 `latestVersionCommand` (chỉ đọc) và `updateCommand` (chỉ chạy sau khi bấm nút). Tắt
 `cliCode.checkForUpdates` để ẩn thông báo và dừng tra cứu nền.
