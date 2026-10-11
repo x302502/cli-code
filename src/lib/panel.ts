@@ -480,12 +480,15 @@ function spawnEnv(context: vscode.ExtensionContext, tool: CliTool): Record<strin
   // TERM_PROGRAM: what VS Code's own terminal sets, and what Claude Code (and others) look at to
   // know they run in VS Code — auto-connecting to the IDE (/ide, selection, diffs), keybinding
   // hints. The daemon's env comes from the extension host, which has no TERM_PROGRAM.
+  // CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL: TERM_PROGRAM alone makes Claude Code install its VS Code
+  // extension; the IDE link still connects when the user installed it themselves.
   return {
     ...buildEnv(tool),
     CLI_CODE_HOOK: hookCommand(context),
     CLI_CODE_FAMILY: tool.historyToolId ?? tool.id,
     TERM_PROGRAM: "vscode",
     TERM_PROGRAM_VERSION: vscode.version,
+    CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL: "1",
   }
 }
 

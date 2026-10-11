@@ -497,6 +497,10 @@ and the modification times of the configuration files in [section 13](#13-when-y
 
 **Network:** none of its own. The assistants talk to their providers as they always do.
 
+**Installs:** nothing. Tabs tell Claude Code it runs in VS Code (`TERM_PROGRAM=vscode`) so it links
+to the editor (`/ide`, the selection, diffs), but stop it from installing its own VS Code extension
+(`CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL=1`). Want that link? Install the Claude Code extension yourself.
+
 ### Appendix D — Troubleshooting
 
 | Symptom | Cause / fix |

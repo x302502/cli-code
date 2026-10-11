@@ -474,6 +474,10 @@ và thời gian sửa của các file cấu hình ở [mục 13](#13-khi-bạn-�
 
 **Mạng:** extension không kết nối đi đâu. Trợ lý nói chuyện với nhà cung cấp của chúng như bình thường.
 
+**Cài đặt:** không cài gì. Tab báo cho Claude Code biết nó đang chạy trong VS Code (`TERM_PROGRAM=vscode`)
+để nó nối với editor (`/ide`, đoạn đang bôi, diff), nhưng chặn nó tự cài extension VS Code của nó
+(`CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL=1`). Muốn có kết nối đó thì tự cài extension Claude Code.
+
 ### Phụ lục D — Khắc phục sự cố
 
 | Hiện tượng | Nguyên nhân / cách xử lý |

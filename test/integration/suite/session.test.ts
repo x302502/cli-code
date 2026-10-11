@@ -19,6 +19,8 @@ describe("session (checklist A-a, A-d, B OSC 7)", () => {
     assert.match(env.CLI_CODE_HOOK, /dist\/hook\.js/)
     // What VS Code's own terminal sets: Claude Code auto-connects to the IDE on it.
     assert.equal(env.TERM_PROGRAM, "vscode")
+    // ...but it must not make Claude Code install its extension behind the user's back.
+    assert.equal(env.CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL, "1")
     assert.equal(panel.title, "itest open", `expected panel.title "itest open", got ${JSON.stringify(panel.title)}`)
     // The experimental composer follows the cliCode.composer setting (default off) through a body attribute.
     assert.ok(panel.webview.html.includes('data-composer="off"'), "composer off by default")
