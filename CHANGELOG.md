@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.11](https://github.com/x302502/cli-code/compare/v0.2.10...v0.2.11) (2026-10-11)
+
+
+### Bug fixes
+
+* stop Claude Code from installing its VS Code extension on its own ([#26](https://github.com/x302502/cli-code/issues/26)) ([62fc75a](https://github.com/x302502/cli-code/commit/62fc75ace14b3e67c775ee088f67720808ade56f))
+
 ## [0.2.10](https://github.com/x302502/cli-code/compare/v0.2.9...v0.2.10) (2026-10-09)
 
 
