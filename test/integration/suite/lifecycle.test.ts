@@ -103,6 +103,36 @@ describe("lifecycle (checklist B, A-e)", () => {
     assert.ok(!left.some((t) => t.state.tabId === "lost-tab"), "a closed tab leaves the list")
   })
 
+  // Restart Extensions / Restart Extension Host: the editor keeps the CLI tabs, but their pages
+  // talk to the dead host. Same window session as the last activation → they are closed, and the
+  // window's tab list brings them back on their CLIs.
+  it("after an extension-host restart, tabs of the dead host are closed and reopened from the tab list", async () => {
+    const a = await api()
+    // What the dead host left: an editor tab of ours that no panel of this host holds.
+    const orphan = vscode.window.createWebviewPanel("cliCode.terminal", "orphan", vscode.ViewColumn.One, { enableScripts: true })
+    let orphanClosed = false
+    orphan.onDidDispose(() => (orphanClosed = true))
+    const entry = {
+      state: { sessionId: "00000000-0000-0000-0000-00000000000b", toolId: "codex", cwd: "/tmp", command: `sh "${fixture("echo-tool.sh")}"`, customTitle: "Sau restart", tabId: "orphan-tab", createdAt: Date.now() },
+    }
+    await a.context.workspaceState.update("cliCode.openTabs", [entry])
+
+    // A new window session (Reload Window) is not a restart: open tabs stay.
+    await a.context.workspaceState.update("cliCode.windowSession", "another-window-session")
+    await a.closeTabsOfDeadHost(a.context)
+    assert.ok(!orphanClosed, "tabs stay after a reload")
+
+    // The same window session as the last activation: the host restarted under the open tabs.
+    await a.closeTabsOfDeadHost(a.context)
+    assert.ok(orphanClosed, "the dead host's tab is closed")
+    const before = new Set(a.activePanels())
+    await a.recoverMissingTabs(a.context)
+    const back = await waitFor(() => a.activePanels().find((p) => !before.has(p)), 20_000, "reopened tab")
+    openPanel = back
+    await waitFor(() => a.inspectPanel(back).ready, 15_000, "reopened webview ready")
+    assert.equal(back.title, "Sau restart")
+  })
+
   // Runs last in stage 1: it kills this window's daemon.
   it("a dead daemon turns the tab into the gone page, and restart opens a fresh session", async () => {
     const { a, panel, env } = await openReady("gone", {}, { title: "Sau khi chết" })

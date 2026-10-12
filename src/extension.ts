@@ -24,6 +24,7 @@ import {
   restartFromGone,
   restartPanel,
   recoverMissingTabs,
+  closeTabsOfDeadHost,
   restoreTerminalPanel,
   sendToActivePanel,
   setCustomTitle,
@@ -57,6 +58,7 @@ export type TestApi = {
   updatePanelCli: typeof updatePanelCli
   restartFromGone: typeof restartFromGone
   recoverMissingTabs: typeof recoverMissingTabs
+  closeTabsOfDeadHost: typeof closeTabsOfDeadHost
   openLinkTextInActivePanel: typeof openLinkTextInActivePanel
 }
 
@@ -127,8 +129,9 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     if (context.extensionMode !== vscode.ExtensionMode.Test) await runStatusHookSync(context, statusHooksEnabled(), { quiet: true })
   })
   addStatusBarButton(context)
-  // Tabs the editor lost (it was killed before writing its list of open tabs) come back.
-  void recoverMissingTabs(context)
+  // Tabs the editor lost (it was killed before writing its list of open tabs) come back, and so
+  // do the ones a restarted extension host left dead.
+  void closeTabsOfDeadHost(context).then(() => recoverMissingTabs(context))
   context.subscriptions.push(
     vscode.commands.registerCommand("cli-code.open", () => openCli(context, { reuseExisting: true })),
     vscode.commands.registerCommand("cli-code.openNew", () => openCli(context, { reuseExisting: false })),
@@ -231,6 +234,7 @@ export function activate(context: vscode.ExtensionContext): TestApi {
     updatePanelCli,
     restartFromGone,
     recoverMissingTabs,
+    closeTabsOfDeadHost,
     openLinkTextInActivePanel,
   }
 }
