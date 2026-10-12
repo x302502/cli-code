@@ -15,6 +15,18 @@ describe("classifyOscLink", () => {
     expect(classifyOscLink("file:///w/a.ts#L12")).toEqual({ kind: "path", path: "/w/a.ts", line: 12 })
     expect(classifyOscLink("file:///w/a.ts#12")).toEqual({ kind: "path", path: "/w/a.ts", line: 12 })
   })
+  it("a scheme-less relative path (OMP's markdown links) → path, line suffix kept", () => {
+    expect(classifyOscLink("explorations/2026-10-11-sdp-operator.md")).toEqual({ kind: "path", path: "explorations/2026-10-11-sdp-operator.md" })
+    expect(classifyOscLink("src/a.ts:12:4")).toEqual({ kind: "path", path: "src/a.ts", line: 12, col: 4 })
+    expect(classifyOscLink("README.md")).toEqual({ kind: "path", path: "README.md" })
+  })
+  it("GitHub-style line fragments on relative and file:// paths; a range opens at its start", () => {
+    expect(classifyOscLink("src/a.ts#L12")).toEqual({ kind: "path", path: "src/a.ts", line: 12 })
+    expect(classifyOscLink("src/a.ts#L12C4")).toEqual({ kind: "path", path: "src/a.ts", line: 12, col: 4 })
+    expect(classifyOscLink("src/a.ts#L12-L20")).toEqual({ kind: "path", path: "src/a.ts", line: 12 })
+    expect(classifyOscLink("file:///w/a.ts#L12-L20")).toEqual({ kind: "path", path: "/w/a.ts", line: 12 })
+    expect(classifyOscLink("src/a.ts#intro")).toEqual({ kind: "path", path: "src/a.ts" })
+  })
   it("other schemes and junk → copy-only", () => {
     expect(classifyOscLink("javascript:alert(1)")).toEqual({ kind: "other" })
     expect(classifyOscLink("vscode://x")).toEqual({ kind: "other" })
