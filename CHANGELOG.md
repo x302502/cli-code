@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.13](https://github.com/x302502/cli-code/compare/v0.2.12...v0.2.13) (2026-10-12)
+
+
+### Bug fixes
+
+* reopen CLI tabs after an extension-host restart instead of leaving them frozen ([#30](https://github.com/x302502/cli-code/issues/30)) ([1231ded](https://github.com/x302502/cli-code/commit/1231ded42cdab7d4ea09586639991ddb94831dce))
+
 ## [0.2.12](https://github.com/x302502/cli-code/compare/v0.2.11...v0.2.12) (2026-10-12)
 
 
