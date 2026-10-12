@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.12](https://github.com/x302502/cli-code/compare/v0.2.11...v0.2.12) (2026-10-12)
+
+
+### Bug fixes
+
+* open OMP's relative markdown links and #L12 line fragments ([#28](https://github.com/x302502/cli-code/issues/28)) ([f6b20d5](https://github.com/x302502/cli-code/commit/f6b20d53e146250a65e223e5f629df1c46ae58e1))
+
 ## [0.2.11](https://github.com/x302502/cli-code/compare/v0.2.10...v0.2.11) (2026-10-11)
 
 
