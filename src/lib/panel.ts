@@ -1547,6 +1547,28 @@ function claimTab(panel: vscode.WebviewPanel, tabId = randomBytes(8).toString("h
   return true
 }
 
+const WINDOW_SESSION_KEY = "cliCode.windowSession"
+// What vscode.env.sessionId reads when the editor has no telemetry service (VSCodium,
+// --disable-telemetry): the same in every window session, so it tells nothing.
+const NO_SESSION_ID = "someValue.sessionId"
+
+/**
+ * Closes the CLI tabs a restarted extension host left behind (Restart Extensions after an update,
+ * Developer: Restart Extension Host). The editor keeps them open, but their pages still post to
+ * the dead host — keys go nowhere — and it never revives them. vscode.env.sessionId belongs to
+ * the window (a reload makes a new one): the same id as at the last activation means a restart
+ * under the open tabs. recoverMissingTabs then reopens them on their still-running CLIs.
+ */
+export async function closeTabsOfDeadHost(context: vscode.ExtensionContext): Promise<void> {
+  const last = context.workspaceState.get<string>(WINDOW_SESSION_KEY)
+  await context.workspaceState.update(WINDOW_SESSION_KEY, vscode.env.sessionId)
+  if (last !== vscode.env.sessionId || vscode.env.sessionId === NO_SESSION_ID) return
+  const tabs = vscode.window.tabGroups.all
+    .flatMap((g) => g.tabs)
+    .filter((t) => t.input instanceof vscode.TabInputWebview && t.input.viewType.endsWith(VIEW_TYPE))
+  if (tabs.length) await vscode.window.tabGroups.close(tabs, true)
+}
+
 /**
  * Reopens the CLI tabs the editor did not restore. Its list of open tabs is written once a minute,
  * so after a crash or a kill it lacks the tabs opened last: as many of the newest saved tabs as are
