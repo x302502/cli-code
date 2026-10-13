@@ -144,6 +144,11 @@ Bên trái thanh có:
   chính CLI (3 giây sau khi mở tab và mỗi 30 giây), nên đổi model bằng `/model` sẽ được cập nhật.
   OMP, Pi và Cline hiện kèm provider, ví dụ `github-copilot/claude-opus-5.5`. Trợ lý không ghi
   model thì ẩn.
+- **Hạn mức gói** của Claude Code, Codex và OMP: `◔ 23% · 2h10m` là phần đã dùng của cửa sổ quota ngắn
+  nhất (cửa sổ 5 giờ nếu có) và thời gian còn lại tới lúc reset. Vàng từ 70%, đỏ từ 90%; chấm đỏ nghĩa là
+  một cửa sổ dài hơn (tuần, tháng) đã từ 90%. Bấm vào để xem mọi cửa sổ, tài khoản và provider (OMP liệt
+  kê mọi provider, có nút ↻ Làm mới). Claude báo số liệu qua statusLine: CLI Code chỉ thêm statusLine cho
+  tab Claude của chính nó (`--settings`, không ghi gì xuống đĩa) và vẫn chạy statusLine của bạn.
 - Dòng trạng thái `● Waiting for your confirmation` khi agent chờ bạn.
 - Nhắc nhở `● <file> changed — restart to apply` khi CLI đang chạy cũ hơn cấu hình của nó
   ([mục 13](#13-khi-bạn-đổi-mcp-plugin-hook-tab-tự-khởi-động-lại)).

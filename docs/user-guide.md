@@ -145,6 +145,12 @@ On the left the bar shows:
   own session file (3 s after the tab opens, then every 30 s), so switching with `/model` shows
   up. OMP, Pi and Cline show it with its provider, e.g. `github-copilot/claude-opus-5.5`. Hidden
   for assistants that do not record a model.
+- **Plan usage** for Claude Code, Codex and OMP: `◔ 23% · 2h10m` is the share of the shortest quota
+  window used (the 5-hour one when there is one) and the time until it resets. Yellow from 70%, red from
+  90%; a red dot means a longer window (weekly, monthly) is at 90% or more. Click it for every window,
+  account and provider (OMP lists all its providers, with ↻ Refresh). Claude reports it through its
+  statusLine: CLI Code adds one to its own Claude tabs only (`--settings`, nothing written to disk) and
+  still runs yours.
 - A status line, `● Waiting for your confirmation`, while the agent waits on you.
 - A reminder, `● <file> changed — restart to apply`, when the running CLI is older than its
   configuration ([section 13](#13-when-you-change-mcp--plugins--hooks-the-tab-restarts-itself)).
