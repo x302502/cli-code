@@ -1,7 +1,7 @@
 import * as assert from "node:assert/strict"
 import * as fs from "node:fs"
 import type * as vscode from "vscode"
-import { inputFile, openReady, pidAlive, readFileOr, waitFor } from "./helpers.js"
+import { api, inputFile, makeTool, openReady, pidAlive, readEnvFile, readFileOr, waitFor } from "./helpers.js"
 
 describe("session (checklist A-a, A-d, B OSC 7)", () => {
   // A failed assertion must not leak the panel (and its PTY) into the next test.
@@ -59,5 +59,22 @@ describe("session (checklist A-a, A-d, B OSC 7)", () => {
     panel.dispose()
     await waitFor(() => !pidAlive(pid), 5_000, `pid ${pid} to exit`)
     assert.ok(!a.activePanels().includes(panel))
+  })
+
+  it("a Claude-family tab spawns with one --settings statusLine and the statusLine env", async () => {
+    const a = await api()
+    const tool = { ...makeTool("claude-sl"), historyToolId: "claude" }
+    const before = new Set(a.activePanels())
+    await a.openTerminalPanel(a.context, tool)
+    const panel = await waitFor(() => a.activePanels().find((p) => !before.has(p)), 15_000, "claude-sl panel")
+    openPanel = panel
+    const env = await waitFor(() => readEnvFile("claude-sl"), 15_000, "claude-sl.env")
+    assert.equal(env.argv.match(/--settings/g)?.length, 1)
+    assert.match(env.argv, /"statusLine"/)
+    assert.match(env.CLI_CODE_STATUSLINE, /dist\/statusline\.js/)
+    // Restart re-spawns from the stored command: still exactly one --settings.
+    await a.restartPanel(a.context, panel)
+    const env2 = await waitFor(() => { const e = readEnvFile("claude-sl"); return e && e.pid !== env.pid ? e : undefined }, 20_000, "restarted env")
+    assert.equal(env2.argv.match(/--settings/g)?.length, 1)
   })
 })

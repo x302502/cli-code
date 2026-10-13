@@ -68,4 +68,15 @@ describe("OmpUsage — one shared run, cached 5 minutes", () => {
     t = 10 * 60_000
     expect(await u.get()).toBeUndefined()
   })
+
+  it("fetchedAt is the time of the run, not of a later cache hit", async () => {
+    let t = 1000
+    const u = new OmpUsage(async () => "{}", () => t)
+    expect(u.fetchedAt).toBeUndefined()
+    await u.get()
+    expect(u.fetchedAt).toBe(1000)
+    t = 2000
+    await u.get()
+    expect(u.fetchedAt).toBe(1000)
+  })
 })

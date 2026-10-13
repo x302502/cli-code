@@ -77,6 +77,11 @@ export class OmpUsage {
     private clock: () => number = Date.now,
   ) {}
 
+  /** When the cached run happened: the snapshot's age, not the render time. */
+  get fetchedAt(): number | undefined {
+    return this.cached?.at
+  }
+
   get(force = false): Promise<string | undefined> {
     if (!force && this.cached && this.clock() - this.cached.at < CACHE_MS) return Promise.resolve(this.cached.output)
     this.inflight ??= this.run("omp usage --json", TIMEOUT_MS)
