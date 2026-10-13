@@ -150,7 +150,9 @@ On the left the bar shows:
   90%; a red dot means a longer window (weekly, monthly) is at 90% or more. Click it for every window,
   account and provider (OMP lists all its providers, with ↻ Refresh). Claude reports it through its
   statusLine: CLI Code adds one to its own Claude tabs only (`--settings`, nothing written to disk) and
-  still runs yours.
+  still runs yours. Claude's chip appears only on Pro/Max plans and only after the first reply of a
+  session (nothing with an API key); in a Claude tab where you had no statusLine, Claude hides some
+  footer hints once CLI Code adds one.
 - A status line, `● Waiting for your confirmation`, while the agent waits on you.
 - A reminder, `● <file> changed — restart to apply`, when the running CLI is older than its
   configuration ([section 13](#13-when-you-change-mcp--plugins--hooks-the-tab-restarts-itself)).

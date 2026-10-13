@@ -147,8 +147,10 @@ Bên trái thanh có:
 - **Hạn mức gói** của Claude Code, Codex và OMP: `◔ 23% · 2h10m` là phần đã dùng của cửa sổ quota ngắn
   nhất (cửa sổ 5 giờ nếu có) và thời gian còn lại tới lúc reset. Vàng từ 70%, đỏ từ 90%; chấm đỏ nghĩa là
   một cửa sổ dài hơn (tuần, tháng) đã từ 90%. Bấm vào để xem mọi cửa sổ, tài khoản và provider (OMP liệt
-  kê mọi provider, có nút ↻ Làm mới). Claude báo số liệu qua statusLine: CLI Code chỉ thêm statusLine cho
-  tab Claude của chính nó (`--settings`, không ghi gì xuống đĩa) và vẫn chạy statusLine của bạn.
+  kê mọi provider, có nút ↻ Refresh). Claude báo số liệu qua statusLine: CLI Code chỉ thêm statusLine cho
+  tab Claude của chính nó (`--settings`, không ghi gì xuống đĩa) và vẫn chạy statusLine của bạn. Chip của Claude chỉ hiện với gói Pro/Max và chỉ sau câu trả lời đầu tiên
+  của phiên (dùng API key thì không có); trong tab Claude trước đó bạn chưa có statusLine, Claude sẽ ẩn bớt
+  gợi ý ở chân trang khi CLI Code thêm một cái.
 - Dòng trạng thái `● Waiting for your confirmation` khi agent chờ bạn.
 - Nhắc nhở `● <file> changed — restart to apply` khi CLI đang chạy cũ hơn cấu hình của nó
   ([mục 13](#13-khi-bạn-đổi-mcp-plugin-hook-tab-tự-khởi-động-lại)).
