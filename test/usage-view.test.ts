@@ -32,6 +32,12 @@ describe("headline — the active group's shortest live window", () => {
   it("prefers the 5-hour window even when the weekly one is higher", () => {
     expect(headline(claude(0.23, 0.84), now)).toEqual({ used: 0.23, label: "5-hour", resetsAt: now + 2 * H + 10 * 60_000 })
   })
+  it("a label like \"15 hours\" is not taken for the 5-hour window", () => {
+    const s: UsageSnapshot = { fetchedAt: now, refreshable: true, groups: [{ provider: "X", active: true, accounts: [{ windows: [
+      { label: "15 hours", used: 0.9 }, { label: "5 hours", used: 0.1 },
+    ] }] }] }
+    expect(headline(s, now)?.label).toBe("5 hours")
+  })
   it("skips a window whose reset has passed", () => {
     const s = claude(0.5, 0.4)
     s.groups[0]!.accounts[0]!.windows[0]!.resetsAt = now - 1

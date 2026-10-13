@@ -4,7 +4,7 @@ export type Level = "ok" | "warn" | "err"
 const MIN = 60_000
 const STALE_MS = 15 * MIN
 // Windows without a duration sort by their label: 5-hour, then week, then month.
-const LABEL_ORDER: [RegExp, number][] = [[/5[\s-]?h/i, 5 * 60 * MIN], [/week|7[\s-]?d/i, 7 * 24 * 60 * MIN], [/month|30[\s-]?d/i, 30 * 24 * 60 * MIN]]
+const LABEL_ORDER: [RegExp, number][] = [[/\b5[\s-]?h/i, 5 * 60 * MIN], [/week|7[\s-]?d/i, 7 * 24 * 60 * MIN], [/month|30[\s-]?d/i, 30 * 24 * 60 * MIN]]
 
 export function levelOf(used: number): Level {
   return used >= 0.9 ? "err" : used >= 0.7 ? "warn" : "ok"
