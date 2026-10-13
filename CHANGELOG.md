@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.14](https://github.com/x302502/cli-code/compare/v0.2.13...v0.2.14) (2026-10-13)
+
+
+### Features
+
+* plan-usage chip for Claude Code, Codex and OMP ([#32](https://github.com/x302502/cli-code/issues/32)) ([eea3825](https://github.com/x302502/cli-code/commit/eea382588d7488a05c5b082a655688e1731b2794))
+
 ## [0.2.13](https://github.com/x302502/cli-code/compare/v0.2.12...v0.2.13) (2026-10-12)
 
 
