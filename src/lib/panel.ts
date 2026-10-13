@@ -161,13 +161,18 @@ function refreshModel(panel: vscode.WebviewPanel): void {
   if (model === tab(panel).model) return
   tab(panel).model = model || undefined
   sendTo(panel, { type: "model", model: model ?? "" })
-  // A model change re-picks the active provider from the cached run; hook-driven paths never start a run.
-  const cached = ompUsage.cachedOutput
-  if ((tool.historyToolId ?? tool.id) === "omp" && cached) setUsage(panel, ompSnapshot(cached, providerOfModel(tab(panel).model), ompUsage.fetchedAt ?? Date.now()))
+  repickOmpUsage(panel)
 }
 
 const OMP_REFRESH_MS = 5 * 60_000
 const ompUsage = new OmpUsage((command, timeoutMs) => runCommand(command, { extraEnv: {} } as CliTool, timeoutMs))
+
+/** Re-picks an OMP tab's active provider from the cached run (never starts one: callers are hook-driven). */
+function repickOmpUsage(panel: vscode.WebviewPanel): void {
+  const tool = tab(panel).tool
+  const cached = ompUsage.cachedOutput
+  if (tool && (tool.historyToolId ?? tool.id) === "omp" && cached) setUsage(panel, ompSnapshot(cached, providerOfModel(tab(panel).model), ompUsage.fetchedAt ?? Date.now()))
+}
 
 function setUsage(panel: vscode.WebviewPanel, snapshot: UsageSnapshot | undefined): void {
   if (!snapshot) return // keep the last one: quota is per account, a gap in data is not "no quota"
@@ -1089,6 +1094,7 @@ function attachConnection(
       tab(panel).modelLive = true
       tab(panel).model = e.model || undefined
       sendTo(panel, { type: "model", model: e.model })
+      repickOmpUsage(panel)
     } else if (e.kind === "cliSession") {
       if (e.cliSessionId !== tab(panel).cliSessionId) {
         tab(panel).modelLive = false
