@@ -23,7 +23,7 @@ try {
   }
   const ext = join(dir, "extension")
   const must = [
-    "dist/extension.js", "dist/daemon.js", "dist/webview.js", "dist/hook.js",
+    "dist/extension.js", "dist/daemon.js", "dist/webview.js", "dist/hook.js", "dist/statusline.js",
     "node_modules/@xterm/xterm/css/xterm.css",
     "node_modules/node-pty/package.json", "node_modules/node-pty/lib/index.js",
     `node_modules/node-pty/prebuilds/${target}`,

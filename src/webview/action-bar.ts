@@ -4,6 +4,8 @@
  * thin-outline icons flush right. Rare actions live behind "…".
  */
 import type { UpdateNotice } from "../lib/cli-update.js"
+import type { UsageSnapshot } from "../lib/usage/types.js"
+import { createUsageChip } from "./usage-chip.js"
 
 type Action = { id: string; label: string; svg: string }
 
@@ -24,7 +26,8 @@ export function createActionBar(handlers: {
   /** Where focus goes when an inline rename ends. */
   onRenameEnd(): void
   onUpdate(): void
-}): { setStatus(text: string): void; setModel(model: string): void; setNotice(text: string): void; setTitle(text: string): void; setUpdate(notice: UpdateNotice): void } {
+  onUsageRefresh(): void
+}): { setUsage(snapshot: UsageSnapshot | null): void; setStatus(text: string): void; setModel(model: string): void; setNotice(text: string): void; setTitle(text: string): void; setUpdate(notice: UpdateNotice): void } {
   const bar = document.createElement("div")
   bar.id = "action-bar"
   const left = document.createElement("div")
@@ -36,12 +39,13 @@ export function createActionBar(handlers: {
   const model = document.createElement("span")
   model.id = "action-model"
   model.hidden = true
+  const usage = createUsageChip(() => handlers.onUsageRefresh())
   const status = document.createElement("div")
   status.id = "action-status"
   const notice = document.createElement("div")
   notice.id = "action-notice"
   notice.hidden = true
-  left.append(title, model, status, notice)
+  left.append(title, model, usage.element, status, notice)
   const update = document.createElement("div")
   update.id = "action-update"
   update.hidden = true
@@ -170,6 +174,9 @@ export function createActionBar(handlers: {
     },
     setTitle(text) {
       title.textContent = text
+    },
+    setUsage(snapshot) {
+      usage.set(snapshot)
     },
     setModel(id) {
       model.textContent = id

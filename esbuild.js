@@ -34,6 +34,7 @@ const entries = tests
       { entryPoints: ["src/extension.ts"], outfile: "dist/extension.js", external: ["vscode", "node-pty"] },
       { entryPoints: ["src/daemon/entry.ts"], outfile: "dist/daemon.js", external: ["node-pty"] },
       { entryPoints: ["src/hook/entry.ts"], outfile: "dist/hook.js", external: [] },
+      { entryPoints: ["src/hook/statusline.ts"], outfile: "dist/statusline.js", external: [] },
       { entryPoints: ["src/webview/main.ts"], outfile: "dist/webview.js", platform: "browser", format: "iife" },
     ]
 

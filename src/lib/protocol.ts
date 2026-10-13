@@ -8,6 +8,8 @@ export const MSG = {
   StatusReport: 6,
   // Raw bytes for the PTY (xterm onBinary: legacy mouse reports), never re-encoded as UTF-8.
   InputBinary: 7,
+  // A statusLine's plan limits (dist/statusline.js), over its own short-lived connection like StatusReport.
+  UsageReport: 8,
   HelloOk: 16,
   HelloFail: 17,
   Snapshot: 18,
@@ -18,6 +20,7 @@ export const MSG = {
   Status: 23,
   CliSession: 24,
   Model: 25,
+  Usage: 26,
 } as const
 
 export type AgentState = "working" | "waiting" | "blocked" | "done"
@@ -25,6 +28,7 @@ export const AGENT_STATES: readonly AgentState[] = ["working", "waiting", "block
 
 export type MetaEvent =
   | { kind: "model"; model: string; cliSessionId?: string }
+  | { kind: "usage"; rateLimits: unknown }
   | { kind: "cliSession"; cliSessionId: string; cliSessionFile?: string }
   | { kind: "cwd"; cwd: string }
   | { kind: "title"; title: string }

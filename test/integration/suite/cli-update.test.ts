@@ -63,6 +63,14 @@ describe("CLI update and restart", () => {
           assert.equal(again.argv, `--resume ${sessionFile}`)
           assert.notEqual(a.inspectPanel(panel).sessionId, oldSession)
           assert.equal(a.inspectPanel(panel).cliSessionId, selectedId)
+        } else if (identity === "unsaved") {
+          // The hook named a session but no turn ran: nothing saved, nothing to lose — a fresh OMP.
+          const again = await waitFor(() => {
+            const e = readEnvFile(tag)
+            return e && e.pid !== env.pid ? e : undefined
+          }, 15_000, "OMP restarted fresh")
+          assert.equal(again.argv, "")
+          assert.notEqual(a.inspectPanel(panel).sessionId, oldSession)
         } else {
           assert.equal(a.inspectPanel(panel).sessionId, oldSession)
           assert.ok(pidAlive(Number(env.pid)), "unknown identity must not kill the running conversation")

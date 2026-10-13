@@ -6,7 +6,12 @@ import * as os from "node:os"
 import * as path from "node:path"
 import * as vscode from "vscode"
 import { CLI_TOOLS, type CliTool } from "./config.js"
-import { cliUpdates, type UpdateNotice, type UpdateOptions } from "./cli-update.js"
+import { cliUpdates, runCommand, type UpdateNotice, type UpdateOptions } from "./cli-update.js"
+import { isClaudeFamily, resolveUserStatusLine, statuslineSettingsArg } from "./claude-statusline.js"
+import { claudeSnapshot } from "./usage/claude.js"
+import { codexUsage } from "./usage/codex.js"
+import { OmpUsage, ompSnapshot, providerOfModel } from "./usage/omp.js"
+import type { UsageSnapshot } from "./usage/types.js"
 import { extractBinary } from "./detect.js"
 import { shellQuote } from "./command-env.js"
 import { samePath } from "./same-path.js"
@@ -120,6 +125,8 @@ type TabState = {
   createdAt?: number
   /** The name last shown in the webview's action bar (see postTitle). */
   postedTitle?: string
+  /** The tab's last plan-usage snapshot (see src/lib/usage). */
+  usage?: UsageSnapshot
 }
 const tabs = new WeakMap<vscode.WebviewPanel, TabState>()
 /** The panel's record, created on first use; it goes away with the panel. */
@@ -154,6 +161,47 @@ function refreshModel(panel: vscode.WebviewPanel): void {
   if (model === tab(panel).model) return
   tab(panel).model = model || undefined
   sendTo(panel, { type: "model", model: model ?? "" })
+  repickOmpUsage(panel)
+}
+
+const OMP_REFRESH_MS = 5 * 60_000
+const ompUsage = new OmpUsage((command, timeoutMs) => runCommand(command, { extraEnv: {} } as CliTool, timeoutMs))
+
+/** Re-picks an OMP tab's active provider from the cached run (never starts one: callers are hook-driven). */
+function repickOmpUsage(panel: vscode.WebviewPanel): void {
+  const tool = tab(panel).tool
+  const cached = ompUsage.cachedOutput
+  if (tool && (tool.historyToolId ?? tool.id) === "omp" && cached) setUsage(panel, ompSnapshot(cached, providerOfModel(tab(panel).model), ompUsage.fetchedAt ?? Date.now()))
+}
+
+function setUsage(panel: vscode.WebviewPanel, snapshot: UsageSnapshot | undefined): void {
+  if (!snapshot) return // keep the last one: quota is per account, a gap in data is not "no quota"
+  tab(panel).usage = snapshot
+  sendTo(panel, { type: "usage", snapshot })
+}
+
+/** Codex: cheap file read, on the model's trigger. OMP: one shared network run, never on hooks. */
+function refreshUsage(panel: vscode.WebviewPanel, opts: { omp?: boolean; force?: boolean } = {}): void {
+  const tool = tab(panel).tool
+  const cwd = usableCwd(tab(panel).cwd)
+  if (!tool || !activePanels.has(panel)) return
+  const id = tool.historyToolId ?? tool.id
+  if (id === "codex" && cwd) setUsage(panel, codexUsage(cwd, tab(panel).spawnedAt ?? 0, tab(panel).cliSessionId, Date.now()))
+  else if (id === "omp" && opts.omp) {
+    void ompUsage.get(opts.force).then((out) => {
+      if (out && activePanels.has(panel)) setUsage(panel, ompSnapshot(out, providerOfModel(tab(panel).model), ompUsage.fetchedAt ?? Date.now()))
+    })
+  }
+}
+
+let ompTimer: NodeJS.Timeout | undefined
+function ensureOmpTimer(): void {
+  ompTimer ??= setInterval(() => {
+    const visible = [...activePanels].filter((p) => p.visible && (tab(p).tool?.historyToolId ?? tab(p).tool?.id) === "omp")
+    if (!visible.length) return
+    void ompUsage.get(true).then(() => visible.forEach((p) => refreshUsage(p, { omp: true })))
+  }, OMP_REFRESH_MS)
+  ompTimer.unref?.()
 }
 // The last panel to have editor focus, so addFilepathToTerminal (invoked from a text
 // editor, where no panel is `active`) still knows which session to write into.
@@ -475,14 +523,14 @@ export async function holdDaemonAlive(context: vscode.ExtensionContext): Promise
 
 /** Per-tool extras for a new CLI process; PATH and the rest come from the daemon's interactive
  * login shell (see daemon/entry.ts). */
-function spawnEnv(context: vscode.ExtensionContext, tool: CliTool): Record<string, string> {
+function spawnEnv(context: vscode.ExtensionContext, tool: CliTool, cwd: string): Record<string, string> {
   // CLI_CODE_FAMILY: the CLI whose hook reports count for this tab (see hook/entry.ts).
   // TERM_PROGRAM: what VS Code's own terminal sets, and what Claude Code (and others) look at to
   // know they run in VS Code — auto-connecting to the IDE (/ide, selection, diffs), keybinding
   // hints. The daemon's env comes from the extension host, which has no TERM_PROGRAM.
   // CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL: TERM_PROGRAM alone makes Claude Code install its VS Code
   // extension; the IDE link still connects when the user installed it themselves.
-  return {
+  const env: Record<string, string> = {
     ...buildEnv(tool),
     CLI_CODE_HOOK: hookCommand(context),
     CLI_CODE_FAMILY: tool.historyToolId ?? tool.id,
@@ -490,6 +538,13 @@ function spawnEnv(context: vscode.ExtensionContext, tool: CliTool): Record<strin
     TERM_PROGRAM_VERSION: vscode.version,
     CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL: "1",
   }
+  if (isClaudeFamily(tool)) {
+    // Claude's statusLine in this tab (see claude-statusline.ts): stdout is Claude's status row, so not discarded.
+    env.CLI_CODE_STATUSLINE = `ELECTRON_RUN_AS_NODE=1 ${shellQuote(process.execPath)} ${shellQuote(context.asAbsolutePath("dist/statusline.js"))}`
+    const original = resolveUserStatusLine(cwd, os.homedir())
+    if (original) env.CLI_CODE_STATUSLINE_ORIGINAL = Buffer.from(original).toString("base64")
+  }
+  return env
 }
 
 /** Shell snippet Claude's hook entry evaluates; the editor's own binary runs our bundle as node.
@@ -624,13 +679,15 @@ async function spawnSession(
 ): Promise<{ connection: SessionConnection | undefined; refused: string | undefined }> {
   let refused: string | undefined
   let ensured: string | undefined = socketPath
+  // The statusLine rides on the spawn only: tab.command stays clean, so a restart never stacks it.
+  const spawned = isClaudeFamily(tool) ? `${command} ${statuslineSettingsArg()}` : command
   const connection = await connectSessionRetrying(
     async () => {
       const path = ensured ?? (await ensureDaemon(context))
       ensured = undefined
       return path
     },
-    { op: "spawn", toolId: tool.id, command, cwd, env: spawnEnv(context, tool), cols: 80, rows: 24 },
+    { op: "spawn", toolId: tool.id, command: spawned, cwd, env: spawnEnv(context, tool, cwd), cols: 80, rows: 24 },
     { onRefused: (reason) => (refused = reason) },
   )
   return { connection, refused }
@@ -924,6 +981,10 @@ function wirePanel(
   tab(panel).tool = tool
   updateTitle(panel)
   lastFocusedPanel = panel
+  if ((tool.historyToolId ?? tool.id) === "omp") {
+    ensureOmpTimer()
+    refreshUsage(panel, { omp: true })
+  }
 
   // Host -> webview messages must queue until the webview signals it is ready (its
   // terminal is open and focused) — otherwise the daemon's Snapshot on attach, which
@@ -944,6 +1005,7 @@ function wirePanel(
     if (e.webviewPanel.visible) {
       void refreshCliUpdate(panel)
       refreshModel(panel)
+      refreshUsage(panel, { omp: true })
       tab(panel).unread = false
       updateTitle(panel)
       // Flipping between tabs fires this constantly; the config walk behind it (stat + two
@@ -1032,6 +1094,7 @@ function attachConnection(
       tab(panel).modelLive = true
       tab(panel).model = e.model || undefined
       sendTo(panel, { type: "model", model: e.model })
+      repickOmpUsage(panel)
     } else if (e.kind === "cliSession") {
       if (e.cliSessionId !== tab(panel).cliSessionId) {
         tab(panel).modelLive = false
@@ -1043,6 +1106,8 @@ function attachConnection(
       tab(panel).modelCheckedAt = undefined
       postState(panel)
       refreshModel(panel)
+    } else if (e.kind === "usage") {
+      setUsage(panel, claudeSnapshot(e.rateLimits, Date.now()))
     } else if (e.kind === "cwd") {
       tab(panel).cwd = e.cwd
       postState(panel)
@@ -1071,6 +1136,7 @@ function attachConnection(
       }
       sendTo(panel, { type: "agentStatus", state: e.state })
       refreshModel(panel)
+      refreshUsage(panel)
       if (e.state === "done" || e.state === "waiting" || e.state === "blocked") {
         if (!panel.visible) {
           tab(panel).unread = true
@@ -1106,6 +1172,7 @@ function attachConnection(
       postTitle(panel)
       if (tab(panel).cliUpdate) sendTo(panel, { type: "cliUpdate", notice: tab(panel).cliUpdate })
       if (tab(panel).model) sendTo(panel, { type: "model", model: tab(panel).model! })
+      if (tab(panel).usage) sendTo(panel, { type: "usage", snapshot: tab(panel).usage })
       void refreshCliUpdate(panel)
       if (wiring.everReady) {
         // A reloaded webview is blank and the daemon sends a screen only on attach: attach again.
@@ -1118,7 +1185,8 @@ function attachConnection(
       const modelTimer = setInterval(() => { if (panel.visible) refreshModel(panel) }, MODEL_REFRESH_MS)
       panel.onDidDispose(() => clearInterval(modelTimer))
       if (tab(panel).initialInput) capTimer = setTimeout(flushInitialInput, 5000)
-    } else if (message.type === "restart") void restartPanel(context, panel)
+    } else if (message.type === "usageRefresh") refreshUsage(panel, { omp: true, force: true })
+    else if (message.type === "restart") void restartPanel(context, panel)
     else if (message.type === "updateCli") void updatePanelCli(context, panel)
     else if (message.type === "readClipboardImage" && typeof message.id === "number") {
       // Ctrl+V or an image-only Cmd+V went to the CLI, which reads the clipboard image itself; this read only feeds the preview.
@@ -1392,23 +1460,32 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     let baseCommand = exact
       ? exactRestartCommand(tool, tab(panel).command ?? tool.command, tab(panel).cliSessionId)
       : await commandForRestart(panel, tool)
-    if (!baseCommand) throw new Error("OMP was updated, but this tab's session ID is not known. The running session was kept. Send a prompt in this tab, then retry Update & Restart.")
-    if ((tool.historyToolId ?? tool.id) === "omp" && (exact || tab(panel).cliSessionFile)) {
+    // OMP saves a conversation only once a turn runs. Its hook named the session (so the hook
+    // works) yet reported no turn since it started: nothing to resume, nothing to lose — start
+    // fresh. Without the hook no status ever arrives, so a long conversation would look the same.
+    const ompUntouched = (tool.historyToolId ?? tool.id) === "omp" && !tab(panel).status && !!tab(panel).cliSessionId
+    if (!baseCommand) {
+      if (!ompUntouched) throw new Error("OMP was updated, but this tab's session ID is not known. The running session was kept. Send a prompt in this tab, then retry Update & Restart.")
+      baseCommand = tool.command
+    } else if ((tool.historyToolId ?? tool.id) === "omp" && (exact || tab(panel).cliSessionFile)) {
       // OMP allocates an ID at startup, but writes the transcript lazily. An ID alone is
       // not proof that --resume can open it; check before ending the live conversation.
       const id = sessionIdFromCommand(baseCommand, tool.resumeCommand!)
       const cwd = usableCwd(tab(panel).cwd) ?? fallbackCwd()
       const file = tab(panel).cliSessionFile ?? (id ? locateLatestSessionFile("omp", cwd, 0, os.homedir(), id) : undefined)
-      if (!id || !file || !sessionFileHasId(file, id)) {
+      if (id && file && sessionFileHasId(file, id)) {
+        // Resume the verified file itself, including profiles/custom directories and paths with spaces.
+        const quotedFile = process.platform === "win32" ? `'${file.replace(/'/g, "''")}'` : shellQuote(file)
+        baseCommand = tool.resumeCommand!.replace("{sessionId}", quotedFile)
+        tab(panel).cliSessionFile = file
+      } else if (ompUntouched) {
+        baseCommand = tool.command
+      } else {
         const error = new Error("This OMP conversation has not been saved yet. The running session was kept. Finish a turn, then retry Restart.")
         if (updatedVersion) throw error
         void vscode.window.showWarningMessage(error.message)
         return
       }
-      // Resume the verified file itself, including profiles/custom directories and paths with spaces.
-      const quotedFile = process.platform === "win32" ? `'${file.replace(/'/g, "''")}'` : shellQuote(file)
-      baseCommand = tool.resumeCommand!.replace("{sessionId}", quotedFile)
-      tab(panel).cliSessionFile = file
     }
     const runningCliVersion = updatedVersion ?? await cliUpdates.version(tool, updateOptions(tool), true)
     if (!activePanels.has(panel)) return
@@ -1461,6 +1538,8 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     const wiring = tab(panel).wiring
     if (wiring) wiring.pending.length = 0
     sendTo(panel, { type: "reset" })
+    // The webview clears its chip on reset; the last snapshot stays until a new one arrives.
+    if (tab(panel).usage) sendTo(panel, { type: "usage", snapshot: tab(panel).usage })
     attachConnection(context, panel, tool, connection)
     updateTitle(panel)
     void refreshCliUpdate(panel)

@@ -44,6 +44,8 @@ export class Session {
   cliSessionId: string | undefined
   cliSessionFile: string | undefined
   model: string | undefined
+  /** The CLI's last plan limits (Claude's statusLine), replayed to a client that attaches later. */
+  usage: unknown
   status: { state: AgentState; prompt?: string; cliSessionId?: string } | undefined
   private waitingTool: string | undefined
   /** Characters written to the mirror it has not parsed yet (see onData). */
@@ -138,6 +140,12 @@ export class Session {
 
   onMeta(cb: (e: MetaEvent) => void): void {
     this.metaListener = cb
+  }
+
+  /** Plan limits pushed by the statusLine (dist/statusline.js); the daemon only relays them. */
+  reportUsage(rateLimits: unknown): void {
+    this.usage = rateLimits
+    this.metaListener?.({ kind: "usage", rateLimits })
   }
 
   /**
