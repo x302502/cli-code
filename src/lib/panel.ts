@@ -1460,23 +1460,32 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     let baseCommand = exact
       ? exactRestartCommand(tool, tab(panel).command ?? tool.command, tab(panel).cliSessionId)
       : await commandForRestart(panel, tool)
-    if (!baseCommand) throw new Error("OMP was updated, but this tab's session ID is not known. The running session was kept. Send a prompt in this tab, then retry Update & Restart.")
-    if ((tool.historyToolId ?? tool.id) === "omp" && (exact || tab(panel).cliSessionFile)) {
+    // OMP saves a conversation only once a turn runs. Its hook named the session (so the hook
+    // works) yet reported no turn since it started: nothing to resume, nothing to lose — start
+    // fresh. Without the hook no status ever arrives, so a long conversation would look the same.
+    const ompUntouched = (tool.historyToolId ?? tool.id) === "omp" && !tab(panel).status && !!tab(panel).cliSessionId
+    if (!baseCommand) {
+      if (!ompUntouched) throw new Error("OMP was updated, but this tab's session ID is not known. The running session was kept. Send a prompt in this tab, then retry Update & Restart.")
+      baseCommand = tool.command
+    } else if ((tool.historyToolId ?? tool.id) === "omp" && (exact || tab(panel).cliSessionFile)) {
       // OMP allocates an ID at startup, but writes the transcript lazily. An ID alone is
       // not proof that --resume can open it; check before ending the live conversation.
       const id = sessionIdFromCommand(baseCommand, tool.resumeCommand!)
       const cwd = usableCwd(tab(panel).cwd) ?? fallbackCwd()
       const file = tab(panel).cliSessionFile ?? (id ? locateLatestSessionFile("omp", cwd, 0, os.homedir(), id) : undefined)
-      if (!id || !file || !sessionFileHasId(file, id)) {
+      if (id && file && sessionFileHasId(file, id)) {
+        // Resume the verified file itself, including profiles/custom directories and paths with spaces.
+        const quotedFile = process.platform === "win32" ? `'${file.replace(/'/g, "''")}'` : shellQuote(file)
+        baseCommand = tool.resumeCommand!.replace("{sessionId}", quotedFile)
+        tab(panel).cliSessionFile = file
+      } else if (ompUntouched) {
+        baseCommand = tool.command
+      } else {
         const error = new Error("This OMP conversation has not been saved yet. The running session was kept. Finish a turn, then retry Restart.")
         if (updatedVersion) throw error
         void vscode.window.showWarningMessage(error.message)
         return
       }
-      // Resume the verified file itself, including profiles/custom directories and paths with spaces.
-      const quotedFile = process.platform === "win32" ? `'${file.replace(/'/g, "''")}'` : shellQuote(file)
-      baseCommand = tool.resumeCommand!.replace("{sessionId}", quotedFile)
-      tab(panel).cliSessionFile = file
     }
     const runningCliVersion = updatedVersion ?? await cliUpdates.version(tool, updateOptions(tool), true)
     if (!activePanels.has(panel)) return
