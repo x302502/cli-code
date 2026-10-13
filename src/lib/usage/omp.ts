@@ -15,7 +15,10 @@ export function providerOfModel(model: string | undefined): string | undefined {
   return i > 0 ? model!.slice(0, i) : undefined
 }
 
-const compact = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}K` : String(n))
+const compact = (n: number) => {
+  if (n >= 1000) return `${Math.round(n / 1000)}K`
+  return String(Number.isInteger(n) ? n : n >= 10 ? Math.round(n) : Math.round(n * 10) / 10)
+}
 
 type Limit = { label?: unknown; window?: { label?: unknown; resetsAt?: unknown }; amount?: { usedFraction?: unknown; used?: unknown; limit?: unknown; unit?: unknown } }
 type Report = { provider?: unknown; limits?: Limit[]; metadata?: { accountId?: unknown; plan?: unknown } }
@@ -28,7 +31,7 @@ function windowOf(l: Limit): UsageWindow | undefined {
   const w: UsageWindow = { label: !win || win === label ? label || win : label ? `${label} · ${win}` : win, used }
   if (typeof l.window?.resetsAt === "number") w.resetsAt = l.window.resetsAt
   const a = l.amount!
-  if (typeof a.used === "number" && typeof a.limit === "number") w.detail = `${compact(a.used)} / ${compact(a.limit)}${typeof a.unit === "string" ? ` ${a.unit}` : ""}`
+  if (a.unit !== "percent" && typeof a.used === "number" && typeof a.limit === "number") w.detail = `${compact(a.used)} / ${compact(a.limit)}${typeof a.unit === "string" ? ` ${a.unit}` : ""}`
   return w
 }
 

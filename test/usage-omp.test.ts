@@ -38,6 +38,15 @@ describe("ompSnapshot", () => {
   it("a label equal to its window is not repeated", () => {
     expect(ompSnapshot(JSON_OUT, undefined, 1)!.groups.find((g) => g.provider === "OpenAI Codex")!.accounts[0]!.windows[0]!.label).toBe("5 hours")
   })
+  it("no detail for percent units; non-integer amounts of other units are rounded", () => {
+    const out = JSON.stringify({ reports: [report("p", "a", [
+      limit("A", "A", 0, undefined, { used: 4.86649, limit: 100, unit: "percent" }),
+      limit("B", "B", 0.5, undefined, { used: 4.86649, limit: 12.6, unit: "credits" }),
+    ])] })
+    const w = ompSnapshot(out, undefined, 1)!.groups[0]!.accounts[0]!.windows
+    expect(w[0]!.detail).toBeUndefined()
+    expect(w[1]!.detail).toBe("4.9 / 13 credits")
+  })
   it("tolerates a warning line before the JSON; garbage → undefined", () => {
     expect(ompSnapshot(`warning: something\n${JSON_OUT}\n`, undefined, 1)).toBeDefined()
     expect(ompSnapshot("not json", undefined, 1)).toBeUndefined()
