@@ -55,20 +55,25 @@ function report(raw: string): Promise<void> {
 function forward(raw: string): Promise<void> {
   if (!original) return Promise.resolve()
   return new Promise((resolve) => {
-    const child = spawn("/bin/sh", ["-c", original], { stdio: ["pipe", "inherit", "ignore"], detached: true })
-    const timer = setTimeout(() => {
-      // Kill the whole group: a grandchild would keep our inherited stdout open and hold Claude up.
-      try {
-        process.kill(-child.pid!, "SIGKILL")
-      } catch {
-        // already gone
-      }
-    }, ORIGINAL_TIMEOUT_MS)
-    child.on("error", () => resolve())
-    child.on("close", () => {
-      clearTimeout(timer)
-      resolve()
+    // Not detached: the user's statusLine keeps Claude's controlling terminal, as it would under Claude.
+    const child = spawn("/bin/sh", ["-c", original], { stdio: ["pipe", "pipe", "ignore"] })
+    // Output is copied through; every write must land before we resolve (and exit).
+    let written: Promise<void> = Promise.resolve()
+    child.stdout.on("data", (chunk: Buffer) => {
+      written = written.then(() => new Promise<void>((done) => process.stdout.write(chunk, () => done())))
     })
+    const finish = () => {
+      clearTimeout(timer)
+      void written.then(() => resolve())
+    }
+    // A grandchild holds only our pipe, so killing the child and exiting releases Claude's.
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL")
+      child.stdout.destroy()
+      finish()
+    }, ORIGINAL_TIMEOUT_MS)
+    child.on("error", finish)
+    child.on("close", finish)
     child.stdin.on("error", () => {})
     child.stdin.end(raw)
   })

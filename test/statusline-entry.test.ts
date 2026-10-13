@@ -62,7 +62,7 @@ describe("statusline entry", () => {
     expect(second.frames).toHaveLength(0)
   })
   it("a hanging or failing original cannot hold Claude up or fail it", async () => {
-    const hang = await run({ original: "printf partial; sleep 30" })
+    const hang = await run({ original: "printf partial; sleep 30 & wait" })
     expect(hang.status).toBe(0)
     expect(hang.stdout).toBe("partial")
     expect(hang.elapsed).toBeLessThan(8000)
