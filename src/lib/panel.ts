@@ -1529,6 +1529,8 @@ export async function restartPanel(context: vscode.ExtensionContext, panel: vsco
     const wiring = tab(panel).wiring
     if (wiring) wiring.pending.length = 0
     sendTo(panel, { type: "reset" })
+    // The webview clears its chip on reset; the last snapshot stays until a new one arrives.
+    if (tab(panel).usage) sendTo(panel, { type: "usage", snapshot: tab(panel).usage })
     attachConnection(context, panel, tool, connection)
     updateTitle(panel)
     void refreshCliUpdate(panel)
