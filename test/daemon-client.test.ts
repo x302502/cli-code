@@ -245,6 +245,29 @@ describe("connectSession", () => {
   })
 })
 
+describe("connectSession — usage meta", () => {
+  it("decodes a Usage frame into a usage meta event", async () => {
+    const p = tmpSocket()
+    const server = net.createServer((socket) => {
+      socket.once("data", () => {
+        socket.write(encodeJsonFrame(MSG.HelloOk, { sessionId: "phien-usage" }))
+        socket.write(encodeJsonFrame(MSG.Usage, { rateLimits: { seven_day: { used_percentage: 41 } } }))
+      })
+    })
+    await new Promise<void>((r) => server.listen(p, r))
+    try {
+      const connection = await connectSession(p, spawnHello)
+      const events: unknown[] = []
+      connection!.onMeta((e) => events.push(e))
+      for (let i = 0; i < 50 && events.length === 0; i++) await new Promise((r) => setTimeout(r, 10))
+      expect(events).toContainEqual({ kind: "usage", rateLimits: { seven_day: { used_percentage: 41 } } })
+      connection!.dispose()
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()))
+    }
+  })
+})
+
 describe("connectSessionRetrying — a daemon that idle-exited between the probe and the Hello", () => {
   it("a connection that fails at once is retried once against a freshly ensured daemon", async () => {
     const dead = daemonSocketPath("retry-dead-" + Math.random().toString(16).slice(2, 8))

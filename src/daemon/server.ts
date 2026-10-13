@@ -66,6 +66,17 @@ export async function startDaemon(args: {
             }
             continue
           }
+          if (frame.type === MSG.UsageReport) {
+            if (!reporter && !session) {
+              reporter = true
+              clients--
+            }
+            const report = decodeJsonPayload<{ sessionId?: unknown; rateLimits?: unknown }>(frame.payload)
+            if (typeof report.sessionId === "string" && report.rateLimits && typeof report.rateLimits === "object") {
+              sessions.get(report.sessionId)?.reportUsage(report.rateLimits)
+            }
+            continue
+          }
           if (frame.type === MSG.StatusReport) {
             // A client's own socket (it did a Hello) stays a client; only a bare socket that
             // reports is a hook's.
@@ -262,6 +273,7 @@ function wire(session: Session, socket: net.Socket): void {
 
 function metaFrame(e: MetaEvent): Uint8Array {
   if (e.kind === "model") return encodeJsonFrame(MSG.Model, { model: e.model, cliSessionId: e.cliSessionId })
+  if (e.kind === "usage") return encodeJsonFrame(MSG.Usage, { rateLimits: e.rateLimits })
   if (e.kind === "cliSession") return encodeJsonFrame(MSG.CliSession, { cliSessionId: e.cliSessionId, cliSessionFile: e.cliSessionFile })
   if (e.kind === "cwd") return encodeJsonFrame(MSG.Cwd, { cwd: e.cwd })
   if (e.kind === "title") return encodeJsonFrame(MSG.Title, { title: e.title })
@@ -276,5 +288,6 @@ function currentMeta(session: Session): Uint8Array[] {
   if (session.status) frames.push(encodeJsonFrame(MSG.Status, session.status))
   if (session.cliSessionId) frames.push(encodeJsonFrame(MSG.CliSession, { cliSessionId: session.cliSessionId, cliSessionFile: session.cliSessionFile }))
   if (session.model) frames.push(encodeJsonFrame(MSG.Model, { model: session.model, cliSessionId: session.cliSessionId }))
+  if (session.usage) frames.push(encodeJsonFrame(MSG.Usage, { rateLimits: session.usage }))
   return frames
 }

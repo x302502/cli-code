@@ -473,6 +473,30 @@ describe("startDaemon", () => {
     hook.socket.destroy()
     owner.socket.destroy()
   })
+
+  it("UsageReport từ một kết nối không Hello tới owner dưới dạng Usage, và được phát lại khi attach", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty })
+    stop = daemon.close
+    const owner = connect(p)
+    owner.socket.write(encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "claude", command: "claude", cwd: "/tmp", env: {}, cols: 80, rows: 24 }))
+    const ok = await owner.waitFor(MSG.HelloOk)
+    const { sessionId } = decodeJsonPayload<{ sessionId: string }>(ok.payload)
+    const hook = connect(p)
+    hook.socket.write(encodeJsonFrame(MSG.UsageReport, { sessionId, rateLimits: { five_hour: { used_percentage: 23 } } }))
+    const usage = await owner.waitFor(MSG.Usage)
+    expect(decodeJsonPayload<unknown>(usage.payload)).toEqual({ rateLimits: { five_hour: { used_percentage: 23 } } })
+    // A client attaching later gets the last one with the other meta.
+    const again = connect(p)
+    again.socket.write(encodeJsonFrame(MSG.Hello, { op: "attach", sessionId }))
+    await again.waitFor(MSG.HelloOk)
+    await again.waitFor(MSG.Usage)
+    expect(again.frames.some((f) => f.type === MSG.Usage)).toBe(true)
+    hook.socket.destroy()
+    owner.socket.destroy()
+    again.socket.destroy()
+  })
 })
 
 describe("startDaemon — binary input", () => {
