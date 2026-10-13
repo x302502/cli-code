@@ -82,6 +82,11 @@ export class OmpUsage {
     return this.cached?.at
   }
 
+  /** The cached run's output, without starting a run. */
+  get cachedOutput(): string | undefined {
+    return this.cached?.output
+  }
+
   get(force = false): Promise<string | undefined> {
     if (!force && this.cached && this.clock() - this.cached.at < CACHE_MS) return Promise.resolve(this.cached.output)
     this.inflight ??= this.run("omp usage --json", TIMEOUT_MS)

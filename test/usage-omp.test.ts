@@ -79,4 +79,21 @@ describe("OmpUsage — one shared run, cached 5 minutes", () => {
     await u.get()
     expect(u.fetchedAt).toBe(1000)
   })
+
+  it("cachedOutput never runs: undefined first, the output after a run, kept after a failed forced run", async () => {
+    let fail = false
+    let calls = 0
+    const u = new OmpUsage(async () => {
+      calls++
+      if (fail) throw new Error("x")
+      return "{}"
+    })
+    expect(u.cachedOutput).toBeUndefined()
+    expect(calls).toBe(0)
+    await u.get()
+    expect(u.cachedOutput).toBe("{}")
+    fail = true
+    await u.get(true)
+    expect(u.cachedOutput).toBe("{}")
+  })
 })

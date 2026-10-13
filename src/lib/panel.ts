@@ -161,7 +161,9 @@ function refreshModel(panel: vscode.WebviewPanel): void {
   if (model === tab(panel).model) return
   tab(panel).model = model || undefined
   sendTo(panel, { type: "model", model: model ?? "" })
-  if ((tool.historyToolId ?? tool.id) === "omp") refreshUsage(panel, { omp: true })
+  // A model change re-picks the active provider from the cached run; hook-driven paths never start a run.
+  const cached = ompUsage.cachedOutput
+  if ((tool.historyToolId ?? tool.id) === "omp" && cached) setUsage(panel, ompSnapshot(cached, providerOfModel(tab(panel).model), ompUsage.fetchedAt ?? Date.now()))
 }
 
 const OMP_REFRESH_MS = 5 * 60_000
@@ -974,7 +976,10 @@ function wirePanel(
   tab(panel).tool = tool
   updateTitle(panel)
   lastFocusedPanel = panel
-  if ((tool.historyToolId ?? tool.id) === "omp") ensureOmpTimer()
+  if ((tool.historyToolId ?? tool.id) === "omp") {
+    ensureOmpTimer()
+    refreshUsage(panel, { omp: true })
+  }
 
   // Host -> webview messages must queue until the webview signals it is ready (its
   // terminal is open and focused) — otherwise the daemon's Snapshot on attach, which
