@@ -8,6 +8,8 @@ export const MSG = {
   StatusReport: 6,
   // Raw bytes for the PTY (xterm onBinary: legacy mouse reports), never re-encoded as UTF-8.
   InputBinary: 7,
+  // A statusLine's plan limits (dist/statusline.js), over its own short-lived connection like StatusReport.
+  UsageReport: 8,
   HelloOk: 16,
   HelloFail: 17,
   Snapshot: 18,
