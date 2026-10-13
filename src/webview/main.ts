@@ -18,6 +18,7 @@ import { tailText } from "./buffer-text.js"
 import { clickReachesProgram } from "../lib/mouse-gesture.js"
 import { classifyOscLink } from "../lib/osc-link.js"
 import type { UpdateNotice } from "../lib/cli-update.js"
+import type { UsageSnapshot } from "../lib/usage/types.js"
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void
@@ -46,6 +47,7 @@ type HostMessage =
   | { type: "probeResult"; id: number; results: ProbeResult }
   | { type: "agentStatus"; state: "working" | "waiting" | "blocked" | "done" | "none" }
   | { type: "model"; model: string }
+  | { type: "usage"; snapshot: UsageSnapshot | null }
   | { type: "configStale"; reason: string }
   | { type: "cliUpdate"; notice: UpdateNotice }
 
@@ -373,6 +375,7 @@ const actionBar = createActionBar({
   onRename: (title) => vscode.postMessage({ type: "rename", title }),
   onRenameEnd: () => term.focus(),
   onUpdate: () => vscode.postMessage({ type: "updateCli" }),
+  onUsageRefresh: () => vscode.postMessage({ type: "usageRefresh" }),
 })
 // Opt-out via the cliCode.composer setting, which the host reflects on <body data-composer>.
 if (document.body.dataset.composer !== "off") createComposer(term)
@@ -428,6 +431,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     actionBar.setUpdate({ kind: "current" })
     actionBar.setStatus("")
     actionBar.setModel("")
+    actionBar.setUsage(null)
     overlay.hide()
     draftPreview.reset()
     term.reset()
@@ -474,6 +478,8 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
   } else if (message.type === "model") {
     actionBar.setModel(message.model)
+  } else if (message.type === "usage") {
+    actionBar.setUsage(message.snapshot)
   } else if (message.type === "agentStatus") {
     // Keys typed while the CLI waited on a dialog (y, 1, …) answered it; they are not a draft.
     if (lastAgentState === "waiting" && message.state !== "waiting") draftPreview.reset()
