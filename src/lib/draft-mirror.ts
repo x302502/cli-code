@@ -50,6 +50,8 @@ export function createDraftMirror(opts: { collapsesPastes?: boolean; restore?: D
   /** Ctrl+V found no image on the clipboard: the CLI added nothing. */
   dropImage: (id: number) => void
   snapshot: () => DraftSnapshot
+  /** Replaces the draft with the CLI's own copy of its input. */
+  adopt: (text: string) => void
 } {
   const r = opts.restore
   const valid = r !== undefined && Array.isArray(r.units) && Number.isInteger(r.caret) && r.caret >= 0 && r.caret <= r.units.length
@@ -242,7 +244,17 @@ export function createDraftMirror(opts: { collapsesPastes?: boolean; restore?: D
 
   const snapshot = (): DraftSnapshot => ({ units, caret, uncertain, pasteCount, imageCount, nextImageId })
 
-  return { feed, view, reset, dropImage, snapshot }
+  // The CLI's own report of its input (OMP's plugin, after a Tab completion or another key the
+  // replay cannot follow): it replaces the guess. Its caret is not reported; typing goes on at the end.
+  const adopt = (text: string) => {
+    // Empty and in step: the draft was just sent, and this report left before the Enter did.
+    if (units.length === 0 && !uncertain) return
+    units = graphemes(text)
+    caret = units.length
+    uncertain = false
+  }
+
+  return { feed, view, reset, dropImage, snapshot, adopt }
 }
 
 const LONG_DRAFT_LINES = 3

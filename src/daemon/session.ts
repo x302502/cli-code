@@ -158,7 +158,7 @@ export class Session {
     state: AgentState,
     prompt?: string,
     cliSessionId?: string,
-    opts: { tool?: string; toolDone?: string; agent?: string; agentDone?: string; cliPid?: number; fromHook?: boolean; identityOnly?: boolean; cliSessionFile?: string; model?: string } = {},
+    opts: { tool?: string; toolDone?: string; agent?: string; agentDone?: string; cliPid?: number; fromHook?: boolean; identityOnly?: boolean; cliSessionFile?: string; model?: string; draft?: string } = {},
   ): void {
     // The first CLI process to report owns the tab; a same-kind CLI nested inside it (which
     // inherits the tab's env, so reaches the same hook) is another process and is ignored.
@@ -183,6 +183,8 @@ export class Session {
         this.model = opts.model
         this.metaListener?.({ kind: "model", model: opts.model, cliSessionId: this.cliSessionId })
       }
+      // Only relayed: the preview asks for it again when it needs it.
+      if (opts.draft !== undefined) this.metaListener?.({ kind: "draft", text: opts.draft })
       return
     }
     if (opts.toolDone !== undefined || opts.agentDone !== undefined) {

@@ -91,6 +91,36 @@ describe("generated status plugin", () => {
     await new Promise((r) => setTimeout(r, 350))
     expect(fs.readdirSync(capture)).toHaveLength(3)
   })
+  it("OMP reports its input text once a Tab completion makes key replay lose track, and stops at Enter", async () => {
+    const ext = await load("omp")
+    const handlers: Record<string, (e: unknown, c: unknown) => Promise<void>> = {}
+    ext({ on: (name: string, fn: (e: unknown, c: unknown) => Promise<void>) => (handlers[name] = fn) })
+    let input: (data: string) => unknown = () => undefined
+    let text = "1.Rule coding arch"
+    const ctx = {
+      sessionManager: { getSessionId: () => "s" },
+      ui: { onTerminalInput: (fn: (data: string) => unknown) => { input = fn; return () => {} }, getEditorText: () => text },
+    }
+    await handlers.session_start!({}, ctx)
+    await captured(1)
+    const drafts = () => fs.readdirSync(capture).map((f) => JSON.parse(fs.readFileSync(path.join(capture, f), "utf8"))).filter((p) => p.hook_event_name === "Draft")
+    // Plain typing is replayed by the preview itself: nothing is reported.
+    expect(input("a")).toBeUndefined()
+    await new Promise((r) => setTimeout(r, 300))
+    expect(drafts()).toHaveLength(0)
+    // Tab: OMP completed the word; the key itself is left to OMP (not consumed).
+    text = "1.Rule coding architecture"
+    expect(input("\t")).toBeUndefined()
+    await captured(2)
+    expect(drafts()).toEqual([{ hook_event_name: "Draft", session_id: "s", session_file: undefined, draft: "1.Rule coding architecture" }])
+    // Enter sends the prompt: no more reports until the next lost key.
+    input("\r")
+    text = ""
+    input("b")
+    await new Promise((r) => setTimeout(r, 300))
+    expect(drafts()).toHaveLength(1)
+    await handlers.session_shutdown!({}, ctx)
+  })
   it("OMP names the model with its provider", async () => {
     const ext = await load("omp")
     const handlers: Record<string, (e: unknown, c: unknown) => Promise<void>> = {}

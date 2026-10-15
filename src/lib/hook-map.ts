@@ -16,6 +16,8 @@ export type MappedHook = {
   prompt?: string
   cliSessionId?: string
   cliSessionFile?: string
+  /** OMP's own copy of its input (identityOnly), for the draft preview when key replay lost track. */
+  draft?: string
   /** The tool a permission dialog waits on (PermissionRequest). */
   tool?: string
   /** A tool that finished (PostToolUse): ends "waiting" only when it is the tool waited on. */
@@ -37,6 +39,11 @@ export function mapHookEvent(payload: unknown, from?: string): MappedHook | unde
     if (!model || model.startsWith("<")) return undefined
     const id = str(p.session_id)
     return { state: "done", identityOnly: true, model, ...(id ? { cliSessionId: id } : {}), ...file }
+  }
+  if (from === "omp" && eventName(p) === "Draft") {
+    if (typeof p.draft !== "string") return undefined
+    const id = str(p.session_id)
+    return { state: "done", identityOnly: true, draft: p.draft, ...(id ? { cliSessionId: id } : {}) }
   }
   if (from === "omp" && eventName(p) === "SessionStart") {
     const id = str(p.session_id)

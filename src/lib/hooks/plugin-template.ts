@@ -82,7 +82,43 @@ export default function CliCodeStatus(api: any) {
   const identity = (ctx: any) => ({ session_id: sid(ctx)${trackSession ? ", session_file: (() => { try { return ctx?.sessionManager?.getSessionFile?.() } catch { return undefined } })()" : ""} })
   let lastModel: string | undefined
   let activeContext: any
-  let modelTimer: ReturnType<typeof setInterval> | undefined
+  let modelTimer: ReturnType<typeof setInterval> | undefined${trackSession ? `
+  // CLI Code's draft preview rebuilds the input from the keys it sends. A Tab completion (or ↑/↓)
+  // changes the input in ways keys cannot tell, so from then until Enter OMP reports the input
+  // itself, once typing pauses.
+  const LOST_KEYS = new Set(["\\t", "\\x1b[A", "\\x1b[B", "\\x1bOA", "\\x1bOB"])
+  let watchingInput = false
+  let drafting = false
+  let lastDraft: string | undefined
+  let draftTimer: ReturnType<typeof setTimeout> | undefined
+  function watchInput(ctx: any): void {
+    const ui = ctx?.ui
+    if (watchingInput || typeof ui?.onTerminalInput !== "function" || typeof ui?.getEditorText !== "function") return
+    watchingInput = true
+    ui.onTerminalInput((data: string) => {
+      try {
+        if (data === "\\r") {
+          drafting = false
+          lastDraft = undefined
+          clearTimeout(draftTimer)
+          return undefined
+        }
+        if (LOST_KEYS.has(data)) drafting = true
+        if (!drafting) return undefined
+        clearTimeout(draftTimer)
+        draftTimer = setTimeout(() => {
+          try {
+            const text = ui.getEditorText()
+            if (typeof text !== "string" || text === lastDraft) return
+            lastDraft = text
+            report({ hook_event_name: "Draft", ...identity(activeContext ?? ctx), draft: text })
+          } catch {}
+        }, 150)
+        draftTimer.unref?.()
+      } catch {}
+      return undefined
+    })
+  }` : ""}
   function syncModel(ctx: any, selected?: any): void {
     try {
       const model = selected ?? ctx?.models?.current?.() ?? ctx?.model
@@ -98,6 +134,7 @@ export default function CliCodeStatus(api: any) {
     api.on(name, async (_event: any, ctx: any) => {
       activeContext = ctx
       ${trackSession ? 'report({ hook_event_name: "SessionStart", ...identity(ctx), identityOnly: true })' : ""}
+      ${trackSession ? "watchInput(ctx)" : ""}
       syncModel(ctx)
       ${trackSession ? `// OMP has no extension-facing model_changed hook. Its context exposes a live getter;
       // sampling it is cheap and sees menu/cycling/fallback changes before a transcript exists.

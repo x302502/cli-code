@@ -474,6 +474,23 @@ describe("startDaemon", () => {
     owner.socket.destroy()
   })
 
+  it("StatusReport mang bản nháp của OMP tới owner dưới dạng Draft, không đổi trạng thái", async () => {
+    const p = socketPath()
+    const harness = scriptedPty()
+    const daemon = await startDaemon({ socketPath: p, spawnPty: () => harness.pty })
+    stop = daemon.close
+    const owner = connect(p)
+    owner.socket.write(encodeJsonFrame(MSG.Hello, { op: "spawn", toolId: "omp", command: "omp", cwd: "/tmp", env: {}, cols: 80, rows: 24 }))
+    const ok = await owner.waitFor(MSG.HelloOk)
+    const { sessionId } = decodeJsonPayload<{ sessionId: string }>(ok.payload)
+    const hook = connect(p)
+    hook.socket.write(encodeJsonFrame(MSG.StatusReport, { sessionId, state: "done", identityOnly: true, draft: "1.Rule coding architecture" }))
+    const draft = await owner.waitFor(MSG.Draft)
+    expect(decodeJsonPayload<unknown>(draft.payload)).toEqual({ text: "1.Rule coding architecture" })
+    expect(owner.frames.some((f) => f.type === MSG.Status)).toBe(false)
+    hook.socket.destroy()
+    owner.socket.destroy()
+  })
   it("UsageReport từ một kết nối không Hello tới owner dưới dạng Usage, và được phát lại khi attach", async () => {
     const p = socketPath()
     const harness = scriptedPty()

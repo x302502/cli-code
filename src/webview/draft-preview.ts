@@ -27,7 +27,7 @@ export function createDraftPreview(
     onOpenImage(bytes: Uint8Array): void
     onImageKey(id: number): void
   },
-): { feed(data: string): void; reset(): void; setImage(id: number, bytes: Uint8Array | undefined): void } {
+): { feed(data: string): void; reset(): void; adopt(text: string): void; setImage(id: number, bytes: Uint8Array | undefined): void } {
   const mirror = createDraftMirror({ collapsesPastes: opts.collapsesPastes, restore: opts.saved?.draft })
 
   const root = document.createElement("div")
@@ -248,6 +248,10 @@ export function createDraftPreview(
     },
     reset() {
       mirror.reset()
+      schedule(true)
+    },
+    adopt(text) {
+      mirror.adopt(text)
       schedule(true)
     },
     setImage(id, bytes) {
