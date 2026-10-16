@@ -48,6 +48,7 @@ type HostMessage =
   | { type: "agentStatus"; state: "working" | "waiting" | "blocked" | "done" | "none" }
   | { type: "model"; model: string }
   | { type: "usage"; snapshot: UsageSnapshot | null }
+  | { type: "draftText"; text: string }
   | { type: "configStale"; reason: string }
   | { type: "cliUpdate"; notice: UpdateNotice }
 
@@ -478,6 +479,8 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
   } else if (message.type === "model") {
     actionBar.setModel(message.model)
+  } else if (message.type === "draftText") {
+    draftPreview.adopt(message.text)
   } else if (message.type === "usage") {
     actionBar.setUsage(message.snapshot)
   } else if (message.type === "agentStatus") {

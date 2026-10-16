@@ -1106,6 +1106,9 @@ function attachConnection(
       tab(panel).modelCheckedAt = undefined
       postState(panel)
       refreshModel(panel)
+    } else if (e.kind === "draft") {
+      // OMP's own copy of its input: the preview takes it when its key replay lost track.
+      sendTo(panel, { type: "draftText", text: e.text })
     } else if (e.kind === "usage") {
       setUsage(panel, claudeSnapshot(e.rateLimits, Date.now()))
     } else if (e.kind === "cwd") {

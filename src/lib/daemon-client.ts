@@ -225,7 +225,7 @@ export function connectSession(
             const e = decodeJsonPayload<{ code: number; signal?: number }>(frame.payload)
             if (onExit) onExit(e)
             else pendingExit.push(e)
-          } else if (frame.type === MSG.Cwd || frame.type === MSG.Title || frame.type === MSG.Status || frame.type === MSG.CliSession || frame.type === MSG.Model || frame.type === MSG.Usage) {
+          } else if (frame.type === MSG.Cwd || frame.type === MSG.Title || frame.type === MSG.Status || frame.type === MSG.CliSession || frame.type === MSG.Model || frame.type === MSG.Usage || frame.type === MSG.Draft) {
             const body = decodeJsonPayload<Record<string, unknown>>(frame.payload)
             let e: MetaEvent | undefined
             if (frame.type === MSG.Model) {
@@ -242,6 +242,8 @@ export function connectSession(
               if (typeof body.cwd === "string") e = { kind: "cwd", cwd: body.cwd }
             } else if (frame.type === MSG.Title) {
               if (typeof body.title === "string") e = { kind: "title", title: body.title }
+            } else if (frame.type === MSG.Draft) {
+              if (typeof body.text === "string") e = { kind: "draft", text: body.text }
             } else if (frame.type === MSG.Usage) {
               if (body.rateLimits && typeof body.rateLimits === "object") e = { kind: "usage", rateLimits: body.rateLimits }
             } else if (typeof body.state === "string" && (AGENT_STATES as readonly string[]).includes(body.state)) {

@@ -21,6 +21,8 @@ export const MSG = {
   CliSession: 24,
   Model: 25,
   Usage: 26,
+  // OMP's own copy of its input, for the draft preview (from its plugin, see hook-map.ts).
+  Draft: 27,
 } as const
 
 export type AgentState = "working" | "waiting" | "blocked" | "done"
@@ -29,6 +31,7 @@ export const AGENT_STATES: readonly AgentState[] = ["working", "waiting", "block
 export type MetaEvent =
   | { kind: "model"; model: string; cliSessionId?: string }
   | { kind: "usage"; rateLimits: unknown }
+  | { kind: "draft"; text: string }
   | { kind: "cliSession"; cliSessionId: string; cliSessionFile?: string }
   | { kind: "cwd"; cwd: string }
   | { kind: "title"; title: string }

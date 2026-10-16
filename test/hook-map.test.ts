@@ -17,6 +17,14 @@ describe("mapHookEvent", () => {
       .toEqual({ state: "done", identityOnly: true, cliSessionId: "selected" })
     expect(mapHookEvent({ hook_event_name: "SessionStart" }, "omp")).toBeUndefined()
   })
+  it("OMP reports its input text (after a Tab completion) without changing agent activity", () => {
+    expect(mapHookEvent({ hook_event_name: "Draft", session_id: "s", draft: "1.Rule coding architecture" }, "omp"))
+      .toEqual({ state: "done", identityOnly: true, draft: "1.Rule coding architecture", cliSessionId: "s" })
+    // An emptied input is a report too; a missing text or another CLI is not.
+    expect(mapHookEvent({ hook_event_name: "Draft", draft: "" }, "omp")).toEqual({ state: "done", identityOnly: true, draft: "" })
+    expect(mapHookEvent({ hook_event_name: "Draft" }, "omp")).toBeUndefined()
+    expect(mapHookEvent({ hook_event_name: "Draft", draft: "x" }, "claude")).toBeUndefined()
+  })
   it("ánh xạ các sự kiện Claude", () => {
     expect(mapHookEvent({ hook_event_name: "UserPromptSubmit", prompt: "sửa bug" })).toEqual({ state: "working", prompt: "sửa bug" })
     expect(mapHookEvent({ hook_event_name: "Stop" })).toEqual({ state: "done", prompt: undefined })

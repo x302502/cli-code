@@ -280,3 +280,38 @@ describe("showsDraft", () => {
     expect(showsDraft(view(""))).toBe(false)
   })
 })
+
+describe("createDraftMirror adopt — the CLI's own report of its input", () => {
+  const text = (m: ReturnType<typeof createDraftMirror>) => m.view().segments.map((s) => ("text" in s ? s.text : "")).join("")
+  it("after a Tab completion the mirror takes the CLI's text, caret at its end, no longer uncertain", () => {
+    const m = createDraftMirror()
+    m.feed("1.Rule coding arch")
+    m.feed("\t")
+    expect(m.view().uncertain).toBe(true)
+    m.adopt("1.Rule coding architecture")
+    expect(text(m)).toBe("1.Rule coding architecture")
+    expect(m.view().uncertain).toBe(false)
+    // Keys typed afterwards are replayed on top of it.
+    m.feed(" x")
+    expect(text(m)).toBe("1.Rule coding architecture x")
+  })
+  it("a late report after the draft was sent (Enter) is ignored", () => {
+    const m = createDraftMirror()
+    m.feed("abc\t")
+    m.feed("\r")
+    m.adopt("abcdef")
+    expect(m.view().segments).toEqual([])
+  })
+  it("a Tab on an empty input still takes the report", () => {
+    const m = createDraftMirror()
+    m.feed("\t")
+    m.adopt("/model")
+    expect(text(m)).toBe("/model")
+  })
+  it("an empty report clears the draft", () => {
+    const m = createDraftMirror()
+    m.feed("abc\t")
+    m.adopt("")
+    expect(m.view().segments).toEqual([])
+  })
+})

@@ -86,7 +86,7 @@ export async function startDaemon(args: {
             }
             // Sent by a CLI hook over its own short-lived connection: it names the
             // session explicitly because it never did a Hello.
-            const report = decodeJsonPayload<{ sessionId: string; state: AgentState; prompt?: string; cliSessionId?: unknown; cliSessionFile?: unknown; identityOnly?: unknown; model?: unknown; tool?: unknown; toolDone?: unknown; agent?: unknown; agentDone?: unknown; cliPid?: unknown }>(frame.payload)
+            const report = decodeJsonPayload<{ sessionId: string; state: AgentState; prompt?: string; cliSessionId?: unknown; cliSessionFile?: unknown; identityOnly?: unknown; model?: unknown; draft?: unknown; tool?: unknown; toolDone?: unknown; agent?: unknown; agentDone?: unknown; cliPid?: unknown }>(frame.payload)
             if ((AGENT_STATES as readonly string[]).includes(report.state)) {
               const text = (v: unknown) => (typeof v === "string" ? v : undefined)
               sessions.get(report.sessionId)?.reportStatus(report.state, report.prompt, text(report.cliSessionId), {
@@ -98,6 +98,7 @@ export async function startDaemon(args: {
                 identityOnly: report.identityOnly === true,
                 cliSessionFile: text(report.cliSessionFile),
                 model: text(report.model),
+                draft: typeof report.draft === "string" ? report.draft : undefined,
                 cliPid: typeof report.cliPid === "number" ? report.cliPid : undefined,
               })
             }
@@ -274,6 +275,7 @@ function wire(session: Session, socket: net.Socket): void {
 function metaFrame(e: MetaEvent): Uint8Array {
   if (e.kind === "model") return encodeJsonFrame(MSG.Model, { model: e.model, cliSessionId: e.cliSessionId })
   if (e.kind === "usage") return encodeJsonFrame(MSG.Usage, { rateLimits: e.rateLimits })
+  if (e.kind === "draft") return encodeJsonFrame(MSG.Draft, { text: e.text })
   if (e.kind === "cliSession") return encodeJsonFrame(MSG.CliSession, { cliSessionId: e.cliSessionId, cliSessionFile: e.cliSessionFile })
   if (e.kind === "cwd") return encodeJsonFrame(MSG.Cwd, { cwd: e.cwd })
   if (e.kind === "title") return encodeJsonFrame(MSG.Title, { title: e.title })
