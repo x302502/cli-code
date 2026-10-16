@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.15](https://github.com/x302502/cli-code/compare/v0.2.14...v0.2.15) (2026-10-16)
+
+
+### Bug fixes
+
+* hidden tabs follow their group's size, so switching to one no longer shows a blank repaint ([#35](https://github.com/x302502/cli-code/issues/35)) ([e69573a](https://github.com/x302502/cli-code/commit/e69573a34ac0d599b0f9c11e78cac6feebcb5ffe))
+* the full-prompt preview follows OMP's Tab completions ([#34](https://github.com/x302502/cli-code/issues/34)) ([b1fc464](https://github.com/x302502/cli-code/commit/b1fc464bf54e84a252032bf63c4a94c51d548369))
+
 ## [0.2.14](https://github.com/x302502/cli-code/compare/v0.2.13...v0.2.14) (2026-10-13)
 
 
