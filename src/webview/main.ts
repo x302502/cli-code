@@ -35,6 +35,7 @@ type HostMessage =
   | { type: "title"; title: string }
   | { type: "state"; state: unknown }
   | { type: "font"; size: number }
+  | { type: "resizeTo"; cols: number; rows: number }
   | { type: "reset" }
   | { type: "find"; query?: string }
   | { type: "copyContext"; maxLines: number }
@@ -424,6 +425,11 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
     term.options.fontSize = message.size
     document.body.style.setProperty("--cli-code-font-size", String(message.size))
     fit.fit()
+    vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
+  } else if (message.type === "resizeTo") {
+    // Sent while this tab is hidden (see panel.ts): it has no layout to fit to.
+    if (message.cols === term.cols && message.rows === term.rows) return
+    term.resize(message.cols, message.rows)
     vscode.postMessage({ type: "resize", cols: term.cols, rows: term.rows })
   } else if (message.type === "reset") {
     // A restarted CLI: whatever the old one left in the bar (a stale-config notice, a
