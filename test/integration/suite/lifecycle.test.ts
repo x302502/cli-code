@@ -57,6 +57,31 @@ describe("lifecycle (checklist B, A-e)", () => {
     openPanel = undefined
   })
 
+  // A hidden tab is not laid out: it met a layout change (sidebar, panel) only when shown, and a
+  // CLI that repaints its whole history on resize (OMP) left it blank meanwhile. Its group's
+  // visible tab passes its size on, so the CLI redraws while the tab is still hidden.
+  it("a hidden tab takes the size of the visible tab in its group", async () => {
+    const { a, panel: hidden } = await openReady("size-hidden")
+    openPanel = hidden
+    const { panel: front } = await openReady("size-front")
+    try {
+      assert.ok(!hidden.visible && front.visible && hidden.viewColumn === front.viewColumn)
+      const before = await waitFor(() => a.inspectPanel(front).size, 5_000, "front tab size")
+      await vscode.commands.executeCommand("workbench.action.toggleSidebarVisibility")
+      const after = await waitFor(() => {
+        const s = a.inspectPanel(front).size
+        return s && s.cols !== before.cols ? s : undefined
+      }, 5_000, "front tab resized")
+      await waitFor(() => {
+        const s = a.inspectPanel(hidden).size
+        return s?.cols === after.cols && s.rows === after.rows
+      }, 5_000, "hidden tab resized")
+    } finally {
+      await vscode.commands.executeCommand("workbench.action.toggleSidebarVisibility")
+      front.dispose()
+    }
+  })
+
   // The editor writes its list of open tabs once a minute: killed, it comes back without the
   // newest tabs. The window's own list (written at once) brings them back.
   it("a tab the editor did not restore comes back from the window's own tab list; the editor's late copy of a tab is dropped", async () => {

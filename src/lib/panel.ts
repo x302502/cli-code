@@ -127,6 +127,8 @@ type TabState = {
   postedTitle?: string
   /** The tab's last plan-usage snapshot (see src/lib/usage). */
   usage?: UsageSnapshot
+  /** The terminal size the webview last reported. */
+  size?: { cols: number; rows: number }
 }
 const tabs = new WeakMap<vscode.WebviewPanel, TabState>()
 /** The panel's record, created on first use; it goes away with the panel. */
@@ -339,6 +341,7 @@ export function inspectPanel(panel: vscode.WebviewPanel): {
   status?: { state: AgentState; prompt?: string }
   ready: boolean
   gone: boolean
+  size?: { cols: number; rows: number }
 } {
   return {
     sessionId: tab(panel).connection?.sessionId,
@@ -348,6 +351,7 @@ export function inspectPanel(panel: vscode.WebviewPanel): {
     status: tab(panel).status,
     ready: tab(panel).wiring?.ready ?? false,
     gone: tab(panel).tool !== undefined && !activePanels.has(panel),
+    size: tab(panel).size,
   }
 }
 
@@ -1160,7 +1164,18 @@ function attachConnection(
         updateTitle(panel)
         postState(panel)
       }
-    } else if (message.type === "resize") connection.resize(message.cols, message.rows)
+    } else if (message.type === "resize") {
+      connection.resize(message.cols, message.rows)
+      tab(panel).size = { cols: message.cols, rows: message.rows }
+      // A hidden tab is not laid out, so it would meet this size only when shown — and a CLI
+      // that repaints its whole history on resize (OMP) would leave it blank meanwhile. Tabs of
+      // one group share a size: pass it on now, while they are still out of sight.
+      if (panel.visible) {
+        for (const other of activePanels) {
+          if (!other.visible && other.viewColumn === panel.viewColumn) sendTo(other, { type: "resizeTo", cols: message.cols, rows: message.rows })
+        }
+      }
+    }
     else if (message.type === "ack") connection.ack(message.bytes)
     else if (message.type === "ready") {
       wiring.ready = true
