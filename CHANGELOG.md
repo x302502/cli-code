@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.16](https://github.com/x302502/cli-code/compare/v0.2.15...v0.2.16) (2026-10-17)
+
+
+### Features
+
+* a scroll-to-bottom button while the terminal history is scrolled back ([#37](https://github.com/x302502/cli-code/issues/37)) ([13f9f0d](https://github.com/x302502/cli-code/commit/13f9f0d3feb480534898d772cf392ebbd53aef02))
+
 ## [0.2.15](https://github.com/x302502/cli-code/compare/v0.2.14...v0.2.15) (2026-10-16)
 
 
