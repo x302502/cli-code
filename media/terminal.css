@@ -511,6 +511,40 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+/* Floats over the terminal while its history is scrolled back (scroll-button.ts sets bottom). */
+#scroll-bottom {
+  position: absolute;
+  right: 18px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-widget-border, rgba(128, 128, 128, 0.45)));
+  background: var(--vscode-editorWidget-background);
+  color: var(--vscode-editorWidget-foreground, var(--vscode-foreground));
+  box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.36));
+  cursor: pointer;
+}
+#scroll-bottom:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--vscode-editorWidget-background));
+}
+#scroll-bottom:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+#scroll-bottom svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 /* Read-only view of the CLI's input with every paste spelled out (draft-preview.ts). */
 #draft-preview {
   /* Most dark themes leave widget-border unset: fall back until some border shows. */
