@@ -13,6 +13,7 @@ import { createExitOverlay } from "./exit-overlay.js"
 import { createRestoredBanner } from "./restored-banner.js"
 import { createSnapshotLinks, createTerminalLinkProvider, selectRange, type HoveredLink, type ProbeResult } from "./links.js"
 import { createLinkTooltip } from "./link-tooltip.js"
+import { createScrollButton } from "./scroll-button.js"
 import { createSearchBar } from "./search-bar.js"
 import { tailText } from "./buffer-text.js"
 import { clickReachesProgram } from "../lib/mouse-gesture.js"
@@ -360,6 +361,8 @@ const draftPreview = createDraftPreview(term, {
   onOpenImage: (bytes) => vscode.postMessage({ type: "openImage", base64: encodeImage(bytes) }),
   onImageKey: (id) => vscode.postMessage({ type: "readClipboardImage", id }),
 })
+// After the draft preview: the button steps above it where the two would meet.
+createScrollButton(term)
 term.onData((data) => {
   vscode.postMessage({ type: "input", data })
   draftPreview.feed(data)
