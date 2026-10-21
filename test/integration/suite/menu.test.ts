@@ -138,6 +138,35 @@ describe("file links focus an already-open tab", () => {
       await vscode.commands.executeCommand("workbench.action.closeAllEditors")
     }
   })
+
+  it("a binary file (an image) opens in VS Code's own viewer, not as text; an open one comes to front", async () => {
+    const dir = fs.mkdtempSync(path.join(outDir(), "links-"))
+    const open = path.join(dir, "open.png")
+    const fresh = path.join(dir, "fresh.png")
+    // A 1×1 PNG.
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64")
+    fs.writeFileSync(open, png)
+    fs.writeFileSync(fresh, png)
+    const shown = (file: string) =>
+      vscode.window.tabGroups.all.flatMap((g) => g.tabs.filter((t) => t.input instanceof vscode.TabInputCustom && t.input.uri.fsPath === file).map((t) => ({ t, g })))
+    await vscode.commands.executeCommand("vscode.open", vscode.Uri.file(open), vscode.ViewColumn.One)
+    await waitFor(() => shown(open).length === 1 || undefined, 10_000, "image open in the first group")
+    const { a, panel } = await openReady("links-bin", {}, { viewColumn: vscode.ViewColumn.Two })
+    try {
+      panel.reveal(vscode.ViewColumn.Two)
+      a.openLinkTextInActivePanel(fresh, false)
+      await waitFor(() => shown(fresh).length === 1 || undefined, 10_000, "image tab open")
+
+      panel.reveal(vscode.ViewColumn.Two)
+      a.openLinkTextInActivePanel(open, false)
+      await waitFor(() => shown(open).find((s) => s.t.isActive && s.g.isActive) || undefined, 10_000, "open image in front")
+      assert.equal(shown(open).length, 1, "no second image tab")
+      assert.equal(shown(open)[0].g.viewColumn, vscode.ViewColumn.One)
+    } finally {
+      panel.dispose()
+      await vscode.commands.executeCommand("workbench.action.closeAllEditors")
+    }
+  })
 })
 
 // VS Code's tab right-click menu passes { groupId, editorIndex } and does not bring the clicked

@@ -164,7 +164,8 @@ CLI Code those paths are **real links**:
 
 - **Hover** one: a tooltip says what a click will do and shows the full path.
 - **`Cmd/Ctrl + click`** a file: opens in the editor **at that line and column**. `.md` files open
-  in the Markdown preview, `.html` files in the browser.
+  in the Markdown preview, `.html` files in the browser, images and other binary files in VS Code's
+  own viewer.
 - **`Cmd/Ctrl + click`** a folder: inside the workspace it is **revealed in the Explorer**; outside
   it opens in **Finder / File Explorer**.
 - **`Shift + Cmd/Ctrl + click`**: opens the file with the operating system's **default app**

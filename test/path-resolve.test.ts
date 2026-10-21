@@ -69,4 +69,10 @@ describe("findOpenTab", () => {
     expect(findOpenTab([text("/w/README.md", 1)], "/w/README.md", "markdown")).toBeUndefined()
     expect(findOpenTab([preview("/w/a.ts", 1)], "/w/a.ts", "editor")).toBeUndefined()
   })
+
+  it("file nhị phân (ảnh…) khớp tab trình xem của VS Code, không khớp tab text hay preview", () => {
+    const viewer = (path: string, group: number) => ({ kind: "viewer" as const, path, group, active: false })
+    expect(findOpenTab([text("/w/a.png", 1), viewer("/w/a.png", 2)], "/w/a.png", "viewer")).toEqual(viewer("/w/a.png", 2))
+    expect(findOpenTab([preview("/w/a.png", 1)], "/w/a.png", "viewer")).toBeUndefined()
+  })
 })

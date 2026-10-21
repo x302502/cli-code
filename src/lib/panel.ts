@@ -1298,6 +1298,7 @@ function openTabRefs(): OpenTabRef[] {
       const ref = { group: g.viewColumn, active: t.isActive }
       if (t.input instanceof vscode.TabInputText && t.input.uri.scheme === "file") return { ...ref, kind: "text", path: t.input.uri.fsPath }
       if (t.input instanceof vscode.TabInputCustom && t.input.viewType === MARKDOWN_PREVIEW) return { ...ref, kind: "markdownPreview", path: t.input.uri.fsPath }
+      if (t.input instanceof vscode.TabInputCustom && t.input.uri.scheme === "file") return { ...ref, kind: "viewer", path: t.input.uri.fsPath }
       return { ...ref, kind: "other" }
     }),
   )
@@ -1337,7 +1338,12 @@ async function openLinkTarget(panel: vscode.WebviewPanel, parsed: { path: string
     } else {
       const line = Math.max(0, (target.line ?? 1) - 1)
       const col = Math.max(0, (target.col ?? 1) - 1)
-      const doc = await vscode.workspace.openTextDocument(uri)
+      // A binary file (an image, a PDF…) is no text document: VS Code's own viewer for it shows it.
+      const doc = await vscode.workspace.openTextDocument(uri).then((d) => d, () => undefined)
+      if (!doc) {
+        await vscode.commands.executeCommand("vscode.open", uri, findOpenTab(openTabRefs(), target.path, "viewer")?.group)
+        return
+      }
       await vscode.window.showTextDocument(doc, { viewColumn: open?.group, selection: new vscode.Range(line, col, line, col), preview: true })
     }
   } catch {
