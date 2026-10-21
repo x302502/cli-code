@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.17](https://github.com/x302502/cli-code/compare/v0.2.16...v0.2.17) (2026-10-21)
+
+
+### Bug fixes
+
+* file links to images and other binary files open in VS Code's viewer ([#39](https://github.com/x302502/cli-code/issues/39)) ([2cbdf39](https://github.com/x302502/cli-code/commit/2cbdf39b1cc23f796409a79b09d7ee09ce825ca1))
+
 ## [0.2.16](https://github.com/x302502/cli-code/compare/v0.2.15...v0.2.16) (2026-10-17)
 
 
