@@ -162,7 +162,8 @@ Trong CLI Code những đường dẫn ấy là **link thật**:
 
 - **Rê chuột** lên: tooltip cho biết click sẽ làm gì và đường dẫn đầy đủ.
 - **`Cmd/Ctrl + click`** vào file: mở trong editor **đúng dòng và cột**. File `.md` mở ở chế độ
-  preview, file `.html` mở trong trình duyệt.
+  preview, file `.html` mở trong trình duyệt, ảnh và các file nhị phân khác mở bằng trình xem của
+  VS Code.
 - **`Cmd/Ctrl + click`** vào thư mục: nằm trong workspace thì **hiện trong Explorer** của VS Code;
   nằm ngoài thì mở **Finder / File Explorer**.
 - **`Shift + Cmd/Ctrl + click`**: mở file bằng **app mặc định** của hệ điều hành (ảnh, PDF…).

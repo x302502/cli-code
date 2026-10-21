@@ -20,13 +20,13 @@ export function openMode(p: string): "markdown" | "browser" | "editor" {
 }
 
 /** An editor tab as far as a file link cares: the file it shows, and how. */
-export type OpenTabRef = { kind: "text" | "markdownPreview" | "other"; path?: string; group: number; active: boolean }
+export type OpenTabRef = { kind: "text" | "markdownPreview" | "viewer" | "other"; path?: string; group: number; active: boolean }
 
-/** The tab already showing `target` the way a click opens it (a markdown file as its preview, any
- * other file as text), so the click goes there instead of opening another tab, as Orca does. Of
- * several, the one in front in its group. */
-export function findOpenTab<T extends OpenTabRef>(tabs: T[], target: string, mode: "markdown" | "editor"): T | undefined {
-  const kind = mode === "markdown" ? "markdownPreview" : "text"
+/** The tab already showing `target` the way a click opens it (a markdown file as its preview, a
+ * binary file in VS Code's viewer for it, any other file as text), so the click goes there instead
+ * of opening another tab, as Orca does. Of several, the one in front in its group. */
+export function findOpenTab<T extends OpenTabRef>(tabs: T[], target: string, mode: "markdown" | "editor" | "viewer"): T | undefined {
+  const kind = mode === "markdown" ? "markdownPreview" : mode === "viewer" ? "viewer" : "text"
   const matches = tabs.filter((t) => t.kind === kind && t.path !== undefined && samePath(t.path, target))
   return matches.find((t) => t.active) ?? matches[0]
 }
