@@ -9,6 +9,7 @@ import { CLI_TOOLS, type CliTool } from "./config.js"
 import { cliUpdates, runCommand, type UpdateNotice, type UpdateOptions } from "./cli-update.js"
 import { isClaudeFamily, resolveUserStatusLine, statuslineSettingsArg } from "./claude-statusline.js"
 import { claudeSnapshot } from "./usage/claude.js"
+import { newestReading } from "./usage/newest.js"
 import { codexUsage } from "./usage/codex.js"
 import { OmpUsage, ompSnapshot, providerOfModel } from "./usage/omp.js"
 import type { UsageSnapshot } from "./usage/types.js"
@@ -182,13 +183,26 @@ function setUsage(panel: vscode.WebviewPanel, snapshot: UsageSnapshot | undefine
   sendTo(panel, { type: "usage", snapshot })
 }
 
+// Claude's and Codex's quota is per account: the newest reading from any tab of the CLI, shown on all of them.
+const accountUsage = new Map<string, UsageSnapshot>()
+
+function reportAccountUsage(family: string, next: UsageSnapshot | undefined): void {
+  if (!next) return
+  const merged = newestReading(accountUsage.get(family), next, Date.now())
+  accountUsage.set(family, merged)
+  for (const p of activePanels) {
+    const tool = tab(p).tool
+    if (tool && (tool.historyToolId ?? tool.id) === family) setUsage(p, merged)
+  }
+}
+
 /** Codex: cheap file read, on the model's trigger. OMP: one shared network run, never on hooks. */
 function refreshUsage(panel: vscode.WebviewPanel, opts: { omp?: boolean; force?: boolean } = {}): void {
   const tool = tab(panel).tool
   const cwd = usableCwd(tab(panel).cwd)
   if (!tool || !activePanels.has(panel)) return
   const id = tool.historyToolId ?? tool.id
-  if (id === "codex" && cwd) setUsage(panel, codexUsage(cwd, tab(panel).spawnedAt ?? 0, tab(panel).cliSessionId, Date.now()))
+  if (id === "codex" && cwd) reportAccountUsage("codex", codexUsage(cwd, tab(panel).spawnedAt ?? 0, tab(panel).cliSessionId, Date.now()))
   else if (id === "omp" && opts.omp) {
     void ompUsage.get(opts.force).then((out) => {
       if (out && activePanels.has(panel)) setUsage(panel, ompSnapshot(out, providerOfModel(tab(panel).model), ompUsage.fetchedAt ?? Date.now()))
@@ -1056,6 +1070,8 @@ function attachConnection(
   wiring.listener?.dispose()
   tab(panel).connection = connection
   tab(panel).exited = false
+  // A tab that has not reported yet shows what the other tabs of its CLI did.
+  setUsage(panel, accountUsage.get(tool.historyToolId ?? tool.id))
   // A CLI that kept running through a reload may have an unsent prompt we never saw typed.
   const tracker = createPromptTracker({ draftUnknown: opts.reattached })
   tab(panel).tracker = tracker
@@ -1114,7 +1130,7 @@ function attachConnection(
       // OMP's own copy of its input: the preview takes it when its key replay lost track.
       sendTo(panel, { type: "draftText", text: e.text })
     } else if (e.kind === "usage") {
-      setUsage(panel, claudeSnapshot(e.rateLimits, Date.now()))
+      reportAccountUsage("claude", claudeSnapshot(e.rateLimits, Date.now()))
     } else if (e.kind === "cwd") {
       tab(panel).cwd = e.cwd
       postState(panel)
