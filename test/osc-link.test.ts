@@ -15,6 +15,11 @@ describe("classifyOscLink", () => {
     expect(classifyOscLink("file:///w/a.ts#L12")).toEqual({ kind: "path", path: "/w/a.ts", line: 12 })
     expect(classifyOscLink("file:///w/a.ts#12")).toEqual({ kind: "path", path: "/w/a.ts", line: 12 })
   })
+  it("vscode://file/ (OMP links markdown paths this way under TERM_PROGRAM=vscode) → path, line/col kept", () => {
+    expect(classifyOscLink("vscode://file/Volumes/Data/dev-kit/.outputs/r.md")).toEqual({ kind: "path", path: "/Volumes/Data/dev-kit/.outputs/r.md" })
+    expect(classifyOscLink("vscode://file/w/a%20b.ts:12:3")).toEqual({ kind: "path", path: "/w/a b.ts", line: 12, col: 3 })
+    expect(classifyOscLink("vscode://file/C:/proj/a.ts:7")).toEqual({ kind: "path", path: "C:/proj/a.ts", line: 7 })
+  })
   it("a scheme-less relative path (OMP's markdown links) → path, line suffix kept", () => {
     expect(classifyOscLink("explorations/2026-10-11-sdp-operator.md")).toEqual({ kind: "path", path: "explorations/2026-10-11-sdp-operator.md" })
     expect(classifyOscLink("src/a.ts:12:4")).toEqual({ kind: "path", path: "src/a.ts", line: 12, col: 4 })

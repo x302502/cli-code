@@ -13,7 +13,7 @@ export type OscLinkTarget =
 
 /**
  * OSC 8 links come straight from the CLI, so only three shapes are acted on: web/mail links
- * (opened by the host after its own scheme check), file:// links, and scheme-less paths
+ * (opened by the host after its own scheme check), file:// (and vscode://file/) links, and scheme-less paths
  * (OMP links a markdown `[x](src/a.ts)` as-is), the last two opened in an editor.
  * Everything else is copy-only — a printed `javascript:` or custom-scheme link must never
  * reach a handler.
@@ -25,7 +25,9 @@ export function classifyOscLink(uri: string): OscLinkTarget {
   // Line/column either as a GitHub-style fragment (`#L12C4`, `#12`, a `#L12-L20` range opens at
   // its start) or a `:12:4` path suffix.
   const frag = hash === -1 ? undefined : /^L?(\d+)(?:C(\d+))?(?:-L?\d+(?:C\d+)?)?$/i.exec(uri.slice(hash + 1))
-  const rawPath = parseFileUrlPath(base)
+  // OMP links a path as vscode://file/<abs path>[:line[:col]] when TERM_PROGRAM=vscode — the
+  // same file as file:///<abs path>; any other vscode:// link stays copy-only.
+  const rawPath = parseFileUrlPath(base.replace(/^vscode:\/\/file\//i, "file:///"))
   if (!rawPath) {
     const bare = parsePathLink(base)
     if (!bare) return { kind: "other" }
