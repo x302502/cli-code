@@ -6,6 +6,12 @@ on:
   # then stops before the Marketplace and the GitHub Release.
   workflow_dispatch:
     inputs:
+      # Re-publishing a tag whose own workflow no longer runs (e.g. a retired runner image):
+      # run this workflow from main and name the tag to build.
+      ref:
+        description: "The vX.Y.Z tag to build (empty: the selected ref)"
+        type: string
+        default: ""
       publish:
         description: "Publish to VS Code Marketplace (needs a v* tag as the selected ref)"
         type: boolean
@@ -59,7 +65,7 @@ jobs:
 
   package:
     needs: prebuild-linux
-    runs-on: macos-14
+    runs-on: macos-15
     permissions:
       contents: write
     steps:
