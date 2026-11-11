@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.18](https://github.com/x302502/cli-code/compare/v0.2.17...v0.2.18) (2026-11-11)
+
+
+### Bug fixes
+
+* Claude and Codex usage chips show the account's newest reading on every tab ([#42](https://github.com/x302502/cli-code/issues/42)) ([459b1ed](https://github.com/x302502/cli-code/commit/459b1edb1cec7a90f9c5585b9bc59161d3576650))
+* OMP file links (vscode://file/...) open in the editor ([#41](https://github.com/x302502/cli-code/issues/41)) ([5d44a45](https://github.com/x302502/cli-code/commit/5d44a4518844940019345f30e7a7f27bddd33c31))
+
 ## [0.2.17](https://github.com/x302502/cli-code/compare/v0.2.16...v0.2.17) (2026-10-21)
 
 
