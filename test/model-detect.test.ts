@@ -19,6 +19,16 @@ describe("modelFromText — last model the CLI wrote into its transcript", () =>
     expect(modelFromText('{"provider":"a","model":"a/c"}', true)).toBe("a/c")
     expect(modelFromText('{"provider":"cline-pass","model":"z-ai/glm-5.3-flash"}', true)).toBe("cline-pass/z-ai/glm-5.3-flash")
   })
+  it("reads Claude's /model output, so a switch shows before the next reply", () => {
+    const reply = '{"type":"assistant","message":{"model":"claude-fable-5-1"}}\n'
+    expect(modelFromText(`${reply}{"type":"system","subtype":"local_command","content":"<local-command-stdout>Set model to \`Opus 5.5 (1M context)\` and saved as your default for new sessions</local-command-stdout>"}\n`)).toBe("Opus 5.5 (1M context)")
+    expect(modelFromText(`${reply}{"type":"user","message":{"role":"user","content":"<local-command-stdout>Set model to claude-opus-5[1m]</local-command-stdout>"}}\n`)).toBe("claude-opus-5[1m]")
+    expect(modelFromText(`${reply}{"type":"system","content":"<local-command-stdout>Kept model as \\u001b[1mFable 5\\u001b[22m</local-command-stdout>"}\n`)).toBe("Fable 5")
+    // The reply after the switch is newer and names the model by id again.
+    expect(modelFromText(`{"content":"<local-command-stdout>Set model to \`Opus 5.5\`</local-command-stdout>"}\n${reply}`)).toBe("claude-fable-5-1")
+    // The same words quoted inside a tool result are not a switch.
+    expect(modelFromText(`${reply}{"type":"user","message":{"content":[{"type":"tool_result","content":"x \\"content\\":\\"<local-command-stdout>Set model to \`Haiku\`"}]}}\n`)).toBe("claude-fable-5-1")
+  })
   it("ignores placeholders and returns undefined when nothing is there", () => {
     expect(modelFromText('{"model":"<synthetic>"}')).toBeUndefined()
     expect(modelFromText('{"model":""}\n{"role":"user"}')).toBeUndefined()

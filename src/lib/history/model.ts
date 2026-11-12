@@ -7,14 +7,16 @@ import { codexRolloutById, codexSessions, grokSessions } from "./scan.js"
 
 // The model id shows up under a handful of spellings across CLIs' transcripts; the latest
 // occurrence in the file is the model in play (Pi/OMP log a model_change on /model).
-const MODEL_RE = /(?:"provider"\s*:\s*"([^"]*)"\s*,\s*)?"(?:model|modelId|model_id|modelID)"\s*:\s*"([^"]*)"/g
+// Claude records /model only as the command's output (a display name, backticked, bold or bare),
+// not as a model field until the next reply — so that output counts as a model record too.
+const MODEL_RE = /(?:"provider"\s*:\s*"([^"]*)"\s*,\s*)?"(?:model|modelId|model_id|modelID)"\s*:\s*"([^"]*)"|"content":"<local-command-stdout>(?:Set model to|Kept model as) (?:`([^`]+)`|\\u001b\[1m(.+?)\\u001b\[22m|([^\s<"\\]+))/g
 
 /** Last non-placeholder model id in a chunk of transcript text. With `withProvider`, a model written
  * right after its provider reads "provider/model" (Pi/OMP/Cline name models that way). */
 export function modelFromText(text: string, withProvider = false): string | undefined {
   let last: string | undefined
   for (const m of text.matchAll(MODEL_RE)) {
-    const v = m[2]!.trim()
+    const v = (m[2] ?? m[3] ?? m[4] ?? m[5]!).trim()
     if (v && !v.startsWith("<")) last = withProvider && m[1] && !v.startsWith(`${m[1]}/`) ? `${m[1]}/${v}` : v
   }
   return last
