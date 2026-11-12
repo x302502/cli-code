@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.19](https://github.com/x302502/cli-code/compare/v0.2.18...v0.2.19) (2026-11-12)
+
+
+### Bug fixes
+
+* a Claude tab's model chip follows /model before the next reply ([#45](https://github.com/x302502/cli-code/issues/45)) ([bce030e](https://github.com/x302502/cli-code/commit/bce030eab1e7179056ec929cb19d76fc905e7069))
+
 ## [0.2.18](https://github.com/x302502/cli-code/compare/v0.2.17...v0.2.18) (2026-11-11)
 
 
