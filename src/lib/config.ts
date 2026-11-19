@@ -187,8 +187,8 @@ export const CLI_TOOLS: CliTool[] = [
     label: "Kiro",
     icon: "kiro.png",
     description: "AWS Kiro CLI coding agent",
-    command: "kiro-cli --trust-all-tools",
-    continueCommand: "kiro-cli --trust-all-tools chat --resume",
+    command: "kiro-cli chat --trust-all-tools",
+    continueCommand: "kiro-cli chat --resume --trust-all-tools",
   },
   {
     id: "crush",

@@ -456,7 +456,7 @@ palette or the right-click entry.
 | Antigravity | `agy --dangerously-skip-permissions` | — | ✓ | — |
 | Goose | `GOOSE_MODE=auto goose` | — | ✓ | — |
 | Aider | `aider --yes-always` | — | `--restore-chat-history` | — |
-| Kiro | `kiro-cli --trust-all-tools` | — | `--continue` | — |
+| Kiro | `kiro-cli chat --trust-all-tools` | — | `--continue` | — |
 | Charm / Crush | `crush --yolo` | — | `--continue` | — |
 | Auggie | `auggie` | — | `--continue` | — |
 | Continue | `cn --allow "*"` | — | `--resume` (latest) | — |
