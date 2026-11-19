@@ -20,6 +20,7 @@ import { clickReachesProgram } from "../lib/mouse-gesture.js"
 import { classifyOscLink } from "../lib/osc-link.js"
 import type { UpdateNotice } from "../lib/cli-update.js"
 import type { UsageSnapshot } from "../lib/usage/types.js"
+import { trimCanvasFont } from "./canvas-font.js"
 
 declare function acquireVsCodeApi(): {
   postMessage(message: unknown): void
@@ -193,6 +194,8 @@ term.loadAddon(new ClipboardAddon(clipboardProvider))
 // WebGL renders faster, but if the context is lost it must be torn down instead of used again.
 // This only guards a constructor throw (e.g. very old browsers); if WebGL2 itself is unsupported,
 // xterm raises that later inside term.open() and silently falls back to its DOM renderer on its own.
+trimCanvasFont(globalThis.CanvasRenderingContext2D?.prototype)
+trimCanvasFont(globalThis.OffscreenCanvasRenderingContext2D?.prototype)
 try {
   const webgl = new WebglAddon()
   webgl.onContextLoss(() => webgl.dispose())
