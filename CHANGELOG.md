@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.20](https://github.com/x302502/cli-code/compare/v0.2.19...v0.2.20) (2026-11-19)
+
+
+### Bug fixes
+
+* terminal text renders at full size on VS Code 1.147 (Electron 43) ([#47](https://github.com/x302502/cli-code/issues/47)) ([32c2741](https://github.com/x302502/cli-code/commit/32c274105b78c5770e1b7d2dbd06fc3a9cbe1494))
+
 ## [0.2.19](https://github.com/x302502/cli-code/compare/v0.2.18...v0.2.19) (2026-11-12)
 
 
