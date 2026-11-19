@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.21](https://github.com/x302502/cli-code/compare/v0.2.20...v0.2.21) (2026-11-19)
+
+
+### Bug fixes
+
+* Kiro tabs launch with the chat subcommand (kiro-cli 3.x rejects a bare --trust-all-tools) ([#49](https://github.com/x302502/cli-code/issues/49)) ([421c0e7](https://github.com/x302502/cli-code/commit/421c0e79b4e90188b9734ddeacafa0b74c0318a1))
+
 ## [0.2.20](https://github.com/x302502/cli-code/compare/v0.2.19...v0.2.20) (2026-11-19)
 
 
