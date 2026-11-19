@@ -26,7 +26,7 @@ describe("extractBinary", () => {
   it("returns the first token when no env vars are present", () => {
     expect(extractBinary("grok --permission-mode bypassPermissions")).toBe("grok")
     expect(extractBinary("command-code --yolo")).toBe("command-code")
-    expect(extractBinary("kiro-cli --trust-all-tools")).toBe("kiro-cli")
+    expect(extractBinary("kiro-cli chat --trust-all-tools")).toBe("kiro-cli")
   })
 })
 
