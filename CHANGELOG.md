@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.22](https://github.com/x302502/cli-code/compare/v0.2.21...v0.2.22) (2026-11-24)
+
+
+### Documentation
+
+* add copy-paste install command and social preview image ([#51](https://github.com/x302502/cli-code/issues/51)) ([10c6dfc](https://github.com/x302502/cli-code/commit/10c6dfc7ed19a489f1a824909186b765a60037dd))
+
 ## [0.2.21](https://github.com/x302502/cli-code/compare/v0.2.20...v0.2.21) (2026-11-19)
 
 
