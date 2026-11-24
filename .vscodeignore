@@ -38,3 +38,5 @@ node_modules/**
 !node_modules/node-pty/prebuilds/**
 !node_modules/@xterm/xterm/css/xterm.css
 .playwright-mcp/**
+# GitHub social preview, uploaded in repo settings, not used by the extension.
+images/social-preview.png

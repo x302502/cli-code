@@ -51,6 +51,11 @@ CLI Code **không** dùng terminal tích hợp của VS Code. Mỗi agent mở t
 ## Bắt đầu nhanh
 
 1. **Cài** từ Marketplace (`Cmd/Ctrl + Shift + X` → *CLI Code*). VS Code 1.101+, macOS hoặc Linux để có đủ tính năng.
+
+   ```bash
+   code --install-extension x302502.cli-code
+   ```
+
 2. **Cài và đăng nhập** các agent bạn dùng, trong terminal thường (`claude`, `codex`, `copilot`, `opencode`…). CLI Code khởi chạy chúng chứ không cài. Lệnh chạy được trong terminal là chạy được ở đây.
 3. **Bấm `Cmd/Ctrl + Esc`** (hoặc bấm nút **CLI Code** trên thanh trạng thái), chọn agent, gõ. Trong editor bấm `Cmd/Ctrl + Alt + K` để đưa file hiện tại cho agent.
 
